@@ -38,6 +38,7 @@ import (
 	"github.com/pingcap/parser/terror"
 	pumpcli "github.com/pingcap/tidb-tools/tidb-binlog/pump_client"
 	"github.com/pingcap/tidb/config"
+	"github.com/pingcap/tidb/game"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta/autoid"
 	"github.com/pingcap/tidb/metrics"
@@ -871,6 +872,8 @@ type SessionVars struct {
 
 	// TemporaryTableData stores committed kv values for temporary table for current session.
 	TemporaryTableData kv.MemBuffer
+
+	RPSGames *game.RPSGames
 }
 
 // AllocMPPTaskID allocates task id for mpp tasks. It will reset the task id if the query's
