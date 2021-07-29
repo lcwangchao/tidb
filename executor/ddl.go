@@ -27,6 +27,7 @@ import (
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/ddl"
 	"github.com/pingcap/tidb/domain"
+	"github.com/pingcap/tidb/game"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta"
@@ -163,7 +164,7 @@ func (e *DDLExec) Next(ctx context.Context, req *chunk.Chunk) (err error) {
 	case *ast.CreateViewStmt:
 		err = e.executeCreateView(x)
 	case *ast.CreateRPSGameStmt:
-		err = e.executeRPSGame(x)
+		err = e.executeCreateRPSGame(x)
 	case *ast.DropIndexStmt:
 		err = e.executeDropIndex(x)
 	case *ast.DropDatabaseStmt:
@@ -363,8 +364,15 @@ func (e *DDLExec) executeCreateIndex(s *ast.CreateIndexStmt) error {
 	return err
 }
 
-func (e *DDLExec) executeRPSGame(s *ast.CreateRPSGameStmt) error {
-	return errors.Errorf("Users are creating rps game for name: %s", s.Name)
+func (e *DDLExec) executeCreateRPSGame(s *ast.CreateRPSGameStmt) error {
+	sessionVars := e.ctx.GetSessionVars()
+	if sessionVars.RPSGames == nil {
+		sessionVars.RPSGames = game.NewRPSGames()
+	}
+
+	return sessionVars.RPSGames.AddGame(&game.RPSGameInfo{
+		Name: s.Name,
+	})
 }
 
 func (e *DDLExec) executeDropDatabase(s *ast.DropDatabaseStmt) error {
