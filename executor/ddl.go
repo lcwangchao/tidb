@@ -162,6 +162,8 @@ func (e *DDLExec) Next(ctx context.Context, req *chunk.Chunk) (err error) {
 		err = e.executeCreateTable(x)
 	case *ast.CreateViewStmt:
 		err = e.executeCreateView(x)
+	case *ast.CreateRPSGameStmt:
+		err = e.executeRPSGame(x)
 	case *ast.DropIndexStmt:
 		err = e.executeDropIndex(x)
 	case *ast.DropDatabaseStmt:
@@ -359,6 +361,10 @@ func (e *DDLExec) executeCreateIndex(s *ast.CreateIndexStmt) error {
 	err := domain.GetDomain(e.ctx).DDL().CreateIndex(e.ctx, ident, s.KeyType, model.NewCIStr(s.IndexName),
 		s.IndexPartSpecifications, s.IndexOption, s.IfNotExists)
 	return err
+}
+
+func (e *DDLExec) executeRPSGame(s *ast.CreateRPSGameStmt) error {
+	return errors.Errorf("Users are creating rps game for name: %s", s.Name)
 }
 
 func (e *DDLExec) executeDropDatabase(s *ast.DropDatabaseStmt) error {
