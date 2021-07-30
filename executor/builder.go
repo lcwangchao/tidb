@@ -728,6 +728,7 @@ func (b *executorBuilder) buildShow(v *plannercore.PhysicalShow) Executor {
 		Table:        v.Table,
 		Column:       v.Column,
 		IndexName:    v.IndexName,
+		GameName:     v.GameName,
 		Flag:         v.Flag,
 		Roles:        v.Roles,
 		User:         v.User,

@@ -29,6 +29,7 @@ import (
 	"github.com/pingcap/parser/ast"
 	"github.com/pingcap/parser/auth"
 	"github.com/pingcap/parser/charset"
+	astformat "github.com/pingcap/parser/format"
 	"github.com/pingcap/parser/model"
 	"github.com/pingcap/parser/mysql"
 	"github.com/pingcap/parser/terror"
@@ -40,6 +41,7 @@ import (
 	"github.com/pingcap/tidb/ddl"
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/expression"
+	"github.com/pingcap/tidb/game"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta/autoid"
@@ -75,9 +77,10 @@ type ShowExec struct {
 
 	Tp        ast.ShowStmtType // Databases/Tables/Columns/....
 	DBName    model.CIStr
-	Table     *ast.TableName       // Used for showing columns.
-	Column    *ast.ColumnName      // Used for `desc table column`.
-	IndexName model.CIStr          // Used for show table regions.
+	Table     *ast.TableName  // Used for showing columns.
+	Column    *ast.ColumnName // Used for `desc table column`.
+	IndexName model.CIStr     // Used for show table regions.
+	GameName  model.CIStr
 	Flag      int                  // Some flag parsed from sql, such as FULL.
 	Roles     []*auth.RoleIdentity // Used for show grants.
 	User      *auth.UserIdentity   // Used by show grants, show create user.
@@ -212,6 +215,8 @@ func (e *ShowExec) fetchAll(ctx context.Context) error {
 		return e.fetchShowBRIE(ast.BRIEKindBackup)
 	case ast.ShowRestores:
 		return e.fetchShowBRIE(ast.BRIEKindRestore)
+	case ast.ShowCreateRPSGame:
+		return e.fetchShowCreateRPSGame()
 	}
 	return nil
 }
@@ -1142,6 +1147,31 @@ func (e *ShowExec) fetchShowCreateView() error {
 	var buf bytes.Buffer
 	fetchShowCreateTable4View(e.ctx, tb.Meta(), &buf)
 	e.appendRow([]interface{}{tb.Meta().Name.O, buf.String(), tb.Meta().Charset, tb.Meta().Collate})
+	return nil
+}
+
+func (e *ShowExec) fetchShowCreateRPSGame() error {
+	games := e.ctx.GetSessionVars().RPSGames
+	if games == nil {
+		return game.ErrGameNotExists.GenWithStackByArgs(e.GameName)
+	}
+
+	g, err := games.GameByName(e.GameName)
+	if err != nil {
+		return err
+	}
+
+	stmt := &ast.CreateRPSGameStmt{
+		Name: g.Name,
+	}
+
+	var buf bytes.Buffer
+	err = stmt.Restore(astformat.NewRestoreCtx(astformat.DefaultRestoreFlags, &buf))
+	if err != nil {
+		return err
+	}
+
+	e.appendRow([]interface{}{g.Name.O, buf.String()})
 	return nil
 }
 

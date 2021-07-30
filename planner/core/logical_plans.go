@@ -1165,6 +1165,7 @@ type ShowContents struct {
 	Table     *ast.TableName  // Used for showing columns.
 	Column    *ast.ColumnName // Used for `desc table column`.
 	IndexName model.CIStr
+	GameName  model.CIStr
 	Flag      int                  // Some flag parsed from sql, such as FULL.
 	User      *auth.UserIdentity   // Used for show grants.
 	Roles     []*auth.RoleIdentity // Used for show grants.

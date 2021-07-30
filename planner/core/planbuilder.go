@@ -2330,6 +2330,7 @@ func (b *PlanBuilder) buildShow(ctx context.Context, show *ast.ShowStmt) (Plan, 
 			Table:       show.Table,
 			Column:      show.Column,
 			IndexName:   show.IndexName,
+			GameName:    show.GameName,
 			Flag:        show.Flag,
 			User:        show.User,
 			Roles:       show.Roles,
@@ -4032,6 +4033,8 @@ func buildShowSchema(s *ast.ShowStmt, isView bool, isSequence bool) (schema *exp
 		names = []string{"View", "Create View", "character_set_client", "collation_connection"}
 	case ast.ShowCreateDatabase:
 		names = []string{"Database", "Create Database"}
+	case ast.ShowCreateRPSGame:
+		names = []string{"Game", "Create RPS Game"}
 	case ast.ShowDrainerStatus:
 		names = []string{"NodeID", "Address", "State", "Max_Commit_Ts", "Update_Time"}
 		ftypes = []byte{mysql.TypeVarchar, mysql.TypeVarchar, mysql.TypeVarchar, mysql.TypeLonglong, mysql.TypeVarchar}
