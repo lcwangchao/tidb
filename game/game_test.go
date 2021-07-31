@@ -16,16 +16,15 @@ package game_test
 import (
 	"testing"
 
-	"github.com/pingcap/tidb/game"
-	"github.com/pingcap/tidb/util/testkit"
-
 	. "github.com/pingcap/check"
 	"github.com/pingcap/parser"
 	"github.com/pingcap/tidb/domain"
+	"github.com/pingcap/tidb/game"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/session"
 	"github.com/pingcap/tidb/store/mockstore"
 	"github.com/pingcap/tidb/util/mock"
+	"github.com/pingcap/tidb/util/testkit"
 	"github.com/pingcap/tidb/util/testleak"
 	"github.com/tikv/client-go/v2/testutils"
 )
@@ -73,4 +72,10 @@ func (s *testSuite) TestCreateAndShowCreate(c *C) {
 
 	err := tk.QueryToErr("SHOW CREATE RPS GAME game2")
 	c.Assert(game.ErrGameNotExists.Equal(err), IsTrue)
+}
+
+func (s *testSuite) TestShowStatus(c *C) {
+	tk := testkit.NewTestKit(c, s.store)
+	tk.MustExec("CREATE RPS GAME game1")
+	tk.MustQuery("SHOW RPS GAME STATUS").Check(testkit.Rows("game1 1 3 0 0 N/A"))
 }
