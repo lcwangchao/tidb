@@ -4035,6 +4035,9 @@ func buildShowSchema(s *ast.ShowStmt, isView bool, isSequence bool) (schema *exp
 		names = []string{"Database", "Create Database"}
 	case ast.ShowCreateRPSGame:
 		names = []string{"Game", "Create RPS Game"}
+	case ast.ShowRPSGameStatus:
+		names = []string{"Game", "Round", "Total_round", "Total_win", "Total_lose", "Final"}
+		ftypes = []byte{mysql.TypeVarchar, mysql.TypeShort, mysql.TypeShort, mysql.TypeShort, mysql.TypeShort, mysql.TypeVarchar}
 	case ast.ShowDrainerStatus:
 		names = []string{"NodeID", "Address", "State", "Max_Commit_Ts", "Update_Time"}
 		ftypes = []byte{mysql.TypeVarchar, mysql.TypeVarchar, mysql.TypeVarchar, mysql.TypeLonglong, mysql.TypeVarchar}

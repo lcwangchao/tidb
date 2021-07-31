@@ -365,14 +365,11 @@ func (e *DDLExec) executeCreateIndex(s *ast.CreateIndexStmt) error {
 }
 
 func (e *DDLExec) executeCreateRPSGame(s *ast.CreateRPSGameStmt) error {
-	sessionVars := e.ctx.GetSessionVars()
-	if sessionVars.RPSGames == nil {
-		sessionVars.RPSGames = game.NewRPSGames()
-	}
-
-	return sessionVars.RPSGames.AddGame(&game.RPSGameInfo{
+	g := game.NewRPSGame(&game.RPSGameInfo{
 		Name: s.Name,
 	})
+
+	return game.GetRPSGames(e.ctx).AddGame(g)
 }
 
 func (e *DDLExec) executeDropDatabase(s *ast.DropDatabaseStmt) error {

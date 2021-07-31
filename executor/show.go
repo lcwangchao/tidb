@@ -217,6 +217,8 @@ func (e *ShowExec) fetchAll(ctx context.Context) error {
 		return e.fetchShowBRIE(ast.BRIEKindRestore)
 	case ast.ShowCreateRPSGame:
 		return e.fetchShowCreateRPSGame()
+	case ast.ShowRPSGameStatus:
+		return e.fetchShowRPSGameStatus()
 	}
 	return nil
 }
@@ -1151,18 +1153,15 @@ func (e *ShowExec) fetchShowCreateView() error {
 }
 
 func (e *ShowExec) fetchShowCreateRPSGame() error {
-	games := e.ctx.GetSessionVars().RPSGames
-	if games == nil {
-		return game.ErrGameNotExists.GenWithStackByArgs(e.GameName)
-	}
-
+	games := game.GetRPSGames(e.ctx)
 	g, err := games.GameByName(e.GameName)
 	if err != nil {
 		return err
 	}
 
+	meta := g.Meta()
 	stmt := &ast.CreateRPSGameStmt{
-		Name: g.Name,
+		Name: meta.Name,
 	}
 
 	var buf bytes.Buffer
@@ -1171,7 +1170,25 @@ func (e *ShowExec) fetchShowCreateRPSGame() error {
 		return err
 	}
 
-	e.appendRow([]interface{}{g.Name.O, buf.String()})
+	e.appendRow([]interface{}{meta.Name.O, buf.String()})
+	return nil
+}
+
+func (e *ShowExec) fetchShowRPSGameStatus() error {
+	games := game.GetRPSGames(e.ctx)
+	for _, g := range games.AllGames() {
+		meta := g.Meta()
+		status := g.Status()
+		e.appendRow([]interface{}{
+			meta.Name.O,
+			status.CurrentRound,
+			status.TotalRound,
+			status.TotalWin,
+			status.TotalLose,
+			status.FinalResult.String(),
+		})
+	}
+
 	return nil
 }
 
