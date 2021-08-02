@@ -1048,6 +1048,7 @@ const (
 	ErrPlacementPolicyCheck               = 8236
 	ErrGameNotExist                       = 8237
 	ErrGameExist                          = 8238
+	ErrGameInvalidState                   = 8239
 
 	// TiKV/PD/TiFlash errors.
 	ErrPDServerTimeout           = 9001

@@ -14,6 +14,10 @@
 package game
 
 import (
+	"math/rand"
+
+	"github.com/pingcap/errors"
+	"github.com/pingcap/parser/ast"
 	"github.com/pingcap/parser/model"
 	"github.com/pingcap/tidb/sessionctx"
 )
@@ -23,9 +27,21 @@ type RPSGameInfo struct {
 	Name model.CIStr
 }
 
+// RPSGameRoundResult is the round result of the RPS Game
+type RPSGameRoundResult int
+
+const (
+	// RPSRoundResultDraw mean the round result is a draw
+	RPSRoundResultDraw RPSGameRoundResult = iota
+	// RPSRoundResultWin mean you win this round
+	RPSRoundResultWin
+	// RPSRoundResultLose mean you lose this round
+	RPSRoundResultLose
+)
+
 const (
 	// RPSFinalResultNone mean the final result is unknown yet
-	RPSFinalResultNone = iota
+	RPSFinalResultNone RPSGameFinalResult = iota
 	// RPSFinalResultWin mean you win this game
 	RPSFinalResultWin
 	// RPSFinalResultLose mean you lose this game
@@ -99,6 +115,69 @@ func (r *RPSGame) Status() *RPSGameStatus {
 	}
 }
 
+var winMap = [][]RPSGameRoundResult{
+	ast.RPSGameActionShowRock: {
+		ast.RPSGameActionShowRock:     RPSRoundResultDraw,
+		ast.RPSGameActionShowPaper:    RPSRoundResultLose,
+		ast.RPSGameActionShowScissors: RPSRoundResultWin,
+	},
+	ast.RPSGameActionShowPaper: {
+		ast.RPSGameActionShowRock:     RPSRoundResultWin,
+		ast.RPSGameActionShowPaper:    RPSRoundResultDraw,
+		ast.RPSGameActionShowScissors: RPSRoundResultLose,
+	},
+	ast.RPSGameActionShowScissors: {
+		ast.RPSGameActionShowRock:     RPSRoundResultLose,
+		ast.RPSGameActionShowPaper:    RPSRoundResultWin,
+		ast.RPSGameActionShowScissors: RPSRoundResultDraw,
+	},
+}
+
+// DoAction do an action for RPSGame
+func (r *RPSGame) DoAction(action ast.RPSGameAction) (ast.RPSGameAction, RPSGameRoundResult, error) {
+	if int(action) >= len(winMap) {
+		return 0, 0, errors.New("Invalid rps game action")
+	}
+
+	if r.finalResult != RPSFinalResultNone {
+		return 0, 0, ErrGameNotActive.GenWithStackByArgs(r.meta.Name)
+	}
+
+	computerShow := r.computerShow()
+	result := winMap[action][computerShow]
+	switch result {
+	case RPSRoundResultWin:
+		r.currentRound += 1
+		r.totalWin += 1
+	case RPSRoundResultLose:
+		r.currentRound += 1
+		r.totalLose += 1
+	}
+
+	if r.totalWin > r.totalRound/2 {
+		r.finalResult = RPSFinalResultWin
+		return computerShow, result, nil
+	}
+
+	if r.totalLose > r.totalRound/2 {
+		r.finalResult = RPSFinalResultLose
+		return computerShow, result, nil
+	}
+
+	return computerShow, result, nil
+}
+
+func (r *RPSGame) computerShow() ast.RPSGameAction {
+	switch rand.Int() % 3 {
+	case 0:
+		return ast.RPSGameActionShowRock
+	case 1:
+		return ast.RPSGameActionShowPaper
+	default:
+		return ast.RPSGameActionShowScissors
+	}
+}
+
 // RPSGames manages a collection of RPS games.
 type RPSGames struct {
 	games map[string]*RPSGame
@@ -147,4 +226,18 @@ func (s *RPSGames) AllGames() []*RPSGame {
 		games = append(games, g)
 	}
 	return games
+}
+
+// GetRPSActionName returns the name for ast.RPSGameAction
+func GetRPSActionName(action ast.RPSGameAction) (string, error) {
+	switch action {
+	case ast.RPSGameActionShowRock:
+		return "Rock", nil
+	case ast.RPSGameActionShowPaper:
+		return "Paper", nil
+	case ast.RPSGameActionShowScissors:
+		return "Scissors", nil
+	default:
+		return "", errors.New("Invalid ast.RPSGameAction")
+	}
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/expression"
+	"github.com/pingcap/tidb/game"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/metrics"
@@ -1416,4 +1417,11 @@ func IsPointGetWithPKOrUniqueKeyByAutoCommit(ctx sessionctx.Context, p Plan) (bo
 // used for fast plan like point get
 func IsAutoCommitTxn(ctx sessionctx.Context) bool {
 	return ctx.GetSessionVars().IsAutocommit() && !ctx.GetSessionVars().InTxn()
+}
+
+// ActionRPSGame is for RPS Game actions
+type ActionRPSGame struct {
+	baseSchemaProducer
+	GameInfo *game.RPSGameInfo
+	Action   ast.RPSGameAction
 }
