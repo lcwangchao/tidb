@@ -24,4 +24,6 @@ var (
 	ErrGameNotExists = dbterror.ClassSchema.NewStdErr(errno.ErrGameNotExist, mysql.Message("Game '%-.192s' does not exists", nil))
 	// ErrGameExists returns for game not exists.
 	ErrGameExists = dbterror.ClassSchema.NewStdErr(errno.ErrGameExist, mysql.Message("Game '%-.192s' exists", nil))
+	// ErrGameNotActive returns for game not active.
+	ErrGameNotActive = dbterror.ClassSchema.NewStdErr(errno.ErrGameInvalidState, mysql.Message("Game '%-.192s' is not active", nil))
 )

@@ -257,6 +257,8 @@ func (b *executorBuilder) build(p plannercore.Plan) Executor {
 		return b.buildCTE(v)
 	case *plannercore.PhysicalCTETable:
 		return b.buildCTETableReader(v)
+	case *plannercore.ActionRPSGame:
+		return b.buildActionRPSGame(v)
 	default:
 		if mp, ok := p.(MockPhysicalPlan); ok {
 			return mp.GetExecutor()
@@ -4475,6 +4477,14 @@ func (b *executorBuilder) buildCTETableReader(v *plannercore.PhysicalCTETable) E
 		baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID()),
 		iterInTbl:    storages.IterInTbl,
 		chkIdx:       0,
+	}
+}
+
+func (b *executorBuilder) buildActionRPSGame(v *plannercore.ActionRPSGame) Executor {
+	return &ActionRPSGameExec{
+		baseExecutor: newBaseExecutor(b.ctx, nil, v.ID()),
+		gameInfo:     v.GameInfo,
+		action:       v.Action,
 	}
 }
 

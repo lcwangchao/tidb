@@ -79,3 +79,9 @@ func (s *testSuite) TestShowStatus(c *C) {
 	tk.MustExec("CREATE RPS GAME game1")
 	tk.MustQuery("SHOW RPS GAME STATUS").Check(testkit.Rows("game1 1 3 0 0 N/A"))
 }
+
+func (s *testSuite) TestSActionGame(c *C) {
+	tk := testkit.NewTestKit(c, s.store)
+	tk.MustExec("CREATE RPS GAME game1")
+	tk.MustExec("ACTION RPS GAME game1 SHOW PAPER")
+}

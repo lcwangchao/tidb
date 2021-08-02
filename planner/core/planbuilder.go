@@ -33,6 +33,7 @@ import (
 	"github.com/pingcap/tidb/ddl"
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/expression"
+	"github.com/pingcap/tidb/game"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/planner/property"
@@ -736,6 +737,8 @@ func (b *PlanBuilder) Build(ctx context.Context, node ast.Node) (Plan, error) {
 		return b.buildChange(x)
 	case *ast.SplitRegionStmt:
 		return b.buildSplitRegion(x)
+	case *ast.ActionRPSGameStmt:
+		return b.buildActionRPSGame(x)
 	}
 	return nil, ErrUnsupportedType.GenWithStack("Unsupported type %T", node)
 }
@@ -3322,6 +3325,18 @@ func (b *PlanBuilder) buildSplitRegion(node *ast.SplitRegionStmt) (Plan, error) 
 		return b.buildSplitIndexRegion(node)
 	}
 	return b.buildSplitTableRegion(node)
+}
+
+func (b *PlanBuilder) buildActionRPSGame(node *ast.ActionRPSGameStmt) (Plan, error) {
+	g, err := game.GetRPSGames(b.ctx).GameByName(node.Game)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ActionRPSGame{
+		GameInfo: g.Meta(),
+		Action:   node.Action,
+	}, nil
 }
 
 func (b *PlanBuilder) buildSplitIndexRegion(node *ast.SplitRegionStmt) (Plan, error) {
