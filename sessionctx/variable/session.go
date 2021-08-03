@@ -871,8 +871,6 @@ type SessionVars struct {
 
 	// TemporaryTableData stores committed kv values for temporary table for current session.
 	TemporaryTableData kv.MemBuffer
-
-	RPSGames interface{}
 }
 
 // AllocMPPTaskID allocates task id for mpp tasks. It will reset the task id if the query's

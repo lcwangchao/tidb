@@ -60,8 +60,10 @@ var (
 	mNextGlobalIDKey  = []byte("NextGlobalID")
 	mSchemaVersionKey = []byte("SchemaVersionKey")
 	mDBs              = []byte("DBs")
+	mRPSGames         = []byte("RPSGames")
 	mDBPrefix         = "DB"
 	mTablePrefix      = "Table"
+	mRPSGamePrefix    = "RPSGame"
 	mSequencePrefix   = "SID"
 	mSeqCyclePrefix   = "SequenceCycle"
 	mTableIDPrefix    = "TID"
@@ -144,6 +146,10 @@ func (m *Meta) GetGlobalID() (int64, error) {
 
 func (m *Meta) dbKey(dbID int64) []byte {
 	return []byte(fmt.Sprintf("%s:%d", mDBPrefix, dbID))
+}
+
+func (m *Meta) gameKey(gameID int64) []byte {
+	return []byte(fmt.Sprintf("%s:%d", mRPSGamePrefix, gameID))
 }
 
 func (m *Meta) autoTableIDKey(tableID int64) []byte {
@@ -281,6 +287,14 @@ func (m *Meta) checkDBNotExists(dbKey []byte) error {
 	return errors.Trace(err)
 }
 
+func (m *Meta) checkRPSGameNotExists(gameKey []byte) error {
+	v, err := m.txn.HGet(mRPSGames, gameKey)
+	if err == nil && v != nil {
+		err = ErrDBExists.GenWithStack("game already exists")
+	}
+	return errors.Trace(err)
+}
+
 func (m *Meta) checkTableExists(dbKey []byte, tableKey []byte) error {
 	v, err := m.txn.HGet(dbKey, tableKey)
 	if err == nil && v == nil {
@@ -327,6 +341,22 @@ func (m *Meta) UpdateDatabase(dbInfo *model.DBInfo) error {
 	}
 
 	return m.txn.HSet(mDBs, dbKey, data)
+}
+
+// CreateRPSGame creates an RPS Game with gameInfo.
+func (m *Meta) CreateRPSGame(gameInfo *model.RPSGameInfo) error {
+	gameKey := m.gameKey(gameInfo.ID)
+
+	if err := m.checkRPSGameNotExists(gameKey); err != nil {
+		return errors.Trace(err)
+	}
+
+	data, err := json.Marshal(gameInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return m.txn.HSet(mRPSGames, gameKey, data)
 }
 
 // CreateTableOrView creates a table with tableInfo in database.
@@ -547,6 +577,38 @@ func (m *Meta) GetDatabase(dbID int64) (*model.DBInfo, error) {
 	dbInfo := &model.DBInfo{}
 	err = json.Unmarshal(value, dbInfo)
 	return dbInfo, errors.Trace(err)
+}
+
+// ListRPSGames shows all RPS Games.
+func (m *Meta) ListRPSGames() ([]*model.RPSGameInfo, error) {
+	res, err := m.txn.HGetAll(mRPSGames)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	games := make([]*model.RPSGameInfo, 0, len(res))
+	for _, r := range res {
+		gameInfo := &model.RPSGameInfo{}
+		err = json.Unmarshal(r.Value, gameInfo)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		games = append(games, gameInfo)
+	}
+	return games, nil
+}
+
+// GetRPSGame gets the RPS Game with gameID.
+func (m *Meta) GetRPSGame(gameID int64) (*model.RPSGameInfo, error) {
+	gameKey := m.gameKey(gameID)
+	value, err := m.txn.HGet(mDBs, gameKey)
+	if err != nil || value == nil {
+		return nil, errors.Trace(err)
+	}
+
+	gameInfo := &model.RPSGameInfo{}
+	err = json.Unmarshal(value, gameInfo)
+	return gameInfo, errors.Trace(err)
 }
 
 // GetTable gets the table value in database with tableID.

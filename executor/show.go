@@ -41,7 +41,6 @@ import (
 	"github.com/pingcap/tidb/ddl"
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/expression"
-	"github.com/pingcap/tidb/game"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta/autoid"
@@ -1153,8 +1152,7 @@ func (e *ShowExec) fetchShowCreateView() error {
 }
 
 func (e *ShowExec) fetchShowCreateRPSGame() error {
-	games := game.GetRPSGames(e.ctx)
-	g, err := games.GameByName(e.GameName)
+	g, err := e.ctx.GetInfoSchema().(infoschema.InfoSchema).RPSGameByName(e.GameName)
 	if err != nil {
 		return err
 	}
@@ -1175,8 +1173,8 @@ func (e *ShowExec) fetchShowCreateRPSGame() error {
 }
 
 func (e *ShowExec) fetchShowRPSGameStatus() error {
-	games := game.GetRPSGames(e.ctx)
-	for _, g := range games.AllGames() {
+	games := e.ctx.GetInfoSchema().(infoschema.InfoSchema).AllRPSGames()
+	for _, g := range games {
 		meta := g.Meta()
 		status := g.Status()
 		e.appendRow([]interface{}{

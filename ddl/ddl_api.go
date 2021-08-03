@@ -2002,6 +2002,37 @@ func (d *ddl) RecoverTable(ctx sessionctx.Context, recoverInfo *RecoverInfo) (er
 	return errors.Trace(err)
 }
 
+func (d *ddl) buildRPSGameInfo(s *ast.CreateRPSGameStmt) (*model.RPSGameInfo, error) {
+	genIDs, err := d.genGlobalIDs(1)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &model.RPSGameInfo{
+		ID:         genIDs[0],
+		Name:       s.Name,
+		TotalRound: 3,
+	}, nil
+}
+
+func (d *ddl) CreateRPSGame(ctx sessionctx.Context, stmt *ast.CreateRPSGameStmt) error {
+	gameInfo, err := d.buildRPSGameInfo(stmt)
+	if err != nil {
+		return err
+	}
+
+	job := &model.Job{
+		Type:       model.ActionCreateRPSGame,
+		GameID:     gameInfo.ID,
+		Args:       []interface{}{gameInfo},
+		BinlogInfo: &model.HistoryInfo{},
+	}
+
+	err = d.doDDLJob(ctx, job)
+	err = d.callHookOnChanged(err)
+	return errors.Trace(err)
+}
+
 func (d *ddl) CreateView(ctx sessionctx.Context, s *ast.CreateViewStmt) (err error) {
 	viewInfo, err := buildViewInfo(ctx, s)
 	if err != nil {

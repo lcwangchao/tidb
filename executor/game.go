@@ -18,22 +18,22 @@ import (
 	"fmt"
 
 	"github.com/pingcap/parser/ast"
-	"github.com/pingcap/tidb/util/chunk"
-
+	"github.com/pingcap/parser/model"
 	"github.com/pingcap/tidb/game"
+	"github.com/pingcap/tidb/infoschema"
+	"github.com/pingcap/tidb/util/chunk"
 )
 
 // ActionRPSGameExec executes RPG Game actions
 type ActionRPSGameExec struct {
 	baseExecutor
-	gameInfo *game.RPSGameInfo
+	gameInfo *model.RPSGameInfo
 	action   ast.RPSGameAction
 }
 
 // Next implements the Executor interface.
 func (e *ActionRPSGameExec) Next(_ context.Context, _ *chunk.Chunk) error {
-	games := game.GetRPSGames(e.ctx)
-	g, err := games.GameByName(e.gameInfo.Name)
+	g, err := e.ctx.GetInfoSchema().(infoschema.InfoSchema).RPSGameByName(e.gameInfo.Name)
 	if err != nil {
 		return err
 	}

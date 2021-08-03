@@ -33,7 +33,6 @@ import (
 	"github.com/pingcap/tidb/ddl"
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/expression"
-	"github.com/pingcap/tidb/game"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/planner/property"
@@ -3328,7 +3327,7 @@ func (b *PlanBuilder) buildSplitRegion(node *ast.SplitRegionStmt) (Plan, error) 
 }
 
 func (b *PlanBuilder) buildActionRPSGame(node *ast.ActionRPSGameStmt) (Plan, error) {
-	g, err := game.GetRPSGames(b.ctx).GameByName(node.Game)
+	g, err := b.is.RPSGameByName(node.Game)
 	if err != nil {
 		return nil, err
 	}
