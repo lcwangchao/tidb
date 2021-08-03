@@ -27,7 +27,6 @@ import (
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/ddl"
 	"github.com/pingcap/tidb/domain"
-	"github.com/pingcap/tidb/game"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta"
@@ -365,11 +364,7 @@ func (e *DDLExec) executeCreateIndex(s *ast.CreateIndexStmt) error {
 }
 
 func (e *DDLExec) executeCreateRPSGame(s *ast.CreateRPSGameStmt) error {
-	g := game.NewRPSGame(&game.RPSGameInfo{
-		Name: s.Name,
-	})
-
-	return game.GetRPSGames(e.ctx).AddGame(g)
+	return domain.GetDomain(e.ctx).DDL().CreateRPSGame(e.ctx, s)
 }
 
 func (e *DDLExec) executeDropDatabase(s *ast.DropDatabaseStmt) error {

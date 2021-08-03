@@ -83,6 +83,6 @@ require (
 	sourcegraph.com/sourcegraph/appdash-data v0.0.0-20151005221446-73f23eafcf67
 )
 
-replace github.com/pingcap/parser => github.com/lcwangchao/parser v0.0.0-20210801115800-4e6576bd1d4d
+replace github.com/pingcap/parser => github.com/lcwangchao/parser v0.0.0-20210803121045-e3c983118cad
 
 go 1.16

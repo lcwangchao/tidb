@@ -19,13 +19,7 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/parser/ast"
 	"github.com/pingcap/parser/model"
-	"github.com/pingcap/tidb/sessionctx"
 )
-
-// RPSGameInfo provides meta data describing a RPS game.
-type RPSGameInfo struct {
-	Name model.CIStr
-}
 
 // RPSGameRoundResult is the round result of the RPS Game
 type RPSGameRoundResult int
@@ -79,7 +73,7 @@ type RPSGameStatus struct {
 
 // RPSGame provides RPS Game info
 type RPSGame struct {
-	meta         *RPSGameInfo
+	meta         *model.RPSGameInfo
 	finalResult  RPSGameFinalResult
 	totalRound   int
 	currentRound int
@@ -88,7 +82,7 @@ type RPSGame struct {
 }
 
 // NewRPSGame creates a new RPSGame
-func NewRPSGame(meta *RPSGameInfo) *RPSGame {
+func NewRPSGame(meta *model.RPSGameInfo) *RPSGame {
 	return &RPSGame{
 		meta:         meta,
 		finalResult:  RPSFinalResultNone,
@@ -100,7 +94,7 @@ func NewRPSGame(meta *RPSGameInfo) *RPSGame {
 }
 
 // Meta returns RPS Game instance
-func (r *RPSGame) Meta() *RPSGameInfo {
+func (r *RPSGame) Meta() *model.RPSGameInfo {
 	return r.meta
 }
 
@@ -176,56 +170,6 @@ func (r *RPSGame) computerShow() ast.RPSGameAction {
 	default:
 		return ast.RPSGameActionShowScissors
 	}
-}
-
-// RPSGames manages a collection of RPS games.
-type RPSGames struct {
-	games map[string]*RPSGame
-}
-
-func newRPSGames() *RPSGames {
-	return &RPSGames{
-		games: make(map[string]*RPSGame),
-	}
-}
-
-// GetRPSGames from session
-func GetRPSGames(ctx sessionctx.Context) *RPSGames {
-	sessionVars := ctx.GetSessionVars()
-	if sessionVars.RPSGames == nil {
-		sessionVars.RPSGames = newRPSGames()
-	}
-
-	return sessionVars.RPSGames.(*RPSGames)
-}
-
-// GameByName get the RPSGameInfo by name
-func (s *RPSGames) GameByName(name model.CIStr) (*RPSGame, error) {
-	if game, exist := s.games[name.L]; exist {
-		return game, nil
-	}
-
-	return nil, ErrGameNotExists.GenWithStackByArgs(name)
-}
-
-// AddGame add a new game
-func (s *RPSGames) AddGame(game *RPSGame) error {
-	meta := game.Meta()
-	if _, exist := s.games[meta.Name.L]; exist {
-		return ErrGameExists.GenWithStackByArgs(meta.Name)
-	}
-
-	s.games[meta.Name.L] = game
-	return nil
-}
-
-// AllGames return all RPS Games
-func (s *RPSGames) AllGames() []*RPSGame {
-	games := make([]*RPSGame, 0, len(s.games))
-	for _, g := range s.games {
-		games = append(games, g)
-	}
-	return games
 }
 
 // GetRPSActionName returns the name for ast.RPSGameAction

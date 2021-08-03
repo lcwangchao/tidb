@@ -26,6 +26,7 @@ import (
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/ddl/placement"
 	"github.com/pingcap/tidb/domain/infosync"
+	"github.com/pingcap/tidb/game"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta"
 	"github.com/pingcap/tidb/meta/autoid"
@@ -53,6 +54,8 @@ func (b *Builder) ApplyDiff(m *meta.Meta, diff *model.SchemaDiff) ([]int64, erro
 		return b.applyDropSchema(diff.SchemaID), nil
 	case model.ActionModifySchemaCharsetAndCollate:
 		return nil, b.applyModifySchemaCharsetAndCollate(m, diff)
+	case model.ActionCreateRPSGame:
+		return nil, b.applyCreateRPSGame(m, diff)
 	}
 	roDBInfo, ok := b.is.SchemaByID(diff.SchemaID)
 	if !ok {
@@ -253,6 +256,20 @@ func (b *Builder) applyCreateSchema(m *meta.Meta, diff *model.SchemaDiff) error 
 		)
 	}
 	b.is.schemaMap[di.Name.L] = &schemaTables{dbInfo: di, tables: make(map[string]table.Table)}
+	return nil
+}
+
+func (b *Builder) applyCreateRPSGame(m *meta.Meta, diff *model.SchemaDiff) error {
+	g, err := m.GetRPSGame(diff.GameID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if g == nil {
+		return ErrGameNotExists.GenWithStackByArgs(
+			fmt.Sprintf("(Game ID %d)", diff.GameID),
+		)
+	}
+	b.is.gameMap[g.Name.L] = game.NewRPSGame(g)
 	return nil
 }
 
@@ -484,6 +501,7 @@ func (b *Builder) InitWithOldInfoSchema(oldSchema InfoSchema) *Builder {
 	b.is.schemaMetaVersion = oldIS.schemaMetaVersion
 	b.copySchemasMap(oldIS)
 	b.copyBundlesMap(oldIS)
+	b.copyGameMap(oldIS)
 	copy(b.is.sortedTablesBuckets, oldIS.sortedTablesBuckets)
 	return b
 }
@@ -498,6 +516,12 @@ func (b *Builder) copyBundlesMap(oldIS *infoSchema) {
 	is := b.is
 	for _, v := range oldIS.RuleBundles() {
 		is.SetBundle(v)
+	}
+}
+
+func (b *Builder) copyGameMap(oldIS *infoSchema) {
+	for k, v := range oldIS.gameMap {
+		b.is.gameMap[k] = v
 	}
 }
 
@@ -518,7 +542,7 @@ func (b *Builder) copySchemaTables(dbName string) *model.DBInfo {
 }
 
 // InitWithDBInfos initializes an empty new InfoSchema with a slice of DBInfo, all placement rules, and schema version.
-func (b *Builder) InitWithDBInfos(dbInfos []*model.DBInfo, bundles []*placement.Bundle, schemaVersion int64) (*Builder, error) {
+func (b *Builder) InitWithDBInfos(dbInfos []*model.DBInfo, bundles []*placement.Bundle, games []*model.RPSGameInfo, schemaVersion int64) (*Builder, error) {
 	info := b.is
 	info.schemaMetaVersion = schemaVersion
 	for _, bundle := range bundles {
@@ -544,6 +568,11 @@ func (b *Builder) InitWithDBInfos(dbInfos []*model.DBInfo, bundles []*placement.
 	for _, v := range info.sortedTablesBuckets {
 		sort.Sort(v)
 	}
+
+	for _, g := range games {
+		b.is.gameMap[g.Name.L] = game.NewRPSGame(g)
+	}
+
 	return b, nil
 }
 
@@ -590,6 +619,7 @@ func NewBuilder(store kv.Storage) *Builder {
 			schemaMap:           map[string]*schemaTables{},
 			ruleBundleMap:       map[string]*placement.Bundle{},
 			sortedTablesBuckets: make([]sortedTables, bucketCount),
+			gameMap:             map[string]*game.RPSGame{},
 		},
 	}
 }

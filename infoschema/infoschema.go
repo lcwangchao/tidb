@@ -21,6 +21,7 @@ import (
 	"github.com/pingcap/parser/model"
 	"github.com/pingcap/parser/mysql"
 	"github.com/pingcap/tidb/ddl/placement"
+	"github.com/pingcap/tidb/game"
 	"github.com/pingcap/tidb/meta/autoid"
 	"github.com/pingcap/tidb/table"
 	"github.com/pingcap/tidb/util"
@@ -55,6 +56,13 @@ type InfoSchema interface {
 	SetBundle(*placement.Bundle)
 	// RuleBundles will return a copy of all rule bundles.
 	RuleBundles() []*placement.Bundle
+	AllRPSGames() []*game.RPSGame
+	// RPSGameByName will get an RPS game by name
+	RPSGameByName(game model.CIStr) (g *game.RPSGame, err error)
+	// RPSGameExists is used to check if game exists
+	RPSGameExists(game model.CIStr) bool
+	// RPSGameByID will get an RPS game by od
+	RPSGameByID(id int64) (g *game.RPSGame, ok bool)
 }
 
 type sortedTables []table.Table
@@ -100,6 +108,8 @@ type infoSchema struct {
 
 	// schemaMetaVersion is the version of schema, and we should check version when change schema.
 	schemaMetaVersion int64
+
+	gameMap map[string]*game.RPSGame
 }
 
 // MockInfoSchema only serves for test.
@@ -308,6 +318,35 @@ func (is *infoSchema) SequenceByName(schema, sequence model.CIStr) (util.Sequenc
 		return nil, ErrWrongObject.GenWithStackByArgs(schema, sequence, "SEQUENCE")
 	}
 	return tbl.(util.SequenceTable), nil
+}
+
+func (is *infoSchema) AllRPSGames() (result []*game.RPSGame) {
+	for _, v := range is.gameMap {
+		result = append(result, v)
+	}
+	return
+}
+
+func (is *infoSchema) RPSGameByName(game model.CIStr) (g *game.RPSGame, err error) {
+	g, ok := is.gameMap[game.L]
+	if !ok {
+		return nil, ErrGameNotExists.GenWithStackByArgs(game)
+	}
+	return g, nil
+}
+
+func (is *infoSchema) RPSGameExists(game model.CIStr) bool {
+	_, ok := is.gameMap[game.L]
+	return ok
+}
+
+func (is *infoSchema) RPSGameByID(id int64) (g *game.RPSGame, ok bool) {
+	for _, g := range is.gameMap {
+		if g.Meta().ID == id {
+			return g, true
+		}
+	}
+	return nil, false
 }
 
 func init() {

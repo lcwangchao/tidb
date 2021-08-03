@@ -71,4 +71,8 @@ var (
 	ErrWrongObject = dbterror.ClassSchema.NewStd(mysql.ErrWrongObject)
 	// ErrAdminCheckTable returns when the check table in temporary mode.
 	ErrAdminCheckTable = dbterror.ClassSchema.NewStd(mysql.ErrAdminCheckTable)
+	// ErrGameExists returns for rps game already exists.
+	ErrGameExists = dbterror.ClassSchema.NewStd(mysql.ErrGameExist)
+	// ErrGameNotExists returns for rps game not exists.
+	ErrGameNotExists = dbterror.ClassSchema.NewStd(mysql.ErrGameNotExist)
 )
