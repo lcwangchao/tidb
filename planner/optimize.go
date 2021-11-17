@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pingcap/tidb/util/stringutil"
+
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/tidb/bindinfo"
@@ -99,6 +101,8 @@ func GetExecuteForUpdateReadIS(node ast.Node, sctx sessionctx.Context) infoschem
 	return nil
 }
 
+const SlowTSOChannel = stringutil.StringerStr("SlowTSOCh")
+
 // Optimize does optimization and creates a Plan.
 // The node must be prepared first.
 func Optimize(ctx context.Context, sctx sessionctx.Context, node ast.Node, is infoschema.InfoSchema) (plannercore.Plan, types.NameSlice, error) {
@@ -142,6 +146,16 @@ func Optimize(ctx context.Context, sctx sessionctx.Context, node ast.Node, is in
 			return fp, fp.OutputNames(), nil
 		}
 	}
+
+	failpoint.Inject("prepareTsSlow", func(val failpoint.Value) {
+		if _, ok := node.(*ast.BeginStmt); ok && sessVars.ConnectionID == uint64(val.(int)) {
+			beginStmtReply := sctx.Value(SlowTSOChannel).(chan chan interface{})
+			ddlReply := make(chan interface{})
+			beginStmtReply <- ddlReply
+			<-ddlReply
+		}
+	})
+
 	sctx.PrepareTSFuture(ctx)
 
 	useBinding := sessVars.UsePlanBaselines
