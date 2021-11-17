@@ -54,5 +54,6 @@ func TestGetTSOVerySlow(t *testing.T) {
 
 	tk.MustExec("begin")
 	tk.MustQuery("select * from t").Check(testkit.Rows("1 11"))
+	// this will fail
 	tk.MustQuery("select * from t where c=11").Check(testkit.Rows("1 11"))
 }
