@@ -33,6 +33,7 @@ import (
 	"github.com/pingcap/tidb/bindinfo"
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/ddl"
+	ddlservicecluster "github.com/pingcap/tidb/ddl/ddlservice/cluster"
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/executor"
 	"github.com/pingcap/tidb/kv"
@@ -202,6 +203,8 @@ func main() {
 	setupMetrics()
 
 	storage, dom := createStoreAndDomain()
+	terror.MustNil(dom.StartDDLServiceNode(ddlservicecluster.NewClusterDDLTask))
+
 	svr := createServer(storage, dom)
 
 	// Register error API is not thread-safe, the caller MUST NOT register errors after initialization.

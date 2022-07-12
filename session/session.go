@@ -1232,6 +1232,14 @@ func createSessionWithDomainFunc(store kv.Storage) func(*domain.Domain) (pools.R
 	}
 }
 
+func CreateSessionFunc(store kv.Storage) pools.Factory {
+	return createSessionFunc(store)
+}
+
+func CreateSessionWithDomainFunc(store kv.Storage) func(*domain.Domain) (pools.Resource, error) {
+	return createSessionWithDomainFunc(store)
+}
+
 func drainRecordSet(ctx context.Context, se *session, rs sqlexec.RecordSet, alloc chunk.Allocator) ([]chunk.Row, error) {
 	var rows []chunk.Row
 	var req *chunk.Chunk

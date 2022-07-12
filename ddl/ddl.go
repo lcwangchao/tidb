@@ -401,7 +401,11 @@ func newDDL(ctx context.Context, options ...Option) *ddl {
 		o(opt)
 	}
 
-	id := uuid.New().String()
+	id := opt.ID
+	if id == "" {
+		id = uuid.New().String()
+	}
+
 	var manager owner.Manager
 	var syncer util.SchemaSyncer
 	var deadLockCkr util.DeadTableLockChecker

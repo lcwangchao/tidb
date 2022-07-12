@@ -30,6 +30,7 @@ import (
 	"github.com/pingcap/tidb/bindinfo"
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/ddl"
+	"github.com/pingcap/tidb/ddl/ddlservice"
 	ddlutil "github.com/pingcap/tidb/ddl/util"
 	"github.com/pingcap/tidb/domain/globalconfigsync"
 	"github.com/pingcap/tidb/domain/infosync"
@@ -100,6 +101,8 @@ type Domain struct {
 	sysExecutorFactory   func(*Domain) (pools.Resource, error)
 
 	sysProcesses SysProcesses
+
+	ddlServiceNode *ddlservice.ServiceNode
 }
 
 // InfoCache export for test.
@@ -704,6 +707,11 @@ func (do *Domain) Close() {
 	if do.ddl != nil {
 		terror.Log(do.ddl.Stop())
 	}
+
+	if do.ddlServiceNode != nil {
+		do.ddlServiceNode.Stop()
+	}
+
 	if do.info != nil {
 		do.info.RemoveServerInfo()
 		do.info.RemoveMinStartTS()
@@ -754,7 +762,7 @@ func NewDomain(store kv.Storage, ddlLease time.Duration, statsLease time.Duratio
 const serverIDForStandalone = 1 // serverID for standalone deployment.
 
 // Init initializes a domain.
-func (do *Domain) Init(ddlLease time.Duration, sysExecutorFactory func(*Domain) (pools.Resource, error)) error {
+func (do *Domain) Init(ddlLease time.Duration, sysExecutorFactory func(*Domain) (pools.Resource, error), ddlServiceNodeID string) error {
 	do.sysExecutorFactory = sysExecutorFactory
 	perfschema.Init()
 	if ebd, ok := do.store.(kv.EtcdBackend); ok {
@@ -816,6 +824,7 @@ func (do *Domain) Init(ddlLease time.Duration, sysExecutorFactory func(*Domain) 
 		ddl.WithInfoCache(do.infoCache),
 		ddl.WithHook(callback),
 		ddl.WithLease(ddlLease),
+		ddl.WithID(ddlServiceNodeID),
 	)
 	failpoint.Inject("MockReplaceDDL", func(val failpoint.Value) {
 		if val.(bool) {
@@ -1835,6 +1844,17 @@ func (do *Domain) serverIDKeeper() {
 			return
 		}
 	}
+}
+
+func (do *Domain) StartDDLServiceNode(fn ddlservice.CreateClusterDDLTaskFunc) error {
+	se, err := concurrency.NewSession(do.etcdClient)
+	if err != nil {
+		return err
+	}
+
+	do.ddlServiceNode = ddlservice.NewServiceNode(se, do.ddl.GetID(), fn)
+	do.ddlServiceNode.Start()
+	return nil
 }
 
 func init() {
