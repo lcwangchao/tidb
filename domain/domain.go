@@ -66,6 +66,7 @@ import (
 	atomicutil "go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -744,6 +745,123 @@ func (do *Domain) Close() {
 
 const resourceIdleTimeout = 3 * time.Minute // resources in the ResourcePool will be recycled after idleTimeout
 
+// StartDDLDomain creates a new domain for ddl task and start it
+func StartDDLDomain(store kv.Storage, ddlLease time.Duration, ddlNodeID string, sysExecutorFactory func(*Domain) (pools.Resource, error)) (do *Domain, err error) {
+	if err != nil && do != nil {
+		do.Close()
+		return nil, err
+	}
+
+	ebd, ok := store.(kv.EtcdBackend)
+	if !ok {
+		return nil, errors.New("Only kv.EtcdBackend supported for store")
+	}
+
+	do = NewDomain(store, ddlLease, time.Duration(0), time.Duration(0), time.Duration(0), nil, func() {})
+	do.sysExecutorFactory = sysExecutorFactory
+	do.sysSessionPool = newSessionPool(200, func() (pools.Resource, error) {
+		return do.sysExecutorFactory(do)
+	})
+	perfschema.Init()
+
+	etcdAddrs, err := ebd.EtcdAddrs()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if etcdAddrs == nil {
+		return nil, errors.New("etcd addrs is empty")
+	}
+
+	cfg := config.GetGlobalConfig()
+	// silence etcd warn log, when domain closed, it won't randomly print warn log
+	// see details at the issue https://github.com/pingcap/tidb/issues/15479
+	etcdLogCfg := zap.NewProductionConfig()
+	etcdLogCfg.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
+	cli, err := clientv3.New(clientv3.Config{
+		LogConfig:        &etcdLogCfg,
+		Endpoints:        etcdAddrs,
+		AutoSyncInterval: 30 * time.Second,
+		DialTimeout:      5 * time.Second,
+		DialOptions: []grpc.DialOption{
+			grpc.WithConnectParams(grpc.ConnectParams{
+				Backoff: backoff.DefaultConfig,
+			}),
+			grpc.WithKeepaliveParams(keepalive.ClientParameters{
+				Time:    time.Duration(cfg.TiKVClient.GrpcKeepAliveTime) * time.Second,
+				Timeout: time.Duration(cfg.TiKVClient.GrpcKeepAliveTimeout) * time.Second,
+			}),
+		},
+		TLS: ebd.TLSConfig(),
+	})
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	do.etcdClient = cli
+
+	sysFac := func() (pools.Resource, error) {
+		return do.sysExecutorFactory(do)
+	}
+	sysCtxPool := pools.NewResourcePool(sysFac, 128, 128, resourceIdleTimeout)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	do.cancel = cancelFunc
+	var callback ddl.Callback
+	newCallbackFunc, err := ddl.GetCustomizedHook("default_hook")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	callback = newCallbackFunc(do)
+	do.ddl = ddl.NewDDL(
+		ctx,
+		ddl.WithEtcdClient(do.etcdClient),
+		ddl.WithStore(do.store),
+		ddl.WithInfoCache(do.infoCache),
+		ddl.WithHook(callback),
+		ddl.WithLease(ddlLease),
+		ddl.WithID(ddlNodeID),
+	)
+
+	// step 1: prepare the info/schema syncer which domain reload needed.
+	do.info, err = infosync.GlobalInfoSyncerInit(ctx, do.ddl.GetID(), do.ServerID, do.etcdClient, true)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var pdClient pd.Client
+	if store, ok := do.store.(kv.StorageWithPD); ok {
+		pdClient = store.GetPDClient()
+	}
+	do.globalCfgSyncer = globalconfigsync.NewGlobalConfigSyncer(pdClient)
+
+	err = do.ddl.SchemaSyncer().Init(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// step 2: domain reload the infoSchema.
+	err = do.Reload()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// step 3: start the ddl after the domain reload, avoiding some internal sql running before infoSchema construction.
+	err = do.ddl.Start(sysCtxPool)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Only when the store is local that the lease value is 0.
+	// If the store is local, it doesn't need loadSchemaInLoop.
+	if ddlLease > 0 {
+		do.wg.Add(1)
+		// Local store needs to get the change information for every DDL state in each session.
+		go do.loadSchemaInLoop(ctx, ddlLease)
+	}
+	do.wg.Add(2)
+	go do.infoSyncerKeeper()
+	go do.globalConfigSyncerKeeper()
+	return do, nil
+}
+
 // NewDomain creates a new domain. Should not create multiple domains for the same store.
 func NewDomain(store kv.Storage, ddlLease time.Duration, statsLease time.Duration, idxUsageSyncLease time.Duration, dumpFileGcLease time.Duration, factory pools.Factory, onClose func()) *Domain {
 	capacity := 200 // capacity of the sysSessionPool size
@@ -770,7 +888,7 @@ func NewDomain(store kv.Storage, ddlLease time.Duration, statsLease time.Duratio
 const serverIDForStandalone = 1 // serverID for standalone deployment.
 
 // Init initializes a domain.
-func (do *Domain) Init(ddlLease time.Duration, sysExecutorFactory func(*Domain) (pools.Resource, error), ddlServiceNodeID string) error {
+func (do *Domain) Init(ddlLease time.Duration, sysExecutorFactory func(*Domain) (pools.Resource, error)) error {
 	do.sysExecutorFactory = sysExecutorFactory
 	perfschema.Init()
 	if ebd, ok := do.store.(kv.EtcdBackend); ok {
@@ -832,7 +950,6 @@ func (do *Domain) Init(ddlLease time.Duration, sysExecutorFactory func(*Domain) 
 		ddl.WithInfoCache(do.infoCache),
 		ddl.WithHook(callback),
 		ddl.WithLease(ddlLease),
-		ddl.WithID(ddlServiceNodeID),
 	)
 	failpoint.Inject("MockReplaceDDL", func(val failpoint.Value) {
 		if val.(bool) {

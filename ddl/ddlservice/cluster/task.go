@@ -82,7 +82,7 @@ func (t *clusterDDLTask) taskLoop() {
 		}
 	}()
 
-	t.tryCreateClusterDomain()
+	t.ensureDomain()
 	ticker := time.Tick(time.Second * 10)
 loop:
 	for {
@@ -90,12 +90,12 @@ loop:
 		case <-t.ctx.Done():
 			break loop
 		case <-ticker:
-			t.tryCreateClusterDomain()
+			t.ensureDomain()
 		}
 	}
 }
 
-func (t *clusterDDLTask) tryCreateClusterDomain() {
+func (t *clusterDDLTask) ensureDomain() {
 	if t.domain() != nil {
 		return
 	}
@@ -116,6 +116,7 @@ func (t *clusterDDLTask) tryCreateClusterDomain() {
 	info, err = ddlservice.GetClusterInfo(t.ctx, t.serviceEtcd, t.clusterID)
 	if info == nil {
 		err = errors.New("cannot get cluster info")
+		return
 	}
 
 	logutil.BgLogger().Info("new delegate ddl cluster domain",
@@ -124,17 +125,12 @@ func (t *clusterDDLTask) tryCreateClusterDomain() {
 	)
 
 	store, err := kvstore.New(info.StoreAddr)
-	ddlLease := time.Second * 5
-	statisticLease := time.Second * 5
-	idxUsageSyncLease := time.Second * 5
-	planReplayerGCLease := time.Second * 5
+	if err != nil {
+		return
+	}
 
-	factory := session.CreateSessionFunc(store)
-	sysFactory := session.CreateSessionWithDomainFunc(store)
-
-	do := domain.NewDomain(store, ddlLease, statisticLease, idxUsageSyncLease, planReplayerGCLease, factory, func() {})
-	if err = do.Init(ddlLease, sysFactory, t.nodeID); err != nil {
-		do.Close()
+	do, err := domain.StartDDLDomain(store, time.Second*45, t.nodeID, session.CreateSessionWithDomainFunc(store))
+	if err != nil {
 		return
 	}
 
