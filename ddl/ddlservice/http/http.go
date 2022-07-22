@@ -300,7 +300,7 @@ func createHandleFunc(router *mux.Router, dom *domain.Domain) func(path string, 
 			case nil:
 				break
 			default:
-				if respBody, err = json.Marshal(ent); err != nil {
+				if respBody, err = json.MarshalIndent(ent, "", "  "); err != nil {
 					ctx.writeError(err)
 					return
 				}
