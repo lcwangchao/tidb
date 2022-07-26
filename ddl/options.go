@@ -17,6 +17,7 @@ package ddl
 import (
 	"time"
 
+	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -27,12 +28,13 @@ type Option func(*Options)
 
 // Options represents all the options of the DDL module needs
 type Options struct {
-	EtcdCli   *clientv3.Client
-	Store     kv.Storage
-	InfoCache *infoschema.InfoCache
-	Hook      Callback
-	Lease     time.Duration
-	ID        string
+	EtcdCli    *clientv3.Client
+	Store      kv.Storage
+	InfoCache  *infoschema.InfoCache
+	Hook       Callback
+	Lease      time.Duration
+	ID         string
+	infoSyncer *infosync.InfoSyncer
 }
 
 // WithEtcdClient specifies the `clientv3.Client` of DDL used to request the etcd service
@@ -74,5 +76,11 @@ func WithLease(lease time.Duration) Option {
 func WithID(id string) Option {
 	return func(options *Options) {
 		options.ID = id
+	}
+}
+
+func WithInfoSyncer(infoSyncer *infosync.InfoSyncer) Option {
+	return func(options *Options) {
+		options.infoSyncer = infoSyncer
 	}
 }

@@ -243,7 +243,12 @@ func buildCopTasks(bo *Backoffer, cache *RegionCache, ranges *KeyRanges, req *kv
 }
 
 func buildTiDBMemCopTasks(ranges *KeyRanges, req *kv.Request) ([]*copTask, error) {
-	servers, err := infosync.GetAllServerInfo(context.Background())
+	infoSyncer, err := infosync.GetGlobalInfoSyncer()
+	if err != nil {
+		return nil, err
+	}
+
+	servers, err := infoSyncer.GetAllServerInfo(context.Background())
 	if err != nil {
 		return nil, err
 	}

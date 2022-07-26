@@ -26,7 +26,6 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/tidb/domain"
-	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/errno"
 	"github.com/pingcap/tidb/executor"
 	"github.com/pingcap/tidb/infoschema"
@@ -2416,7 +2415,7 @@ func TestKillAutoAnalyzeIndex(t *testing.T) {
 }
 
 func TestAnalyzeJob(t *testing.T) {
-	store, clean := testkit.CreateMockStore(t)
+	store, dom, clean := testkit.CreateMockStoreAndDomain(t)
 	defer clean()
 	for _, result := range []string{statistics.AnalyzeFinished, statistics.AnalyzeFailed} {
 		tk := testkit.NewTestKit(t, store)
@@ -2441,7 +2440,7 @@ func TestAnalyzeJob(t *testing.T) {
 		require.Equal(t, "<nil>", rows[0][6])
 		require.Equal(t, statistics.AnalyzePending, rows[0][7])
 		require.Equal(t, "<nil>", rows[0][8])
-		serverInfo, err := infosync.GetServerInfo()
+		serverInfo, err := dom.InfoSyncer().GetServerInfo()
 		require.NoError(t, err)
 		addr := fmt.Sprintf("%s:%d", serverInfo.IP, serverInfo.Port)
 		require.Equal(t, addr, rows[0][9])

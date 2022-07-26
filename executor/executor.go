@@ -33,7 +33,6 @@ import (
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/ddl"
 	"github.com/pingcap/tidb/domain"
-	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
@@ -453,7 +452,7 @@ func (e *ShowDDLExec) Next(ctx context.Context, req *chunk.Chunk) error {
 		}
 	}
 
-	serverInfo, err := infosync.GetServerInfoByID(ctx, e.ddlOwnerID)
+	serverInfo, err := domain.GetDomain(e.ctx).InfoSyncer().GetServerInfoByID(ctx, e.ddlOwnerID)
 	if err != nil {
 		return err
 	}

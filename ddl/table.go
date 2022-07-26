@@ -26,7 +26,6 @@ import (
 	"github.com/pingcap/tidb/ddl/label"
 	"github.com/pingcap/tidb/ddl/placement"
 	"github.com/pingcap/tidb/ddl/util"
-	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta"
@@ -88,18 +87,18 @@ func createTable(d *ddlCtx, t *meta.Meta, job *model.Job) (*model.TableInfo, err
 			replicaInfo := tbInfo.TiFlashReplica
 			if pi := tbInfo.GetPartitionInfo(); pi != nil {
 				logutil.BgLogger().Info("Set TiFlash replica pd rule for partitioned table when creating", zap.Int64("tableID", tbInfo.ID))
-				if e := infosync.ConfigureTiFlashPDForPartitions(false, &pi.Definitions, replicaInfo.Count, &replicaInfo.LocationLabels, tbInfo.ID); e != nil {
+				if e := d.infoSyncer.ConfigureTiFlashPDForPartitions(false, &pi.Definitions, replicaInfo.Count, &replicaInfo.LocationLabels, tbInfo.ID); e != nil {
 					job.State = model.JobStateCancelled
 					return tbInfo, errors.Trace(e)
 				}
 				// Partitions that in adding mid-state. They have high priorities, so we should set accordingly pd rules.
-				if e := infosync.ConfigureTiFlashPDForPartitions(true, &pi.AddingDefinitions, replicaInfo.Count, &replicaInfo.LocationLabels, tbInfo.ID); e != nil {
+				if e := d.infoSyncer.ConfigureTiFlashPDForPartitions(true, &pi.AddingDefinitions, replicaInfo.Count, &replicaInfo.LocationLabels, tbInfo.ID); e != nil {
 					job.State = model.JobStateCancelled
 					return tbInfo, errors.Trace(e)
 				}
 			} else {
 				logutil.BgLogger().Info("Set TiFlash replica pd rule when creating", zap.Int64("tableID", tbInfo.ID))
-				if e := infosync.ConfigureTiFlashPDForTable(tbInfo.ID, replicaInfo.Count, &replicaInfo.LocationLabels); e != nil {
+				if e := d.infoSyncer.ConfigureTiFlashPDForTable(tbInfo.ID, replicaInfo.Count, &replicaInfo.LocationLabels); e != nil {
 					job.State = model.JobStateCancelled
 					return tbInfo, errors.Trace(e)
 				}
@@ -113,7 +112,7 @@ func createTable(d *ddlCtx, t *meta.Meta, job *model.Job) (*model.TableInfo, err
 		}
 
 		// Send the placement bundle to PD.
-		err = infosync.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles)
+		err = d.infoSyncer.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles)
 		if err != nil {
 			job.State = model.JobStateCancelled
 			return tbInfo, errors.Wrapf(err, "failed to notify PD the placement rules")
@@ -402,7 +401,7 @@ func (w *worker) onRecoverTable(d *ddlCtx, t *meta.Meta, job *model.Job) (ver in
 		}
 
 		// Clear all placement when recover
-		err = clearTablePlacementAndBundles(tblInfo)
+		err = clearTablePlacementAndBundles(d, tblInfo)
 		if err != nil {
 			job.State = model.JobStateCancelled
 			return ver, errors.Wrapf(err, "failed to notify PD the placement rules")
@@ -434,7 +433,7 @@ func (w *worker) onRecoverTable(d *ddlCtx, t *meta.Meta, job *model.Job) (ver in
 			tids = []int64{tblInfo.ID}
 		}
 
-		tableRuleID, partRuleIDs, oldRuleIDs, oldRules, err := getOldLabelRules(tblInfo, oldSchemaName, oldTableName)
+		tableRuleID, partRuleIDs, oldRuleIDs, oldRules, err := getOldLabelRules(d, tblInfo, oldSchemaName, oldTableName)
 		if err != nil {
 			job.State = model.JobStateCancelled
 			return ver, errors.Wrapf(err, "failed to get old label rules from PD")
@@ -459,7 +458,7 @@ func (w *worker) onRecoverTable(d *ddlCtx, t *meta.Meta, job *model.Job) (ver in
 			}
 		})
 
-		err = updateLabelRules(job, tblInfo, oldRules, tableRuleID, partRuleIDs, oldRuleIDs, tblInfo.ID)
+		err = updateLabelRules(w.ddlCtx, job, tblInfo, oldRules, tableRuleID, partRuleIDs, oldRuleIDs, tblInfo.ID)
 		if err != nil {
 			job.State = model.JobStateCancelled
 			return ver, errors.Wrapf(err, "failed to update the label rule to PD")
@@ -481,7 +480,7 @@ func (w *worker) onRecoverTable(d *ddlCtx, t *meta.Meta, job *model.Job) (ver in
 	return ver, nil
 }
 
-func clearTablePlacementAndBundles(tblInfo *model.TableInfo) error {
+func clearTablePlacementAndBundles(d *ddlCtx, tblInfo *model.TableInfo) error {
 	var bundles []*placement.Bundle
 	if tblInfo.PlacementPolicyRef != nil {
 		tblInfo.PlacementPolicyRef = nil
@@ -502,7 +501,7 @@ func clearTablePlacementAndBundles(tblInfo *model.TableInfo) error {
 		return nil
 	}
 
-	return infosync.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles)
+	return d.infoSyncer.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles)
 }
 
 // mockRecoverTableCommitErrOnce uses to make sure
@@ -671,13 +670,13 @@ func onTruncateTable(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, _ erro
 		job.CtxVars = []interface{}{oldIDs, newIDs}
 	}
 
-	tableRuleID, partRuleIDs, _, oldRules, err := getOldLabelRules(tblInfo, job.SchemaName, tblInfo.Name.L)
+	tableRuleID, partRuleIDs, _, oldRules, err := getOldLabelRules(d, tblInfo, job.SchemaName, tblInfo.Name.L)
 	if err != nil {
 		job.State = model.JobStateCancelled
 		return 0, errors.Wrapf(err, "failed to get old label rules from PD")
 	}
 
-	err = updateLabelRules(job, tblInfo, oldRules, tableRuleID, partRuleIDs, []string{}, newTableID)
+	err = updateLabelRules(d, job, tblInfo, oldRules, tableRuleID, partRuleIDs, []string{}, newTableID)
 	if err != nil {
 		job.State = model.JobStateCancelled
 		return 0, errors.Wrapf(err, "failed to update the label rule to PD")
@@ -687,13 +686,13 @@ func onTruncateTable(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, _ erro
 	if tblInfo.TiFlashReplica != nil {
 		// Set PD rules for TiFlash
 		if pi := tblInfo.GetPartitionInfo(); pi != nil {
-			if e := infosync.ConfigureTiFlashPDForPartitions(true, &pi.Definitions, tblInfo.TiFlashReplica.Count, &tblInfo.TiFlashReplica.LocationLabels, tblInfo.ID); e != nil {
+			if e := d.infoSyncer.ConfigureTiFlashPDForPartitions(true, &pi.Definitions, tblInfo.TiFlashReplica.Count, &tblInfo.TiFlashReplica.LocationLabels, tblInfo.ID); e != nil {
 				logutil.BgLogger().Error("ConfigureTiFlashPDForPartitions fails", zap.Error(err))
 				job.State = model.JobStateCancelled
 				return ver, errors.Trace(e)
 			}
 		} else {
-			if e := infosync.ConfigureTiFlashPDForTable(newTableID, tblInfo.TiFlashReplica.Count, &tblInfo.TiFlashReplica.LocationLabels); e != nil {
+			if e := d.infoSyncer.ConfigureTiFlashPDForTable(newTableID, tblInfo.TiFlashReplica.Count, &tblInfo.TiFlashReplica.LocationLabels); e != nil {
 				logutil.BgLogger().Error("ConfigureTiFlashPDForTable fails", zap.Error(err))
 				job.State = model.JobStateCancelled
 				return ver, errors.Trace(e)
@@ -712,7 +711,7 @@ func onTruncateTable(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, _ erro
 		return ver, errors.Trace(err)
 	}
 
-	err = infosync.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles)
+	err = d.infoSyncer.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles)
 	if err != nil {
 		job.State = model.JobStateCancelled
 		return 0, errors.Wrapf(err, "failed to notify PD the placement rules")
@@ -895,7 +894,7 @@ func onRenameTable(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, _ error)
 		return ver, errors.Trace(err)
 	}
 
-	ver, tblInfo, err := checkAndRenameTables(t, job, oldSchemaID, job.SchemaID, &oldSchemaName, &tableName)
+	ver, tblInfo, err := checkAndRenameTables(d, t, job, oldSchemaID, job.SchemaID, &oldSchemaName, &tableName)
 	if err != nil {
 		return ver, errors.Trace(err)
 	}
@@ -925,7 +924,7 @@ func onRenameTables(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, _ error
 	for i, oldSchemaID := range oldSchemaIDs {
 		job.TableID = tableIDs[i]
 		job.TableName = oldTableNames[i].L
-		ver, tblInfo, err := checkAndRenameTables(t, job, oldSchemaID, newSchemaIDs[i], oldSchemaNames[i], tableNames[i])
+		ver, tblInfo, err := checkAndRenameTables(d, t, job, oldSchemaID, newSchemaIDs[i], oldSchemaNames[i], tableNames[i])
 		if err != nil {
 			return ver, errors.Trace(err)
 		}
@@ -940,7 +939,7 @@ func onRenameTables(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, _ error
 	return ver, nil
 }
 
-func checkAndRenameTables(t *meta.Meta, job *model.Job, oldSchemaID, newSchemaID int64, oldSchemaName, tableName *model.CIStr) (ver int64, tblInfo *model.TableInfo, _ error) {
+func checkAndRenameTables(d *ddlCtx, t *meta.Meta, job *model.Job, oldSchemaID, newSchemaID int64, oldSchemaName, tableName *model.CIStr) (ver int64, tblInfo *model.TableInfo, _ error) {
 	tblInfo, err := GetTableInfoAndCancelFaultJob(t, job, oldSchemaID)
 	if err != nil {
 		return ver, tblInfo, errors.Trace(err)
@@ -962,7 +961,7 @@ func checkAndRenameTables(t *meta.Meta, job *model.Job, oldSchemaID, newSchemaID
 	})
 
 	oldTableName := tblInfo.Name
-	tableRuleID, partRuleIDs, oldRuleIDs, oldRules, err := getOldLabelRules(tblInfo, oldSchemaName.L, oldTableName.L)
+	tableRuleID, partRuleIDs, oldRuleIDs, oldRules, err := getOldLabelRules(d, tblInfo, oldSchemaName.L, oldTableName.L)
 	if err != nil {
 		job.State = model.JobStateCancelled
 		return ver, tblInfo, errors.Wrapf(err, "failed to get old label rules from PD")
@@ -987,7 +986,7 @@ func checkAndRenameTables(t *meta.Meta, job *model.Job, oldSchemaID, newSchemaID
 		tblInfo.OldSchemaID = 0
 	}
 
-	err = updateLabelRules(job, tblInfo, oldRules, tableRuleID, partRuleIDs, oldRuleIDs, tblInfo.ID)
+	err = updateLabelRules(d, job, tblInfo, oldRules, tableRuleID, partRuleIDs, oldRuleIDs, tblInfo.ID)
 	if err != nil {
 		job.State = model.JobStateCancelled
 		return ver, tblInfo, errors.Wrapf(err, "failed to update the label rule to PD")
@@ -1096,18 +1095,18 @@ func (w *worker) onSetTableFlashReplica(d *ddlCtx, t *meta.Meta, job *model.Job)
 	// We should check this first, in order to avoid creating redundant DDL jobs.
 	if pi := tblInfo.GetPartitionInfo(); pi != nil {
 		logutil.BgLogger().Info("Set TiFlash replica pd rule for partitioned table", zap.Int64("tableID", tblInfo.ID))
-		if e := infosync.ConfigureTiFlashPDForPartitions(false, &pi.Definitions, replicaInfo.Count, &replicaInfo.Labels, tblInfo.ID); e != nil {
+		if e := d.infoSyncer.ConfigureTiFlashPDForPartitions(false, &pi.Definitions, replicaInfo.Count, &replicaInfo.Labels, tblInfo.ID); e != nil {
 			job.State = model.JobStateCancelled
 			return ver, errors.Trace(e)
 		}
 		// Partitions that in adding mid-state. They have high priorities, so we should set accordingly pd rules.
-		if e := infosync.ConfigureTiFlashPDForPartitions(true, &pi.AddingDefinitions, replicaInfo.Count, &replicaInfo.Labels, tblInfo.ID); e != nil {
+		if e := d.infoSyncer.ConfigureTiFlashPDForPartitions(true, &pi.AddingDefinitions, replicaInfo.Count, &replicaInfo.Labels, tblInfo.ID); e != nil {
 			job.State = model.JobStateCancelled
 			return ver, errors.Trace(e)
 		}
 	} else {
 		logutil.BgLogger().Info("Set TiFlash replica pd rule", zap.Int64("tableID", tblInfo.ID))
-		if e := infosync.ConfigureTiFlashPDForTable(tblInfo.ID, replicaInfo.Count, &replicaInfo.Labels); e != nil {
+		if e := d.infoSyncer.ConfigureTiFlashPDForTable(tblInfo.ID, replicaInfo.Count, &replicaInfo.Labels); e != nil {
 			job.State = model.JobStateCancelled
 			return ver, errors.Trace(e)
 		}
@@ -1375,9 +1374,9 @@ func onAlterTableAttributes(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64,
 
 	if len(rule.Labels) == 0 {
 		patch := label.NewRulePatch([]*label.Rule{}, []string{rule.ID})
-		err = infosync.UpdateLabelRules(context.TODO(), patch)
+		err = d.infoSyncer.UpdateLabelRules(context.TODO(), patch)
 	} else {
-		err = infosync.PutLabelRule(context.TODO(), rule)
+		err = d.infoSyncer.PutLabelRule(context.TODO(), rule)
 	}
 	if err != nil {
 		job.State = model.JobStateCancelled
@@ -1413,9 +1412,9 @@ func onAlterTablePartitionAttributes(d *ddlCtx, t *meta.Meta, job *model.Job) (v
 
 	if len(rule.Labels) == 0 {
 		patch := label.NewRulePatch([]*label.Rule{}, []string{rule.ID})
-		err = infosync.UpdateLabelRules(context.TODO(), patch)
+		err = d.infoSyncer.UpdateLabelRules(context.TODO(), patch)
 	} else {
-		err = infosync.PutLabelRule(context.TODO(), rule)
+		err = d.infoSyncer.PutLabelRule(context.TODO(), rule)
 	}
 	if err != nil {
 		job.State = model.JobStateCancelled
@@ -1488,7 +1487,7 @@ func onAlterTablePartitionPlacement(d *ddlCtx, t *meta.Meta, job *model.Job) (ve
 
 	// Send the placement bundle to PD.
 	if bundle != nil {
-		err = infosync.PutRuleBundlesWithDefaultRetry(context.TODO(), []*placement.Bundle{bundle})
+		err = d.infoSyncer.PutRuleBundlesWithDefaultRetry(context.TODO(), []*placement.Bundle{bundle})
 	}
 
 	if err != nil {
@@ -1541,7 +1540,7 @@ func onAlterTablePlacement(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, 
 
 	// Send the placement bundle to PD.
 	if bundle != nil {
-		err = infosync.PutRuleBundlesWithDefaultRetry(context.TODO(), []*placement.Bundle{bundle})
+		err = d.infoSyncer.PutRuleBundlesWithDefaultRetry(context.TODO(), []*placement.Bundle{bundle})
 	}
 
 	if err != nil {
@@ -1554,7 +1553,7 @@ func onAlterTablePlacement(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, 
 	return ver, nil
 }
 
-func getOldLabelRules(tblInfo *model.TableInfo, oldSchemaName, oldTableName string) (string, []string, []string, map[string]*label.Rule, error) {
+func getOldLabelRules(d *ddlCtx, tblInfo *model.TableInfo, oldSchemaName, oldTableName string) (string, []string, []string, map[string]*label.Rule, error) {
 	tableRuleID := fmt.Sprintf(label.TableIDFormat, label.IDPrefix, oldSchemaName, oldTableName)
 	oldRuleIDs := []string{tableRuleID}
 	var partRuleIDs []string
@@ -1565,11 +1564,11 @@ func getOldLabelRules(tblInfo *model.TableInfo, oldSchemaName, oldTableName stri
 	}
 
 	oldRuleIDs = append(oldRuleIDs, partRuleIDs...)
-	oldRules, err := infosync.GetLabelRules(context.TODO(), oldRuleIDs)
+	oldRules, err := d.infoSyncer.GetLabelRules(context.TODO(), oldRuleIDs)
 	return tableRuleID, partRuleIDs, oldRuleIDs, oldRules, err
 }
 
-func updateLabelRules(job *model.Job, tblInfo *model.TableInfo, oldRules map[string]*label.Rule, tableRuleID string, partRuleIDs, oldRuleIDs []string, tID int64) error {
+func updateLabelRules(ddlCtx *ddlCtx, job *model.Job, tblInfo *model.TableInfo, oldRules map[string]*label.Rule, tableRuleID string, partRuleIDs, oldRuleIDs []string, tID int64) error {
 	if oldRules == nil {
 		return nil
 	}
@@ -1592,7 +1591,7 @@ func updateLabelRules(job *model.Job, tblInfo *model.TableInfo, oldRules map[str
 	}
 
 	patch := label.NewRulePatch(newRules, oldRuleIDs)
-	return infosync.UpdateLabelRules(context.TODO(), patch)
+	return ddlCtx.infoSyncer.UpdateLabelRules(context.TODO(), patch)
 }
 
 func onAlterCacheTable(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, err error) {

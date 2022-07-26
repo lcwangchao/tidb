@@ -172,10 +172,15 @@ func readSQLMetric(timepoint time.Time, SQLResult *sqlUsageData) error {
 
 func querySQLMetric(ctx context.Context, queryTime time.Time, promQL string) (result pmodel.Value, err error) {
 	// Add retry to avoid network error.
+	is, err := infosync.GetGlobalInfoSyncer()
+	if err != nil {
+		return nil, err
+	}
+
 	var prometheusAddr string
 	for i := 0; i < 5; i++ {
 		//TODO: the prometheus will be Integrated into the PD, then we need to query the prometheus in PD directly, which need change the quire API
-		prometheusAddr, err = infosync.GetPrometheusAddr()
+		prometheusAddr, err = is.GetPrometheusAddr()
 		if err == nil || err == infosync.ErrPrometheusAddrIsNotSet {
 			break
 		}

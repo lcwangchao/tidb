@@ -23,7 +23,6 @@ import (
 
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/tidb/domain"
-	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/executor"
 	"github.com/pingcap/tidb/parser/auth"
 	"github.com/pingcap/tidb/parser/model"
@@ -580,13 +579,13 @@ func TestForAnalyzeStatus(t *testing.T) {
 }
 
 func TestForServersInfo(t *testing.T) {
-	store, clean := testkit.CreateMockStore(t)
+	store, dom, clean := testkit.CreateMockStoreAndDomain(t)
 	defer clean()
 	tk := testkit.NewTestKit(t, store)
 	rows := tk.MustQuery("select * from information_schema.TIDB_SERVERS_INFO").Rows()
 	require.Len(t, rows, 1)
 
-	info, err := infosync.GetServerInfo()
+	info, err := dom.InfoSyncer().GetServerInfo()
 	require.NoError(t, err)
 	require.NotNil(t, info)
 	require.Equal(t, info.ID, rows[0][0])

@@ -52,8 +52,8 @@ func checkExistTableBundlesInPD(t *testing.T, do *domain.Domain, dbName string, 
 	}))
 }
 
-func checkAllBundlesNotChange(t *testing.T, bundles []*placement.Bundle) {
-	currentBundles, err := infosync.GetAllRuleBundles(context.TODO())
+func checkAllBundlesNotChange(t *testing.T, infoSyncer *infosync.InfoSyncer, bundles []*placement.Bundle) {
+	currentBundles, err := infoSyncer.GetAllRuleBundles(context.TODO())
 	require.NoError(t, err)
 
 	bundlesMap := make(map[string]*placement.Bundle)
@@ -105,7 +105,7 @@ func checkTableBundlesInPD(t *testing.T, do *domain.Domain, tt *meta.Meta, tblIn
 
 	is := do.InfoSchema()
 	for _, check := range checks {
-		pdGot, err := infosync.GetRuleBundle(context.TODO(), check.ID)
+		pdGot, err := do.InfoSyncer().GetRuleBundle(context.TODO(), check.ID)
 		require.NoError(t, err)
 		isGot, ok := is.PlacementBundleByPhysicalTableID(check.tableID)
 		if check.bundle == nil {
@@ -194,7 +194,7 @@ func TestPlacementPolicy(t *testing.T) {
 		"REGIONS=\"cn-east-1,cn-east-2\" ")
 	tk.MustQuery("show warnings").Check(testkit.Rows("Note 8238 Placement policy 'X' already exists"))
 
-	bundles, err := infosync.GetAllRuleBundles(context.TODO())
+	bundles, err := dom.InfoSyncer().GetAllRuleBundles(context.TODO())
 	require.NoError(t, err)
 	require.Equal(t, len(bundles), 0)
 
@@ -1226,7 +1226,7 @@ func TestDropDatabaseGCPlacement(t *testing.T) {
 
 	tk.MustExec("drop database db2")
 
-	bundles, err := infosync.GetAllRuleBundles(context.TODO())
+	bundles, err := dom.InfoSyncer().GetAllRuleBundles(context.TODO())
 	require.NoError(t, err)
 	require.Equal(t, 4, len(bundles))
 
@@ -1234,7 +1234,7 @@ func TestDropDatabaseGCPlacement(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, gcWorker.DeleteRanges(context.TODO(), math.MaxInt64))
 
-	bundles, err = infosync.GetAllRuleBundles(context.TODO())
+	bundles, err = dom.InfoSyncer().GetAllRuleBundles(context.TODO())
 	require.NoError(t, err)
 	require.Equal(t, 1, len(bundles))
 	require.Equal(t, placement.GroupID(tt.Meta().ID), bundles[0].ID)
@@ -1284,7 +1284,7 @@ func TestDropTableGCPlacement(t *testing.T) {
 
 	tk.MustExec("drop table t2")
 
-	bundles, err := infosync.GetAllRuleBundles(context.TODO())
+	bundles, err := dom.InfoSyncer().GetAllRuleBundles(context.TODO())
 	require.NoError(t, err)
 	require.Equal(t, 3, len(bundles))
 
@@ -1292,7 +1292,7 @@ func TestDropTableGCPlacement(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, gcWorker.DeleteRanges(context.TODO(), math.MaxInt64))
 
-	bundles, err = infosync.GetAllRuleBundles(context.TODO())
+	bundles, err = dom.InfoSyncer().GetAllRuleBundles(context.TODO())
 	require.NoError(t, err)
 	require.Equal(t, 1, len(bundles))
 	require.Equal(t, placement.GroupID(t1.Meta().ID), bundles[0].ID)
@@ -1423,7 +1423,7 @@ func TestDropTablePartitionGCPlacement(t *testing.T) {
 
 	tk.MustExec("alter table t2 drop partition p0")
 
-	bundles, err := infosync.GetAllRuleBundles(context.TODO())
+	bundles, err := dom.InfoSyncer().GetAllRuleBundles(context.TODO())
 	require.NoError(t, err)
 	require.Equal(t, 4, len(bundles))
 
@@ -1431,7 +1431,7 @@ func TestDropTablePartitionGCPlacement(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, gcWorker.DeleteRanges(context.TODO(), math.MaxInt64))
 
-	bundles, err = infosync.GetAllRuleBundles(context.TODO())
+	bundles, err = dom.InfoSyncer().GetAllRuleBundles(context.TODO())
 	require.NoError(t, err)
 	require.Equal(t, 3, len(bundles))
 	bundlesMap := make(map[string]*placement.Bundle)
@@ -1745,7 +1745,7 @@ func TestTruncateTableGCWithPlacement(t *testing.T) {
 	t2, err := is.TableByName(model.NewCIStr("test"), model.NewCIStr("t2"))
 	require.NoError(t, err)
 
-	bundles, err := infosync.GetAllRuleBundles(context.TODO())
+	bundles, err := dom.InfoSyncer().GetAllRuleBundles(context.TODO())
 	require.NoError(t, err)
 	require.Equal(t, 5, len(bundles))
 
@@ -1753,7 +1753,7 @@ func TestTruncateTableGCWithPlacement(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, gcWorker.DeleteRanges(context.TODO(), math.MaxInt64))
 
-	bundles, err = infosync.GetAllRuleBundles(context.TODO())
+	bundles, err = dom.InfoSyncer().GetAllRuleBundles(context.TODO())
 	require.NoError(t, err)
 	require.Equal(t, 3, len(bundles))
 	bundlesMap := make(map[string]*placement.Bundle)
@@ -1879,7 +1879,7 @@ func TestTruncatePartitionGCWithPlacement(t *testing.T) {
 	t2, err := is.TableByName(model.NewCIStr("test"), model.NewCIStr("t2"))
 	require.NoError(t, err)
 
-	bundles, err := infosync.GetAllRuleBundles(context.TODO())
+	bundles, err := dom.InfoSyncer().GetAllRuleBundles(context.TODO())
 	require.NoError(t, err)
 	require.Equal(t, 4, len(bundles))
 
@@ -1887,7 +1887,7 @@ func TestTruncatePartitionGCWithPlacement(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, gcWorker.DeleteRanges(context.TODO(), math.MaxInt64))
 
-	bundles, err = infosync.GetAllRuleBundles(context.TODO())
+	bundles, err = dom.InfoSyncer().GetAllRuleBundles(context.TODO())
 	require.NoError(t, err)
 	require.Equal(t, 3, len(bundles))
 	bundlesMap := make(map[string]*placement.Bundle)
@@ -2038,7 +2038,7 @@ func TestPDFail(t *testing.T) {
 	defer func() {
 		require.NoError(t, failpoint.Disable("github.com/pingcap/tidb/domain/infosync/putRuleBundlesError"))
 	}()
-	store, clean := testkit.CreateMockStore(t)
+	store, dom, clean := testkit.CreateMockStoreAndDomain(t)
 	defer clean()
 	// clearAllBundles(t)
 	tk := testkit.NewTestKit(t, store)
@@ -2061,7 +2061,7 @@ func TestPDFail(t *testing.T) {
         PARTITION p1 VALUES LESS THAN (1000) placement policy p1
 	);`)
 	defer tk.MustExec("drop table if exists tp")
-	existBundles, err := infosync.GetAllRuleBundles(context.TODO())
+	existBundles, err := dom.InfoSyncer().GetAllRuleBundles(context.TODO())
 	require.NoError(t, err)
 
 	require.NoError(t, failpoint.Enable("github.com/pingcap/tidb/domain/infosync/putRuleBundlesError", "return(true)"))
@@ -2070,14 +2070,14 @@ func TestPDFail(t *testing.T) {
 	err = tk.ExecToErr("alter placement policy p1 primary_region='rx' regions='rx'")
 	require.True(t, infosync.ErrHTTPServiceError.Equal(err))
 	tk.MustQuery("show create placement policy p1").Check(testkit.Rows("p1 CREATE PLACEMENT POLICY `p1` PRIMARY_REGION=\"cn-east-1\" REGIONS=\"cn-east-1,cn-east\""))
-	checkAllBundlesNotChange(t, existBundles)
+	checkAllBundlesNotChange(t, dom.InfoSyncer(), existBundles)
 
 	// create table
 	err = tk.ExecToErr("create table t2 (id int) placement policy p1")
 	require.True(t, infosync.ErrHTTPServiceError.Equal(err))
 	err = tk.ExecToErr("show create table t2")
 	require.True(t, infoschema.ErrTableNotExists.Equal(err))
-	checkAllBundlesNotChange(t, existBundles)
+	checkAllBundlesNotChange(t, dom.InfoSyncer(), existBundles)
 
 	// alter table
 	err = tk.ExecToErr("alter table t1 placement policy p1")
@@ -2085,7 +2085,7 @@ func TestPDFail(t *testing.T) {
 	tk.MustQuery("show create table t1").Check(testkit.Rows("t1 CREATE TABLE `t1` (\n" +
 		"  `id` int(11) DEFAULT NULL\n" +
 		") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin"))
-	checkAllBundlesNotChange(t, existBundles)
+	checkAllBundlesNotChange(t, dom.InfoSyncer(), existBundles)
 
 	// add partition
 	err = tk.ExecToErr("alter table tp add partition (" +
@@ -2099,7 +2099,7 @@ func TestPDFail(t *testing.T) {
 		"PARTITION BY RANGE (`id`)\n" +
 		"(PARTITION `p0` VALUES LESS THAN (100),\n" +
 		" PARTITION `p1` VALUES LESS THAN (1000) /*T![placement] PLACEMENT POLICY=`p1` */)"))
-	checkAllBundlesNotChange(t, existBundles)
+	checkAllBundlesNotChange(t, dom.InfoSyncer(), existBundles)
 
 	// alter partition
 	err = tk.ExecToErr(`alter table tp PARTITION p1 placement policy p2`)
@@ -2110,7 +2110,7 @@ func TestPDFail(t *testing.T) {
 		"PARTITION BY RANGE (`id`)\n" +
 		"(PARTITION `p0` VALUES LESS THAN (100),\n" +
 		" PARTITION `p1` VALUES LESS THAN (1000) /*T![placement] PLACEMENT POLICY=`p1` */)"))
-	checkAllBundlesNotChange(t, existBundles)
+	checkAllBundlesNotChange(t, dom.InfoSyncer(), existBundles)
 
 	// exchange partition
 	tk.MustExec("alter table tp exchange partition p1 with table t1")
@@ -2124,7 +2124,7 @@ func TestPDFail(t *testing.T) {
 		"PARTITION BY RANGE (`id`)\n" +
 		"(PARTITION `p0` VALUES LESS THAN (100),\n" +
 		" PARTITION `p1` VALUES LESS THAN (1000) /*T![placement] PLACEMENT POLICY=`p1` */)"))
-	checkAllBundlesNotChange(t, existBundles)
+	checkAllBundlesNotChange(t, dom.InfoSyncer(), existBundles)
 }
 
 func TestRecoverTableWithPlacementPolicy(t *testing.T) {

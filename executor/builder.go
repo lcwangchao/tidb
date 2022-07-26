@@ -1581,6 +1581,7 @@ func (b *executorBuilder) buildMemTable(v *plannercore.PhysicalMemTable) Executo
 			baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID()),
 			table:        v.Table,
 			retriever: &MetricRetriever{
+				sctx:      b.ctx,
 				table:     v.Table,
 				extractor: v.Extractor.(*plannercore.MetricTableExtractor),
 			},
@@ -1734,6 +1735,7 @@ func (b *executorBuilder) buildMemTable(v *plannercore.PhysicalMemTable) Executo
 				baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID()),
 				table:        v.Table,
 				retriever: &memtableRetriever{
+					sctx:      b.ctx,
 					table:     v.Table,
 					columns:   v.Columns,
 					extractor: v.Extractor,

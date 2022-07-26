@@ -29,7 +29,6 @@ import (
 	"github.com/pingcap/tidb/ddl/label"
 	"github.com/pingcap/tidb/ddl/placement"
 	"github.com/pingcap/tidb/ddl/util"
-	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/meta"
@@ -135,7 +134,7 @@ func (w *worker) onAddTablePartition(d *ddlCtx, t *meta.Meta, job *model.Job) (v
 
 		if tblInfo.TiFlashReplica != nil {
 			// Must set placement rule, and make sure it succeeds.
-			if err := infosync.ConfigureTiFlashPDForPartitions(true, &tblInfo.Partition.AddingDefinitions, tblInfo.TiFlashReplica.Count, &tblInfo.TiFlashReplica.LocationLabels, tblInfo.ID); err != nil {
+			if err := d.infoSyncer.ConfigureTiFlashPDForPartitions(true, &tblInfo.Partition.AddingDefinitions, tblInfo.TiFlashReplica.Count, &tblInfo.TiFlashReplica.LocationLabels, tblInfo.ID); err != nil {
 				logutil.BgLogger().Error("ConfigureTiFlashPDForPartitions fails", zap.Error(err))
 				return ver, errors.Trace(err)
 			}
@@ -147,7 +146,7 @@ func (w *worker) onAddTablePartition(d *ddlCtx, t *meta.Meta, job *model.Job) (v
 			return ver, errors.Trace(err)
 		}
 
-		if err = infosync.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles); err != nil {
+		if err = w.infoSyncer.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles); err != nil {
 			job.State = model.JobStateCancelled
 			return ver, errors.Wrapf(err, "failed to notify PD the placement rules")
 		}
@@ -156,7 +155,7 @@ func (w *worker) onAddTablePartition(d *ddlCtx, t *meta.Meta, job *model.Job) (v
 		for _, p := range tblInfo.Partition.AddingDefinitions {
 			ids = append(ids, p.ID)
 		}
-		if err := alterTableLabelRule(job.SchemaName, tblInfo, ids); err != nil {
+		if err := alterTableLabelRule(w.ddlCtx, job.SchemaName, tblInfo, ids); err != nil {
 			job.State = model.JobStateCancelled
 			return ver, err
 		}
@@ -208,9 +207,9 @@ func (w *worker) onAddTablePartition(d *ddlCtx, t *meta.Meta, job *model.Job) (v
 	return ver, errors.Trace(err)
 }
 
-func alterTableLabelRule(schemaName string, meta *model.TableInfo, ids []int64) error {
+func alterTableLabelRule(d *ddlCtx, schemaName string, meta *model.TableInfo, ids []int64) error {
 	tableRuleID := fmt.Sprintf(label.TableIDFormat, label.IDPrefix, schemaName, meta.Name.L)
-	oldRule, err := infosync.GetLabelRules(context.TODO(), []string{tableRuleID})
+	oldRule, err := d.infoSyncer.GetLabelRules(context.TODO(), []string{tableRuleID})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -221,7 +220,7 @@ func alterTableLabelRule(schemaName string, meta *model.TableInfo, ids []int64) 
 	r, ok := oldRule[tableRuleID]
 	if ok {
 		rule := r.Reset(schemaName, meta.Name.L, "", ids...)
-		err = infosync.PutLabelRule(context.TODO(), rule)
+		err = d.infoSyncer.PutLabelRule(context.TODO(), rule)
 		if err != nil {
 			return errors.Wrapf(err, "failed to notify PD label rule")
 		}
@@ -1076,7 +1075,7 @@ func dropLabelRules(d *ddlCtx, schemaName, tableName string, partNames []string)
 	}
 	// delete batch rules
 	patch := label.NewRulePatch([]*label.Rule{}, deleteRules)
-	return infosync.UpdateLabelRules(context.TODO(), patch)
+	return d.infoSyncer.UpdateLabelRules(context.TODO(), patch)
 }
 
 // onDropTablePartition deletes old partition meta.
@@ -1093,7 +1092,7 @@ func (w *worker) onDropTablePartition(d *ddlCtx, t *meta.Meta, job *model.Job) (
 	if job.Type == model.ActionAddTablePartition {
 		// It is rollbacked from adding table partition, just remove addingDefinitions from tableInfo.
 		physicalTableIDs, pNames, rollbackBundles := rollbackAddingPartitionInfo(tblInfo)
-		err = infosync.PutRuleBundlesWithDefaultRetry(context.TODO(), rollbackBundles)
+		err = w.infoSyncer.PutRuleBundlesWithDefaultRetry(context.TODO(), rollbackBundles)
 		if err != nil {
 			job.State = model.JobStateCancelled
 			return ver, errors.Wrapf(err, "failed to notify PD the placement rules")
@@ -1104,7 +1103,7 @@ func (w *worker) onDropTablePartition(d *ddlCtx, t *meta.Meta, job *model.Job) (
 			return ver, errors.Wrapf(err, "failed to notify PD the label rules")
 		}
 
-		if err := alterTableLabelRule(job.SchemaName, tblInfo, getIDs([]*model.TableInfo{tblInfo})); err != nil {
+		if err := alterTableLabelRule(d, job.SchemaName, tblInfo, getIDs([]*model.TableInfo{tblInfo})); err != nil {
 			job.State = model.JobStateCancelled
 			return ver, err
 		}
@@ -1137,7 +1136,7 @@ func (w *worker) onDropTablePartition(d *ddlCtx, t *meta.Meta, job *model.Job) (
 			return ver, errors.Wrapf(err, "failed to notify PD the label rules")
 		}
 
-		if err := alterTableLabelRule(job.SchemaName, tblInfo, getIDs([]*model.TableInfo{tblInfo})); err != nil {
+		if err := alterTableLabelRule(d, job.SchemaName, tblInfo, getIDs([]*model.TableInfo{tblInfo})); err != nil {
 			job.State = model.JobStateCancelled
 			return ver, err
 		}
@@ -1247,7 +1246,7 @@ func onTruncateTablePartition(d *ddlCtx, t *meta.Meta, job *model.Job) (int64, e
 
 	// Clear the tiflash replica available status.
 	if tblInfo.TiFlashReplica != nil {
-		e := infosync.ConfigureTiFlashPDForPartitions(true, &newPartitions, tblInfo.TiFlashReplica.Count, &tblInfo.TiFlashReplica.LocationLabels, tblInfo.ID)
+		e := d.infoSyncer.ConfigureTiFlashPDForPartitions(true, &newPartitions, tblInfo.TiFlashReplica.Count, &tblInfo.TiFlashReplica.LocationLabels, tblInfo.ID)
 		failpoint.Inject("FailTiFlashTruncatePartition", func() {
 			e = errors.New("enforced error")
 		})
@@ -1276,7 +1275,7 @@ func onTruncateTablePartition(d *ddlCtx, t *meta.Meta, job *model.Job) (int64, e
 		return ver, errors.Trace(err)
 	}
 
-	err = infosync.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles)
+	err = d.infoSyncer.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles)
 	if err != nil {
 		job.State = model.JobStateCancelled
 		return ver, errors.Wrapf(err, "failed to notify PD the placement rules")
@@ -1289,7 +1288,7 @@ func onTruncateTablePartition(d *ddlCtx, t *meta.Meta, job *model.Job) (int64, e
 		oldPartRules = append(oldPartRules, oldPartRuleID)
 	}
 
-	rules, err := infosync.GetLabelRules(context.TODO(), append(oldPartRules, tableID))
+	rules, err := d.infoSyncer.GetLabelRules(context.TODO(), append(oldPartRules, tableID))
 	if err != nil {
 		job.State = model.JobStateCancelled
 		return ver, errors.Wrapf(err, "failed to get label rules from PD")
@@ -1308,7 +1307,7 @@ func onTruncateTablePartition(d *ddlCtx, t *meta.Meta, job *model.Job) (int64, e
 	}
 
 	patch := label.NewRulePatch(newRules, []string{})
-	err = infosync.UpdateLabelRules(context.TODO(), patch)
+	err = d.infoSyncer.UpdateLabelRules(context.TODO(), patch)
 	if err != nil {
 		job.State = model.JobStateCancelled
 		return ver, errors.Wrapf(err, "failed to notify PD the label rules")
@@ -1480,7 +1479,7 @@ func (w *worker) onExchangeTablePartition(d *ddlCtx, t *meta.Meta, job *model.Jo
 		return ver, errors.Trace(err)
 	}
 
-	if err = infosync.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles); err != nil {
+	if err = w.infoSyncer.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles); err != nil {
 		job.State = model.JobStateCancelled
 		return ver, errors.Wrapf(err, "failed to notify PD the placement rules")
 	}
@@ -1488,7 +1487,7 @@ func (w *worker) onExchangeTablePartition(d *ddlCtx, t *meta.Meta, job *model.Jo
 	ntrID := fmt.Sprintf(label.TableIDFormat, label.IDPrefix, job.SchemaName, nt.Name.L)
 	ptrID := fmt.Sprintf(label.PartitionIDFormat, label.IDPrefix, job.SchemaName, pt.Name.L, partDef.Name.L)
 
-	rules, err := infosync.GetLabelRules(context.TODO(), []string{ntrID, ptrID})
+	rules, err := d.infoSyncer.GetLabelRules(context.TODO(), []string{ntrID, ptrID})
 	if err != nil {
 		job.State = model.JobStateCancelled
 		return 0, errors.Wrapf(err, "failed to get PD the label rules")
@@ -1515,7 +1514,7 @@ func (w *worker) onExchangeTablePartition(d *ddlCtx, t *meta.Meta, job *model.Jo
 	}
 
 	patch := label.NewRulePatch(setRules, deleteRules)
-	err = infosync.UpdateLabelRules(context.TODO(), patch)
+	err = d.infoSyncer.UpdateLabelRules(context.TODO(), patch)
 	if err != nil {
 		job.State = model.JobStateCancelled
 		return ver, errors.Wrapf(err, "failed to notify PD the label rules")

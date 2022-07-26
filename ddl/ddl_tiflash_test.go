@@ -89,7 +89,7 @@ func createTiFlashContext(t *testing.T) (*tiflashContext, func()) {
 	session.SetSchemaLease(0)
 	session.DisableStats4Test()
 	s.dom, err = session.BootstrapSession(s.store)
-	infosync.SetMockTiFlash(s.tiflash)
+	s.dom.InfoSyncer().SetMockTiFlash(s.tiflash)
 	require.NoError(t, err)
 	s.dom.SetStatsUpdating(true)
 

@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pingcap/tidb/domain"
+
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/kvproto/pkg/errorpb"
@@ -80,6 +82,7 @@ type GCWorker struct {
 		resolveLocks      func(locks []*txnlock.Lock, lowResolutionTS uint64) (int64, error)
 	}
 	logBackupEnabled bool
+	dom              *domain.Domain
 }
 
 // NewGCWorker creates a GCWorker instance.
@@ -96,6 +99,12 @@ func NewGCWorker(store kv.Storage, pdClient pd.Client) (*GCWorker, error) {
 	if !ok {
 		return nil, errors.New("GC should run against TiKV storage")
 	}
+
+	do, err := session.GetDomain(store)
+	if err != nil {
+		return nil, err
+	}
+
 	worker := &GCWorker{
 		uuid:        strconv.FormatUint(ver.Ver, 16),
 		desc:        fmt.Sprintf("host:%s, pid:%d, start at %s", hostName, os.Getpid(), time.Now()),
@@ -104,6 +113,7 @@ func NewGCWorker(store kv.Storage, pdClient pd.Client) (*GCWorker, error) {
 		pdClient:    pdClient,
 		gcIsRunning: false,
 		lastFinish:  time.Now(),
+		dom:         do,
 		done:        make(chan error),
 	}
 	variable.RegisterStatistics(worker)
@@ -2016,7 +2026,7 @@ func (w *GCWorker) doGCPlacementRules(se session.Session, safePoint uint64, dr u
 		logutil.BgLogger().Info("try delete TiFlash pd rule",
 			zap.Int64("tableID", id), zap.String("endKey", string(dr.EndKey)), zap.Uint64("safePoint", safePoint))
 		ruleID := fmt.Sprintf("table-%v-r", id)
-		if err := infosync.DeleteTiFlashPlacementRule(context.Background(), "tiflash", ruleID); err != nil {
+		if err := w.dom.InfoSyncer().DeleteTiFlashPlacementRule(context.Background(), "tiflash", ruleID); err != nil {
 			// If DeletePlacementRule fails here, the rule will be deleted in `HandlePlacementRuleRoutine`.
 			logutil.BgLogger().Error("delete TiFlash pd rule failed when gc",
 				zap.Error(err), zap.String("ruleID", ruleID), zap.Uint64("safePoint", safePoint))
@@ -2025,7 +2035,7 @@ func (w *GCWorker) doGCPlacementRules(se session.Session, safePoint uint64, dr u
 			gcPlacementRuleCache[id] = struct{}{}
 		}
 	}
-	return infosync.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles)
+	return w.dom.InfoSyncer().PutRuleBundlesWithDefaultRetry(context.TODO(), bundles)
 }
 
 func (w *GCWorker) doGCLabelRules(dr util.DelRangeTask) (err error) {
@@ -2064,16 +2074,15 @@ func (w *GCWorker) doGCLabelRules(dr util.DelRangeTask) (err error) {
 		if err = historyJob.DecodeArgs(&startKey, &physicalTableIDs, &ruleIDs); err != nil {
 			return
 		}
-
 		// TODO: Here we need to get rules from PD and filter the rules which is not elegant. We should find a better way.
-		rules, err = infosync.GetLabelRules(context.TODO(), ruleIDs)
+		rules, err = w.dom.InfoSyncer().GetLabelRules(context.TODO(), ruleIDs)
 		if err != nil {
 			return
 		}
 
 		ruleIDs = getGCRules(append(physicalTableIDs, historyJob.TableID), rules)
 		patch := label.NewRulePatch([]*label.Rule{}, ruleIDs)
-		err = infosync.UpdateLabelRules(context.TODO(), patch)
+		err = w.dom.InfoSyncer().UpdateLabelRules(context.TODO(), patch)
 	}
 	return
 }

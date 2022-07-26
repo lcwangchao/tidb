@@ -513,6 +513,7 @@ func (p *PhysicalIndexScan) ExtractCorrelatedCols() []*expression.CorrelatedColu
 type PhysicalMemTable struct {
 	physicalSchemaProducer
 
+	sctx           sessionctx.Context
 	DBName         model.CIStr
 	Table          *model.TableInfo
 	Columns        []*model.ColumnInfo

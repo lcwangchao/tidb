@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pingcap/tidb/domain"
+
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/tidb/domain/infosync"
@@ -44,6 +46,7 @@ const promReadTimeout = time.Second * 10
 // MetricRetriever uses to read metric data.
 type MetricRetriever struct {
 	dummyCloser
+	sctx      sessionctx.Context
 	table     *model.TableInfo
 	tblDef    *infoschema.MetricTableDef
 	extractor *plannercore.MetricTableExtractor
@@ -94,11 +97,12 @@ func (e *MetricRetriever) queryMetric(ctx context.Context, sctx sessionctx.Conte
 		failpoint.Return(ctx.Value("__mockMetricsPromData").(pmodel.Matrix), nil)
 	})
 
+	infoSyncer := domain.GetDomain(sctx).InfoSyncer()
 	// Add retry to avoid network error.
 	var prometheusAddr string
 	for i := 0; i < 5; i++ {
 		//TODO: the prometheus will be Integrated into the PD, then we need to query the prometheus in PD directly, which need change the quire API
-		prometheusAddr, err = infosync.GetPrometheusAddr()
+		prometheusAddr, err = infoSyncer.GetPrometheusAddr()
 		if err == nil || err == infosync.ErrPrometheusAddrIsNotSet {
 			break
 		}

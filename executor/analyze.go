@@ -25,7 +25,6 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/tidb/domain"
-	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/metrics"
@@ -329,7 +328,7 @@ func AddNewAnalyzeJob(ctx sessionctx.Context, job *statistics.AnalyzeJob) {
 		return
 	}
 	var instance string
-	serverInfo, err := infosync.GetServerInfo()
+	serverInfo, err := domain.GetDomain(ctx).InfoSyncer().GetServerInfo()
 	if err != nil {
 		logutil.BgLogger().Error("failed to get server info", zap.Error(err))
 		instance = "unknown"

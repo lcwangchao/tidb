@@ -1776,9 +1776,10 @@ func TestGCPlacementRules(t *testing.T) {
 	require.NoError(t, err)
 	bundle.ID = bundleID
 
+	infoSyncer := s.dom.InfoSyncer()
 	// prepare bundle before gc
-	require.NoError(t, infosync.PutRuleBundles(context.Background(), []*placement.Bundle{bundle}))
-	got, err := infosync.GetRuleBundle(context.Background(), bundleID)
+	require.NoError(t, infoSyncer.PutRuleBundles(context.Background(), []*placement.Bundle{bundle}))
+	got, err := infoSyncer.GetRuleBundle(context.Background(), bundleID)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	require.False(t, got.IsEmpty())
@@ -1791,7 +1792,7 @@ func TestGCPlacementRules(t *testing.T) {
 	require.Equal(t, 1, deletePlacementRuleCounter)
 
 	// check bundle deleted after gc
-	got, err = infosync.GetRuleBundle(context.Background(), bundleID)
+	got, err = infoSyncer.GetRuleBundle(context.Background(), bundleID)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	require.True(t, got.IsEmpty())

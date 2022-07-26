@@ -32,7 +32,6 @@ import (
 	"github.com/pingcap/kvproto/pkg/deadlock"
 	"github.com/pingcap/tidb/ddl/label"
 	"github.com/pingcap/tidb/domain"
-	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/errno"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/infoschema"
@@ -78,6 +77,7 @@ import (
 
 type memtableRetriever struct {
 	dummyCloser
+	sctx        sessionctx.Context
 	table       *model.TableInfo
 	columns     []*model.ColumnInfo
 	rows        [][]types.Datum
@@ -2045,7 +2045,7 @@ func (e *memtableRetriever) setDataForPseudoProfiling(sctx sessionctx.Context) {
 }
 
 func (e *memtableRetriever) setDataForServersInfo(ctx sessionctx.Context) error {
-	serversInfo, err := infosync.GetAllServerInfo(context.Background())
+	serversInfo, err := domain.GetDomain(e.sctx).InfoSyncer().GetAllServerInfo(context.Background())
 	if err != nil {
 		return err
 	}
@@ -2107,7 +2107,7 @@ func (e *memtableRetriever) setDataFromSequences(ctx sessionctx.Context, schemas
 // dataForTableTiFlashReplica constructs data for table tiflash replica info.
 func (e *memtableRetriever) dataForTableTiFlashReplica(ctx sessionctx.Context, schemas []*model.DBInfo) {
 	var rows [][]types.Datum
-	progressMap, err := infosync.GetTiFlashTableSyncProgress(context.Background())
+	progressMap, err := domain.GetDomain(e.sctx).InfoSyncer().GetTiFlashTableSyncProgress(context.Background())
 	if err != nil {
 		ctx.GetSessionVars().StmtCtx.AppendWarning(err)
 	}
@@ -3015,7 +3015,7 @@ func (e *TiFlashSystemTableRetriever) dataForTiFlashSystemTables(ctx sessionctx.
 
 func (e *memtableRetriever) setDataForAttributes(ctx sessionctx.Context, is infoschema.InfoSchema) error {
 	checker := privilege.GetPrivilegeManager(ctx)
-	rules, err := infosync.GetAllLabelRules(context.TODO())
+	rules, err := domain.GetDomain(e.sctx).InfoSyncer().GetAllLabelRules(context.TODO())
 	skipValidateTable := false
 	failpoint.Inject("mockOutputOfAttributes", func() {
 		convert := func(i interface{}) []interface{} {

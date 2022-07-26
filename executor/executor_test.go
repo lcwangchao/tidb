@@ -32,7 +32,6 @@ import (
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/ddl"
 	"github.com/pingcap/tidb/domain"
-	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/errno"
 	"github.com/pingcap/tidb/executor"
 	"github.com/pingcap/tidb/expression"
@@ -5619,7 +5618,9 @@ func TestAdmin(t *testing.T) {
 	// rowOwnerInfos := strings.Split(row.Data[1].GetString(), ",")
 	// ownerInfos := strings.Split(ddlInfo.Owner.String(), ",")
 	// c.Assert(rowOwnerInfos[0], Equals, ownerInfos[0])
-	serverInfo, err := infosync.GetServerInfoByID(ctx, row.GetString(1))
+	dom := domain.GetDomain(tk.Session())
+
+	serverInfo, err := dom.InfoSyncer().GetServerInfoByID(ctx, row.GetString(1))
 	require.NoError(t, err)
 	require.Equal(t, serverInfo.IP+":"+strconv.FormatUint(uint64(serverInfo.Port), 10), row.GetString(2))
 	require.Equal(t, "", row.GetString(3))
@@ -5678,7 +5679,6 @@ func TestAdmin(t *testing.T) {
 	// error table name
 	require.Error(t, tk.ExecToErr("admin check table admin_test_error"))
 	// different index values
-	dom := domain.GetDomain(tk.Session())
 	is := dom.InfoSchema()
 	require.NotNil(t, is)
 	tb, err := is.TableByName(model.NewCIStr("test"), model.NewCIStr("admin_test"))

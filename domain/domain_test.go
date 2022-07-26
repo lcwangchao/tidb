@@ -26,7 +26,6 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/tidb/ddl"
-	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/metrics"
 	"github.com/pingcap/tidb/parser/ast"
@@ -82,27 +81,27 @@ func TestInfo(t *testing.T) {
 	)
 	ddl.DisableTiFlashPoll(dom.ddl)
 	require.NoError(t, failpoint.Enable("github.com/pingcap/tidb/domain/MockReplaceDDL", `return(true)`))
-	require.NoError(t, dom.Init(ddlLease, sysMockFactory, ""))
+	require.NoError(t, dom.Init(ddlLease, sysMockFactory))
 	require.NoError(t, failpoint.Disable("github.com/pingcap/tidb/domain/MockReplaceDDL"))
 
 	// Test for GetServerInfo and GetServerInfoByID.
 	ddlID := dom.ddl.GetID()
-	serverInfo, err := infosync.GetServerInfo()
+	serverInfo, err := dom.info.GetServerInfo()
 	require.NoError(t, err)
 
-	info, err := infosync.GetServerInfoByID(goCtx, ddlID)
+	info, err := dom.info.GetServerInfoByID(goCtx, ddlID)
 	require.NoError(t, err)
 
 	if serverInfo.ID != info.ID {
 		t.Fatalf("server self info %v, info %v", serverInfo, info)
 	}
 
-	_, err = infosync.GetServerInfoByID(goCtx, "not_exist_id")
+	_, err = dom.info.GetServerInfoByID(goCtx, "not_exist_id")
 	require.Error(t, err)
 	require.Equal(t, "[info-syncer] get /tidb/server/info/not_exist_id failed", err.Error())
 
 	// Test for GetAllServerInfo.
-	infos, err := infosync.GetAllServerInfo(goCtx)
+	infos, err := dom.info.GetAllServerInfo(goCtx)
 	require.NoError(t, err)
 	require.Lenf(t, infos, 1, "server one info %v, info %v", infos[ddlID], info)
 	require.Equalf(t, info.ID, infos[ddlID].ID, "server one info %v, info %v", infos[ddlID], info)
@@ -143,7 +142,7 @@ func TestInfo(t *testing.T) {
 
 	// Test for RemoveServerInfo.
 	dom.info.RemoveServerInfo()
-	infos, err = infosync.GetAllServerInfo(goCtx)
+	infos, err = dom.info.GetAllServerInfo(goCtx)
 	require.NoError(t, err)
 	require.Len(t, infos, 0)
 

@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/testkit"
@@ -343,7 +342,7 @@ func TestShowColumnStatsUsage(t *testing.T) {
 }
 
 func TestShowAnalyzeStatus(t *testing.T) {
-	store, clean := testkit.CreateMockStore(t)
+	store, dom, clean := testkit.CreateMockStoreAndDomain(t)
 	defer clean()
 
 	tk := testkit.NewTestKit(t, store)
@@ -372,7 +371,7 @@ func TestShowAnalyzeStatus(t *testing.T) {
 	checkTime(rows[0][6])
 	require.Equal(t, "finished", rows[0][7])
 	require.Equal(t, "<nil>", rows[0][8])
-	serverInfo, err := infosync.GetServerInfo()
+	serverInfo, err := dom.InfoSyncer().GetServerInfo()
 	require.NoError(t, err)
 	addr := fmt.Sprintf("%s:%d", serverInfo.IP, serverInfo.Port)
 	require.Equal(t, addr, rows[0][9])

@@ -33,6 +33,7 @@ import (
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/ddl/util"
+	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/meta"
@@ -224,6 +225,7 @@ type ddlCtx struct {
 	statsHandle  *handle.Handle
 	tableLockCkr util.DeadTableLockChecker
 	etcdCli      *clientv3.Client
+	infoSyncer   *infosync.InfoSyncer
 
 	// reorgCtx is used for reorganization.
 	reorgCtx struct {
@@ -443,6 +445,7 @@ func newDDL(ctx context.Context, options ...Option) *ddl {
 		infoCache:    opt.InfoCache,
 		tableLockCkr: deadLockCkr,
 		etcdCli:      opt.EtcdCli,
+		infoSyncer:   opt.infoSyncer,
 	}
 	ddlCtx.reorgCtx.reorgCtxMap = make(map[int64]*reorgCtx)
 	ddlCtx.jobCtx.jobCtxMap = make(map[int64]*JobContext)

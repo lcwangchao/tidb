@@ -1905,7 +1905,7 @@ func (e *ShowExec) fetchSchedulingInfo(ctx context.Context, regions []regionMeta
 	if tbInfo.GetPartitionInfo() != nil {
 		// partitioned table
 		for _, part := range tbInfo.GetPartitionInfo().Definitions {
-			_, err = fetchScheduleState(ctx, scheduleState, part.ID)
+			_, err = fetchScheduleState(ctx, e.ctx, scheduleState, part.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -1922,7 +1922,7 @@ func (e *ShowExec) fetchSchedulingInfo(ctx context.Context, regions []regionMeta
 	} else {
 		// un-partitioned table or index
 		schedulingConstraints[tbInfo.ID] = tblPlacement
-		_, err = fetchScheduleState(ctx, scheduleState, tbInfo.ID)
+		_, err = fetchScheduleState(ctx, e.ctx, scheduleState, tbInfo.ID)
 		if err != nil {
 			return nil, err
 		}

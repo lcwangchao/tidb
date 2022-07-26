@@ -162,7 +162,7 @@ type ServerVersionInfo struct {
 // Use atomic.Value to avoid data race in the test.
 var globalInfoSyncer atomic.Value
 
-func getGlobalInfoSyncer() (*InfoSyncer, error) {
+func GetGlobalInfoSyncer() (*InfoSyncer, error) {
 	v := globalInfoSyncer.Load()
 	if v == nil {
 		return nil, errors.New("infoSyncer is not initialized")
@@ -174,8 +174,7 @@ func setGlobalInfoSyncer(is *InfoSyncer) {
 	globalInfoSyncer.Store(is)
 }
 
-// GlobalInfoSyncerInit return a new InfoSyncer. It is exported for testing.
-func GlobalInfoSyncerInit(ctx context.Context, id string, serverIDGetter func() uint64, etcdCli *clientv3.Client, skipRegisterToDashBoard bool) (*InfoSyncer, error) {
+func NewInfoSyncerInit(ctx context.Context, id string, serverIDGetter func() uint64, etcdCli *clientv3.Client, skipRegisterToDashBoard bool) (*InfoSyncer, error) {
 	is := &InfoSyncer{
 		etcdCli:        etcdCli,
 		info:           getServerInfo(id, serverIDGetter),
@@ -189,6 +188,16 @@ func GlobalInfoSyncerInit(ctx context.Context, id string, serverIDGetter func() 
 	is.labelRuleManager = initLabelRuleManager(etcdCli)
 	is.placementManager = initPlacementManager(etcdCli)
 	is.tiflashPlacementManager = initTiFlashPlacementManager(etcdCli)
+	return is, nil
+}
+
+// GlobalInfoSyncerInit return a new InfoSyncer. It is exported for testing.
+func GlobalInfoSyncerInit(ctx context.Context, id string, serverIDGetter func() uint64, etcdCli *clientv3.Client, skipRegisterToDashBoard bool) (*InfoSyncer, error) {
+	is, err := NewInfoSyncerInit(ctx, id, serverIDGetter, etcdCli, skipRegisterToDashBoard)
+	if err != nil {
+		return nil, err
+	}
+
 	setGlobalInfoSyncer(is)
 	return is, nil
 }
@@ -243,12 +252,7 @@ func initTiFlashPlacementManager(etcdCli *clientv3.Client) TiFlashPlacementManag
 }
 
 // GetMockTiFlash can only be used in tests to get MockTiFlash
-func GetMockTiFlash() *MockTiFlash {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return nil
-	}
-
+func (is *InfoSyncer) GetMockTiFlash() *MockTiFlash {
 	m, ok := is.tiflashPlacementManager.(*mockTiFlashPlacementManager)
 	if ok {
 		return m.tiflash
@@ -257,12 +261,7 @@ func GetMockTiFlash() *MockTiFlash {
 }
 
 // SetMockTiFlash can only be used in tests to set MockTiFlash
-func SetMockTiFlash(tiflash *MockTiFlash) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return
-	}
-
+func (is *InfoSyncer) SetMockTiFlash(tiflash *MockTiFlash) {
 	m, ok := is.tiflashPlacementManager.(*mockTiFlashPlacementManager)
 	if ok {
 		m.SetMockTiFlash(tiflash)
@@ -270,20 +269,12 @@ func SetMockTiFlash(tiflash *MockTiFlash) {
 }
 
 // GetServerInfo gets self server static information.
-func GetServerInfo() (*ServerInfo, error) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return nil, err
-	}
+func (is *InfoSyncer) GetServerInfo() (*ServerInfo, error) {
 	return is.info, nil
 }
 
 // GetServerInfoByID gets specified server static information from etcd.
-func GetServerInfoByID(ctx context.Context, id string) (*ServerInfo, error) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return nil, err
-	}
+func (is *InfoSyncer) GetServerInfoByID(ctx context.Context, id string) (*ServerInfo, error) {
 	return is.getServerInfoByID(ctx, id)
 }
 
@@ -304,20 +295,12 @@ func (is *InfoSyncer) getServerInfoByID(ctx context.Context, id string) (*Server
 }
 
 // GetAllServerInfo gets all servers static information from etcd.
-func GetAllServerInfo(ctx context.Context) (map[string]*ServerInfo, error) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return nil, err
-	}
+func (is *InfoSyncer) GetAllServerInfo(ctx context.Context) (map[string]*ServerInfo, error) {
 	return is.getAllServerInfo(ctx)
 }
 
 // UpdateTiFlashTableSyncProgress is used to update the tiflash table replica sync progress.
-func UpdateTiFlashTableSyncProgress(ctx context.Context, tid int64, progress float64) error {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return err
-	}
+func (is *InfoSyncer) UpdateTiFlashTableSyncProgress(ctx context.Context, tid int64, progress float64) error {
 	if is.etcdCli == nil {
 		return nil
 	}
@@ -328,11 +311,7 @@ func UpdateTiFlashTableSyncProgress(ctx context.Context, tid int64, progress flo
 }
 
 // DeleteTiFlashTableSyncProgress is used to delete the tiflash table replica sync progress.
-func DeleteTiFlashTableSyncProgress(tid int64) error {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return err
-	}
+func (is *InfoSyncer) DeleteTiFlashTableSyncProgress(tid int64) error {
 	if is.etcdCli == nil {
 		return nil
 	}
@@ -341,11 +320,7 @@ func DeleteTiFlashTableSyncProgress(tid int64) error {
 }
 
 // GetTiFlashTableSyncProgress uses to get all the tiflash table replica sync progress.
-func GetTiFlashTableSyncProgress(ctx context.Context) (map[int64]float64, error) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return nil, err
-	}
+func (is *InfoSyncer) GetTiFlashTableSyncProgress(ctx context.Context) (map[int64]float64, error) {
 	progressMap := make(map[int64]float64)
 	if is.etcdCli == nil {
 		return progressMap, nil
@@ -444,27 +419,17 @@ func doRequestWithFailpoint(req *http.Request) (resp *http.Response, err error) 
 }
 
 // GetAllRuleBundles is used to get all rule bundles from PD. It is used to load full rules from PD while fullload infoschema.
-func GetAllRuleBundles(ctx context.Context) ([]*placement.Bundle, error) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return nil, err
-	}
-
+func (is *InfoSyncer) GetAllRuleBundles(ctx context.Context) ([]*placement.Bundle, error) {
 	return is.placementManager.GetAllRuleBundles(ctx)
 }
 
 // GetRuleBundle is used to get one specific rule bundle from PD.
-func GetRuleBundle(ctx context.Context, name string) (*placement.Bundle, error) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return nil, err
-	}
-
+func (is *InfoSyncer) GetRuleBundle(ctx context.Context, name string) (*placement.Bundle, error) {
 	return is.placementManager.GetRuleBundle(ctx, name)
 }
 
 // PutRuleBundles is used to post specific rule bundles to PD.
-func PutRuleBundles(ctx context.Context, bundles []*placement.Bundle) error {
+func (is *InfoSyncer) PutRuleBundles(ctx context.Context, bundles []*placement.Bundle) error {
 	failpoint.Inject("putRuleBundlesError", func(isServiceError failpoint.Value) {
 		var err error
 		if isServiceError.(bool) {
@@ -474,23 +439,17 @@ func PutRuleBundles(ctx context.Context, bundles []*placement.Bundle) error {
 		}
 		failpoint.Return(err)
 	})
-
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return err
-	}
-
 	return is.placementManager.PutRuleBundles(ctx, bundles)
 }
 
 // PutRuleBundlesWithRetry will retry for specified times when PutRuleBundles failed
-func PutRuleBundlesWithRetry(ctx context.Context, bundles []*placement.Bundle, maxRetry int, interval time.Duration) (err error) {
+func (is *InfoSyncer) PutRuleBundlesWithRetry(ctx context.Context, bundles []*placement.Bundle, maxRetry int, interval time.Duration) (err error) {
 	if maxRetry < 0 {
 		maxRetry = 0
 	}
 
 	for i := 0; i <= maxRetry; i++ {
-		if err = PutRuleBundles(ctx, bundles); err == nil || ErrHTTPServiceError.Equal(err) {
+		if err = is.PutRuleBundles(ctx, bundles); err == nil || ErrHTTPServiceError.Equal(err) {
 			return err
 		}
 
@@ -504,8 +463,8 @@ func PutRuleBundlesWithRetry(ctx context.Context, bundles []*placement.Bundle, m
 }
 
 // PutRuleBundlesWithDefaultRetry will retry for default times
-func PutRuleBundlesWithDefaultRetry(ctx context.Context, bundles []*placement.Bundle) (err error) {
-	return PutRuleBundlesWithRetry(ctx, bundles, SyncBundlesMaxRetry, RequestRetryInterval)
+func (is *InfoSyncer) PutRuleBundlesWithDefaultRetry(ctx context.Context, bundles []*placement.Bundle) (err error) {
+	return is.PutRuleBundlesWithRetry(ctx, bundles, SyncBundlesMaxRetry, RequestRetryInterval)
 }
 
 func (is *InfoSyncer) getAllServerInfo(ctx context.Context) (map[string]*ServerInfo, error) {
@@ -760,12 +719,7 @@ func (is *InfoSyncer) updateTopologyAliveness(ctx context.Context) error {
 }
 
 // GetPrometheusAddr gets prometheus Address
-func GetPrometheusAddr() (string, error) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return "", err
-	}
-
+func (is *InfoSyncer) GetPrometheusAddr() (string, error) {
 	// if the cache of prometheusAddr is over 10s, update the prometheusAddr
 	if time.Since(is.modifyTime) < TablePrometheusCacheExpiry {
 		return is.prometheusAddr, nil
@@ -914,15 +868,11 @@ func getServerInfo(id string, serverIDGetter func() uint64) *ServerInfo {
 }
 
 // PutLabelRule synchronizes the label rule to PD.
-func PutLabelRule(ctx context.Context, rule *label.Rule) error {
+func (is *InfoSyncer) PutLabelRule(ctx context.Context, rule *label.Rule) error {
 	if rule == nil {
 		return nil
 	}
 
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return err
-	}
 	if is.labelRuleManager == nil {
 		return nil
 	}
@@ -930,15 +880,11 @@ func PutLabelRule(ctx context.Context, rule *label.Rule) error {
 }
 
 // UpdateLabelRules synchronizes the label rule to PD.
-func UpdateLabelRules(ctx context.Context, patch *label.RulePatch) error {
+func (is *InfoSyncer) UpdateLabelRules(ctx context.Context, patch *label.RulePatch) error {
 	if patch == nil || (len(patch.DeleteRules) == 0 && len(patch.SetRules) == 0) {
 		return nil
 	}
 
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return err
-	}
 	if is.labelRuleManager == nil {
 		return nil
 	}
@@ -946,11 +892,7 @@ func UpdateLabelRules(ctx context.Context, patch *label.RulePatch) error {
 }
 
 // GetAllLabelRules gets all label rules from PD.
-func GetAllLabelRules(ctx context.Context) ([]*label.Rule, error) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return nil, err
-	}
+func (is *InfoSyncer) GetAllLabelRules(ctx context.Context) ([]*label.Rule, error) {
 	if is.labelRuleManager == nil {
 		return nil, nil
 	}
@@ -958,14 +900,9 @@ func GetAllLabelRules(ctx context.Context) ([]*label.Rule, error) {
 }
 
 // GetLabelRules gets the label rules according to the given IDs from PD.
-func GetLabelRules(ctx context.Context, ruleIDs []string) (map[string]*label.Rule, error) {
+func (is *InfoSyncer) GetLabelRules(ctx context.Context, ruleIDs []string) (map[string]*label.Rule, error) {
 	if len(ruleIDs) == 0 {
 		return nil, nil
-	}
-
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return nil, err
 	}
 	if is.labelRuleManager == nil {
 		return nil, nil
@@ -976,77 +913,45 @@ func GetLabelRules(ctx context.Context, ruleIDs []string) (map[string]*label.Rul
 // SetTiFlashPlacementRule is a helper function to set placement rule.
 // It is discouraged to use SetTiFlashPlacementRule directly,
 // use `ConfigureTiFlashPDForTable`/`ConfigureTiFlashPDForPartitions` instead.
-func SetTiFlashPlacementRule(ctx context.Context, rule placement.TiFlashRule) error {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (is *InfoSyncer) SetTiFlashPlacementRule(ctx context.Context, rule placement.TiFlashRule) error {
 	logutil.BgLogger().Info("SetTiFlashPlacementRule", zap.String("ruleID", rule.ID))
 	return is.tiflashPlacementManager.SetPlacementRule(ctx, rule)
 }
 
 // DeleteTiFlashPlacementRule is to delete placement rule for certain group.
-func DeleteTiFlashPlacementRule(ctx context.Context, group string, ruleID string) error {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (is *InfoSyncer) DeleteTiFlashPlacementRule(ctx context.Context, group string, ruleID string) error {
 	logutil.BgLogger().Info("DeleteTiFlashPlacementRule", zap.String("ruleID", ruleID))
 	return is.tiflashPlacementManager.DeletePlacementRule(ctx, group, ruleID)
 }
 
 // GetTiFlashGroupRules to get all placement rule in a certain group.
-func GetTiFlashGroupRules(ctx context.Context, group string) ([]placement.TiFlashRule, error) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (is *InfoSyncer) GetTiFlashGroupRules(ctx context.Context, group string) ([]placement.TiFlashRule, error) {
 	return is.tiflashPlacementManager.GetGroupRules(ctx, group)
 }
 
 // PostTiFlashAccelerateSchedule sends `regions/accelerate-schedule` request.
-func PostTiFlashAccelerateSchedule(ctx context.Context, tableID int64) error {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (is *InfoSyncer) PostTiFlashAccelerateSchedule(ctx context.Context, tableID int64) error {
 	logutil.BgLogger().Info("PostTiFlashAccelerateSchedule", zap.Int64("tableID", tableID))
 	return is.tiflashPlacementManager.PostAccelerateSchedule(ctx, tableID)
 }
 
 // GetTiFlashPDRegionRecordStats is a helper function calling `/stats/region`.
-func GetTiFlashPDRegionRecordStats(ctx context.Context, tableID int64, stats *helper.PDRegionStats) error {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (is *InfoSyncer) GetTiFlashPDRegionRecordStats(ctx context.Context, tableID int64, stats *helper.PDRegionStats) error {
 	return is.tiflashPlacementManager.GetPDRegionRecordStats(ctx, tableID, stats)
 }
 
 // GetTiFlashStoresStat gets the TiKV store information by accessing PD's api.
-func GetTiFlashStoresStat(ctx context.Context) (*helper.StoresStat, error) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (is *InfoSyncer) GetTiFlashStoresStat(ctx context.Context) (*helper.StoresStat, error) {
 	return is.tiflashPlacementManager.GetStoresStat(ctx)
 }
 
 // CloseTiFlashManager closes TiFlash manager.
-func CloseTiFlashManager(ctx context.Context) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return
-	}
+func (is *InfoSyncer) CloseTiFlashManager(ctx context.Context) {
 	is.tiflashPlacementManager.Close(ctx)
 }
 
 // ConfigureTiFlashPDForTable configures pd rule for unpartitioned tables.
-func ConfigureTiFlashPDForTable(id int64, count uint64, locationLabels *[]string) error {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (is *InfoSyncer) ConfigureTiFlashPDForTable(id int64, count uint64, locationLabels *[]string) error {
 	ctx := context.Background()
 	logutil.BgLogger().Info("ConfigureTiFlashPDForTable", zap.Int64("tableID", id), zap.Uint64("count", count))
 	ruleNew := MakeNewRule(id, count, *locationLabels)
@@ -1057,11 +962,7 @@ func ConfigureTiFlashPDForTable(id int64, count uint64, locationLabels *[]string
 }
 
 // ConfigureTiFlashPDForPartitions configures pd rule for all partition in partitioned tables.
-func ConfigureTiFlashPDForPartitions(accel bool, definitions *[]model.PartitionDefinition, count uint64, locationLabels *[]string, tableID int64) error {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (is *InfoSyncer) ConfigureTiFlashPDForPartitions(accel bool, definitions *[]model.PartitionDefinition, count uint64, locationLabels *[]string, tableID int64) error {
 	ctx := context.Background()
 	for _, p := range *definitions {
 		logutil.BgLogger().Info("ConfigureTiFlashPDForPartitions", zap.Int64("tableID", tableID), zap.Int64("partID", p.ID), zap.Bool("accel", accel), zap.Uint64("count", count))
@@ -1080,11 +981,7 @@ func ConfigureTiFlashPDForPartitions(accel bool, definitions *[]model.PartitionD
 }
 
 // StoreInternalSession is the entry function for store an internal session to SessionManager.
-func StoreInternalSession(se interface{}) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return
-	}
+func (is *InfoSyncer) StoreInternalSession(se interface{}) {
 	sm := is.GetSessionManager()
 	if sm == nil {
 		return
@@ -1093,11 +990,7 @@ func StoreInternalSession(se interface{}) {
 }
 
 // DeleteInternalSession is the entry function for delete an internal session from SessionManager.
-func DeleteInternalSession(se interface{}) {
-	is, err := getGlobalInfoSyncer()
-	if err != nil {
-		return
-	}
+func (is *InfoSyncer) DeleteInternalSession(se interface{}) {
 	sm := is.GetSessionManager()
 	if sm == nil {
 		return

@@ -151,7 +151,7 @@ func (is *InfoSyncer) ttlKeyExists(ctx context.Context) (bool, error) {
 }
 
 func TestPutBundlesRetry(t *testing.T) {
-	_, err := GlobalInfoSyncerInit(context.TODO(), "test", func() uint64 { return 1 }, nil, false)
+	infoSyncer, err := GlobalInfoSyncerInit(context.TODO(), "test", func() uint64 { return 1 }, nil, false)
 	require.NoError(t, err)
 
 	bundle, err := placement.NewBundleFromOptions(&model.PlacementSettings{PrimaryRegion: "r1", Regions: "r1,r2"})
@@ -159,32 +159,32 @@ func TestPutBundlesRetry(t *testing.T) {
 	bundle = bundle.Reset(placement.RuleIndexTable, []int64{1024})
 
 	t.Run("serviceErrorShouldNotRetry", func(t *testing.T) {
-		require.NoError(t, PutRuleBundles(context.TODO(), []*placement.Bundle{{ID: bundle.ID}}))
+		require.NoError(t, infoSyncer.PutRuleBundles(context.TODO(), []*placement.Bundle{{ID: bundle.ID}}))
 		require.NoError(t, failpoint.Enable("github.com/pingcap/tidb/domain/infosync/putRuleBundlesError", "1*return(true)"))
 		defer func() {
 			require.NoError(t, failpoint.Disable("github.com/pingcap/tidb/domain/infosync/putRuleBundlesError"))
 		}()
 
-		err := PutRuleBundlesWithRetry(context.TODO(), []*placement.Bundle{bundle}, 3, time.Millisecond)
+		err := infoSyncer.PutRuleBundlesWithRetry(context.TODO(), []*placement.Bundle{bundle}, 3, time.Millisecond)
 		require.Error(t, err)
 		require.Equal(t, "[domain:8243]mock service error", err.Error())
 
-		got, err := GetRuleBundle(context.TODO(), bundle.ID)
+		got, err := infoSyncer.GetRuleBundle(context.TODO(), bundle.ID)
 		require.NoError(t, err)
 		require.True(t, got.IsEmpty())
 	})
 
 	t.Run("nonServiceErrorShouldRetry", func(t *testing.T) {
-		require.NoError(t, PutRuleBundles(context.TODO(), []*placement.Bundle{{ID: bundle.ID}}))
+		require.NoError(t, infoSyncer.PutRuleBundles(context.TODO(), []*placement.Bundle{{ID: bundle.ID}}))
 		require.NoError(t, failpoint.Enable("github.com/pingcap/tidb/domain/infosync/putRuleBundlesError", "3*return(false)"))
 		defer func() {
 			require.NoError(t, failpoint.Disable("github.com/pingcap/tidb/domain/infosync/putRuleBundlesError"))
 		}()
 
-		err := PutRuleBundlesWithRetry(context.TODO(), []*placement.Bundle{bundle}, 3, time.Millisecond)
+		err := infoSyncer.PutRuleBundlesWithRetry(context.TODO(), []*placement.Bundle{bundle}, 3, time.Millisecond)
 		require.NoError(t, err)
 
-		got, err := GetRuleBundle(context.TODO(), bundle.ID)
+		got, err := infoSyncer.GetRuleBundle(context.TODO(), bundle.ID)
 		require.NoError(t, err)
 
 		gotJSON, err := json.Marshal(got)
@@ -197,17 +197,17 @@ func TestPutBundlesRetry(t *testing.T) {
 	})
 
 	t.Run("nonServiceErrorRetryAndFail", func(t *testing.T) {
-		require.NoError(t, PutRuleBundles(context.TODO(), []*placement.Bundle{{ID: bundle.ID}}))
+		require.NoError(t, infoSyncer.PutRuleBundles(context.TODO(), []*placement.Bundle{{ID: bundle.ID}}))
 		require.NoError(t, failpoint.Enable("github.com/pingcap/tidb/domain/infosync/putRuleBundlesError", "4*return(false)"))
 		defer func() {
 			require.NoError(t, failpoint.Disable("github.com/pingcap/tidb/domain/infosync/putRuleBundlesError"))
 		}()
 
-		err := PutRuleBundlesWithRetry(context.TODO(), []*placement.Bundle{bundle}, 3, time.Millisecond)
+		err := infoSyncer.PutRuleBundlesWithRetry(context.TODO(), []*placement.Bundle{bundle}, 3, time.Millisecond)
 		require.Error(t, err)
 		require.Equal(t, "mock other error", err.Error())
 
-		got, err := GetRuleBundle(context.TODO(), bundle.ID)
+		got, err := infoSyncer.GetRuleBundle(context.TODO(), bundle.ID)
 		require.NoError(t, err)
 		require.True(t, got.IsEmpty())
 	})
@@ -215,16 +215,16 @@ func TestPutBundlesRetry(t *testing.T) {
 
 func TestTiFlashManager(t *testing.T) {
 	ctx := context.Background()
-	_, err := GlobalInfoSyncerInit(ctx, "test", func() uint64 { return 1 }, nil, false)
+	is, err := GlobalInfoSyncerInit(ctx, "test", func() uint64 { return 1 }, nil, false)
 	tiflash := NewMockTiFlash()
-	SetMockTiFlash(tiflash)
+	is.SetMockTiFlash(tiflash)
 
 	require.NoError(t, err)
 
 	// SetTiFlashPlacementRule/GetTiFlashGroupRules
 	rule := MakeNewRule(1, 2, []string{"a"})
-	require.NoError(t, SetTiFlashPlacementRule(ctx, *rule))
-	rules, err := GetTiFlashGroupRules(ctx, "tiflash")
+	require.NoError(t, is.SetTiFlashPlacementRule(ctx, *rule))
+	rules, err := is.GetTiFlashGroupRules(ctx, "tiflash")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rules))
 	require.Equal(t, "table-1-r", rules[0].ID)
@@ -234,37 +234,38 @@ func TestTiFlashManager(t *testing.T) {
 	require.Equal(t, placement.RuleIndexTiFlash, rules[0].Index)
 
 	// PostTiFlashAccelerateSchedule
-	require.Nil(t, PostTiFlashAccelerateSchedule(ctx, 1))
+	require.Nil(t, is.PostTiFlashAccelerateSchedule(ctx, 1))
 	z, ok := tiflash.SyncStatus[1]
 	require.Equal(t, true, ok)
 	require.Equal(t, true, z.Accel)
 
 	// GetTiFlashStoresStat
-	stats, err := GetTiFlashStoresStat(ctx)
+	stats, err := is.GetTiFlashStoresStat(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, stats.Count)
 
 	// DeleteTiFlashPlacementRule
-	require.NoError(t, DeleteTiFlashPlacementRule(ctx, "tiflash", rule.ID))
-	rules, err = GetTiFlashGroupRules(ctx, "tiflash")
+	require.NoError(t, is.DeleteTiFlashPlacementRule(ctx, "tiflash", rule.ID))
+	rules, err = is.GetTiFlashGroupRules(ctx, "tiflash")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(rules))
 
 	// ConfigureTiFlashPDForTable
-	require.Nil(t, ConfigureTiFlashPDForTable(1, 2, &[]string{"a"}))
-	rules, err = GetTiFlashGroupRules(ctx, "tiflash")
+	require.Nil(t, is.ConfigureTiFlashPDForTable(1, 2, &[]string{"a"}))
+	rules, err = is.GetTiFlashGroupRules(ctx, "tiflash")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rules))
 
 	// ConfigureTiFlashPDForPartitions
-	ConfigureTiFlashPDForPartitions(true, &[]model.PartitionDefinition{
+	err = is.ConfigureTiFlashPDForPartitions(true, &[]model.PartitionDefinition{
 		{
 			ID:       2,
 			Name:     model.NewCIStr("p"),
 			LessThan: []string{},
 		},
 	}, 3, &[]string{}, 100)
-	rules, err = GetTiFlashGroupRules(ctx, "tiflash")
+	require.NoError(t, err)
+	rules, err = is.GetTiFlashGroupRules(ctx, "tiflash")
 	require.NoError(t, err)
 	// Have table 1 and 2
 	require.Equal(t, 2, len(rules))
@@ -272,5 +273,5 @@ func TestTiFlashManager(t *testing.T) {
 	require.Equal(t, true, ok)
 	require.Equal(t, true, z.Accel)
 
-	CloseTiFlashManager(ctx)
+	is.CloseTiFlashManager(ctx)
 }

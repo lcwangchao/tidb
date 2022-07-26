@@ -20,7 +20,6 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/ddl/placement"
-	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/meta"
 	"github.com/pingcap/tidb/parser/model"
@@ -55,7 +54,7 @@ func onCreatePlacementPolicy(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64
 
 		replacePolicy := existPolicy.Clone()
 		replacePolicy.PlacementSettings = policyInfo.PlacementSettings
-		if err = updateExistPlacementPolicy(t, replacePolicy); err != nil {
+		if err = updateExistPlacementPolicy(d, t, replacePolicy); err != nil {
 			job.State = model.JobStateCancelled
 			return ver, errors.Trace(err)
 		}
@@ -254,7 +253,7 @@ func onAlterPlacementPolicy(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64,
 		return ver, errors.Trace(err)
 	}
 
-	if err = updateExistPlacementPolicy(t, &newPolicyInfo); err != nil {
+	if err = updateExistPlacementPolicy(d, t, &newPolicyInfo); err != nil {
 		job.State = model.JobStateCancelled
 		return ver, errors.Trace(err)
 	}
@@ -269,7 +268,7 @@ func onAlterPlacementPolicy(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64,
 	return ver, nil
 }
 
-func updateExistPlacementPolicy(t *meta.Meta, policy *model.PolicyInfo) error {
+func updateExistPlacementPolicy(d *ddlCtx, t *meta.Meta, policy *model.PolicyInfo) error {
 	err := t.UpdatePolicy(policy)
 	if err != nil {
 		return errors.Trace(err)
@@ -304,7 +303,7 @@ func updateExistPlacementPolicy(t *meta.Meta, policy *model.PolicyInfo) error {
 			cp := bundle.Clone()
 			bundles = append(bundles, cp.Reset(placement.RuleIndexPartition, []int64{id}))
 		}
-		err = infosync.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles)
+		err = d.infoSyncer.PutRuleBundlesWithDefaultRetry(context.TODO(), bundles)
 		if err != nil {
 			return errors.Wrapf(err, "failed to notify PD the placement rules")
 		}

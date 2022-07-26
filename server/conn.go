@@ -1430,7 +1430,12 @@ func (cc *clientConn) writeStats(ctx context.Context) error {
 	var err error
 	var uptime int64 = 0
 	info := serverInfo{}
-	info.ServerInfo, err = infosync.GetServerInfo()
+	infoSyncer, err := infosync.GetGlobalInfoSyncer()
+	if err != nil {
+		return err
+	}
+
+	info.ServerInfo, err = infoSyncer.GetServerInfo()
 	if err != nil {
 		logutil.BgLogger().Error("Failed to get ServerInfo for uptime status", zap.Error(err))
 	} else {

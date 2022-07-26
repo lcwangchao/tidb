@@ -24,6 +24,8 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/google/uuid"
+
 	"github.com/ngaut/pools"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
@@ -812,6 +814,22 @@ func StartDDLDomain(store kv.Storage, ddlLease time.Duration, ddlNodeID string, 
 		return nil, errors.Trace(err)
 	}
 	callback = newCallbackFunc(do)
+
+	if err = do.acquireServerID(ctx); err != nil {
+		logutil.BgLogger().Error("acquire serverID failed", zap.Error(err))
+		do.isLostConnectionToPD.Store(1) // will retry in `do.serverIDKeeper`
+	} else {
+		do.isLostConnectionToPD.Store(0)
+	}
+
+	do.wg.Add(1)
+	go do.serverIDKeeper()
+
+	do.info, err = infosync.NewInfoSyncerInit(ctx, ddlNodeID, do.ServerID, do.etcdClient, true)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	do.ddl = ddl.NewDDL(
 		ctx,
 		ddl.WithEtcdClient(do.etcdClient),
@@ -820,13 +838,8 @@ func StartDDLDomain(store kv.Storage, ddlLease time.Duration, ddlNodeID string, 
 		ddl.WithHook(callback),
 		ddl.WithLease(ddlLease),
 		ddl.WithID(ddlNodeID),
+		ddl.WithInfoSyncer(do.info),
 	)
-
-	// step 1: prepare the info/schema syncer which domain reload needed.
-	do.info, err = infosync.GlobalInfoSyncerInit(ctx, do.ddl.GetID(), do.ServerID, do.etcdClient, true)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	var pdClient pd.Client
 	if store, ok := do.store.(kv.StorageWithPD); ok {
@@ -942,20 +955,6 @@ func (do *Domain) Init(ddlLease time.Duration, sysExecutorFactory func(*Domain) 
 		return errors.Trace(err)
 	}
 	callback = newCallbackFunc(do)
-	d := do.ddl
-	do.ddl = ddl.NewDDL(
-		ctx,
-		ddl.WithEtcdClient(do.etcdClient),
-		ddl.WithStore(do.store),
-		ddl.WithInfoCache(do.infoCache),
-		ddl.WithHook(callback),
-		ddl.WithLease(ddlLease),
-	)
-	failpoint.Inject("MockReplaceDDL", func(val failpoint.Value) {
-		if val.(bool) {
-			do.ddl = d
-		}
-	})
 
 	if config.GetGlobalConfig().EnableGlobalKill {
 		if do.etcdClient != nil {
@@ -975,12 +974,31 @@ func (do *Domain) Init(ddlLease time.Duration, sysExecutorFactory func(*Domain) 
 		}
 	}
 
+	ddlID := uuid.New().String()
+
 	// step 1: prepare the info/schema syncer which domain reload needed.
 	skipRegisterToDashboard := config.GetGlobalConfig().SkipRegisterToDashboard
-	do.info, err = infosync.GlobalInfoSyncerInit(ctx, do.ddl.GetID(), do.ServerID, do.etcdClient, skipRegisterToDashboard)
+	do.info, err = infosync.GlobalInfoSyncerInit(ctx, ddlID, do.ServerID, do.etcdClient, skipRegisterToDashboard)
 	if err != nil {
 		return err
 	}
+
+	d := do.ddl
+	do.ddl = ddl.NewDDL(
+		ctx,
+		ddl.WithEtcdClient(do.etcdClient),
+		ddl.WithStore(do.store),
+		ddl.WithInfoCache(do.infoCache),
+		ddl.WithHook(callback),
+		ddl.WithLease(ddlLease),
+		ddl.WithInfoSyncer(do.info),
+		ddl.WithID(ddlID),
+	)
+	failpoint.Inject("MockReplaceDDL", func(val failpoint.Value) {
+		if val.(bool) {
+			do.ddl = d
+		}
+	})
 
 	var pdClient pd.Client
 	if store, ok := do.store.(kv.StorageWithPD); ok {
@@ -1078,7 +1096,7 @@ func (p *sessionPool) Get() (resource pools.Resource, err error) {
 	})
 
 	if nil == err {
-		infosync.StoreInternalSession(resource)
+		GetDomain(resource.(sessionctx.Context)).info.StoreInternalSession(resource)
 	}
 
 	return
@@ -1088,7 +1106,8 @@ func (p *sessionPool) Put(resource pools.Resource) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	// Delete the internal session to the map of SessionManager
-	infosync.DeleteInternalSession(resource)
+	GetDomain(resource.(sessionctx.Context)).info.DeleteInternalSession(resource)
+
 	if p.mu.closed {
 		resource.Close()
 		return
