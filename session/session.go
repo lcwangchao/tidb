@@ -557,7 +557,7 @@ func (s *session) doCommit(ctx context.Context) error {
 		return nil
 	}
 	// check if the cluster is read-only
-	if !s.sessionVars.InRestrictedSQL && variable.RestrictedReadOnly.Load() || variable.VarTiDBSuperReadOnly.Load() {
+	if !s.sessionVars.InRestrictedSQL && s.sessionVars.DomVars.RestrictedReadOnly.Load() || s.sessionVars.DomVars.VarTiDBSuperReadOnly.Load() {
 		// It is not internal SQL, and the cluster has one of RestrictedReadOnly or SuperReadOnly
 		// We need to privilege check again: a privilege check occurred during planning, but we need
 		// to prevent the case that a long running auto-commit statement is now trying to commit.
@@ -2841,7 +2841,7 @@ func createSessionWithOpt(store kv.Storage, opt *Opt) (*session, error) {
 	}
 	s := &session{
 		store:                 store,
-		sessionVars:           variable.NewSessionVars(),
+		sessionVars:           variable.NewSessionVarsWithDomVars(dom.Vars),
 		ddlOwnerManager:       dom.DDL().OwnerManager(),
 		client:                store.GetClient(),
 		mppClient:             store.GetMPPClient(),
@@ -2853,8 +2853,8 @@ func createSessionWithOpt(store kv.Storage, opt *Opt) (*session, error) {
 		if opt != nil && opt.PreparedPlanCache != nil {
 			s.preparedPlanCache = opt.PreparedPlanCache
 		} else {
-			s.preparedPlanCache = kvcache.NewSimpleLRUCache(uint(variable.PreparedPlanCacheSize.Load()),
-				variable.PreparedPlanCacheMemoryGuardRatio.Load(), plannercore.PreparedPlanCacheMaxMemory.Load())
+			s.preparedPlanCache = kvcache.NewSimpleLRUCache(uint(dom.Vars.PreparedPlanCacheSize.Load()),
+				dom.Vars.PreparedPlanCacheMemoryGuardRatio.Load(), plannercore.PreparedPlanCacheMaxMemory.Load())
 		}
 	}
 	s.mu.values = make(map[fmt.Stringer]interface{})
@@ -2880,7 +2880,7 @@ func createSessionWithOpt(store kv.Storage, opt *Opt) (*session, error) {
 func CreateSessionWithDomain(store kv.Storage, dom *domain.Domain) (*session, error) {
 	s := &session{
 		store:                 store,
-		sessionVars:           variable.NewSessionVars(),
+		sessionVars:           variable.NewSessionVarsWithDomVars(dom.Vars),
 		client:                store.GetClient(),
 		mppClient:             store.GetMPPClient(),
 		stmtStats:             stmtstats.CreateStatementStats(),
@@ -2888,8 +2888,8 @@ func CreateSessionWithDomain(store kv.Storage, dom *domain.Domain) (*session, er
 	}
 	s.functionUsageMu.builtinFunctionUsage = make(telemetry.BuiltinFunctionsUsage)
 	if plannercore.PreparedPlanCacheEnabled() {
-		s.preparedPlanCache = kvcache.NewSimpleLRUCache(uint(variable.PreparedPlanCacheSize.Load()),
-			variable.PreparedPlanCacheMemoryGuardRatio.Load(), plannercore.PreparedPlanCacheMaxMemory.Load())
+		s.preparedPlanCache = kvcache.NewSimpleLRUCache(uint(dom.Vars.PreparedPlanCacheSize.Load()),
+			dom.Vars.PreparedPlanCacheMemoryGuardRatio.Load(), plannercore.PreparedPlanCacheMaxMemory.Load())
 	}
 	s.mu.values = make(map[fmt.Stringer]interface{})
 	s.lockedTables = make(map[int64]model.TableLockTpInfo)
@@ -3134,7 +3134,7 @@ func logStmt(execStmt *executor.ExecStmt, s *session) {
 
 func logGeneralQuery(execStmt *executor.ExecStmt, s *session, isPrepared bool) {
 	vars := s.GetSessionVars()
-	if variable.ProcessGeneralLog.Load() && !vars.InRestrictedSQL {
+	if s.sessionVars.DomVars.ProcessGeneralLog.Load() && !vars.InRestrictedSQL {
 		var query string
 		if isPrepared {
 			query = execStmt.OriginText()

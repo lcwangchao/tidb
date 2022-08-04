@@ -160,7 +160,7 @@ func newBackfillWorker(sessCtx sessionctx.Context, id int, t table.PhysicalTable
 		id:        id,
 		table:     t,
 		reorgInfo: reorgInfo,
-		batchCnt:  int(variable.GetDDLReorgBatchSize()),
+		batchCnt:  int(sessCtx.GetSessionVars().DomVars.GetDDLReorgBatchSize()),
 		sessCtx:   sessCtx,
 		taskCh:    make(chan *reorgBackfillTask, 1),
 		resultCh:  make(chan *backfillResult, 1),
@@ -200,10 +200,6 @@ func (r *reorgBackfillTask) String() string {
 }
 
 func logSlowOperations(elapsed time.Duration, slowMsg string, threshold uint32) {
-	if threshold == 0 {
-		threshold = atomic.LoadUint32(&variable.DDLSlowOprThreshold)
-	}
-
 	if elapsed >= time.Duration(threshold)*time.Millisecond {
 		logutil.BgLogger().Info("[ddl] slow operations", zap.Duration("takeTimes", elapsed), zap.String("msg", slowMsg))
 	}
@@ -329,7 +325,7 @@ func (w *backfillWorker) run(d *ddlCtx, bf backfiller, job *model.Job) {
 		})
 
 		// Dynamic change batch size.
-		w.batchCnt = int(variable.GetDDLReorgBatchSize())
+		w.batchCnt = int(w.sessCtx.GetSessionVars().DomVars.GetDDLReorgBatchSize())
 		result := w.handleBackfillTask(d, task, bf)
 		w.resultCh <- result
 	}
@@ -609,7 +605,7 @@ func (w *worker) writePhysicalTableRecord(t table.PhysicalTable, bfWorkerType ba
 	})
 
 	// variable.ddlReorgWorkerCounter can be modified by system variable "tidb_ddl_reorg_worker_cnt".
-	workerCnt := variable.GetDDLReorgWorkerCounter()
+	workerCnt := w.domVars.GetDDLReorgWorkerCounter()
 	backfillWorkers := make([]*backfillWorker, 0, workerCnt)
 	defer func() {
 		closeBackfillWorkers(backfillWorkers)
@@ -626,8 +622,8 @@ func (w *worker) writePhysicalTableRecord(t table.PhysicalTable, bfWorkerType ba
 		if err := loadDDLReorgVars(w); err != nil {
 			logutil.BgLogger().Error("[ddl] load DDL reorganization variable failed", zap.Error(err))
 		}
-		workerCnt = variable.GetDDLReorgWorkerCounter()
-		rowFormat := variable.GetDDLReorgRowFormat()
+		workerCnt = w.domVars.GetDDLReorgWorkerCounter()
+		rowFormat := w.domVars.GetDDLReorgRowFormat()
 		// If only have 1 range, we can only start 1 worker.
 		if len(kvRanges) < int(workerCnt) {
 			workerCnt = int32(len(kvRanges))

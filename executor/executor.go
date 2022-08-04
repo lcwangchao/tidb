@@ -1929,12 +1929,14 @@ func ResetContextOfStmt(ctx sessionctx.Context, s ast.StmtNode) (err error) {
 		sc.MemTracker.AttachToGlobalTracker(GlobalMemoryUsageTracker)
 	}
 
+	sessVars := ctx.GetSessionVars()
 	sc.InitDiskTracker(memory.LabelForSQLText, -1)
 	globalConfig := config.GetGlobalConfig()
-	if variable.EnableTmpStorageOnOOM.Load() && GlobalDiskUsageTracker != nil {
+	if sessVars.DomVars.EnableTmpStorageOnOOM.Load() && GlobalDiskUsageTracker != nil {
 		sc.DiskTracker.AttachToGlobalTracker(GlobalDiskUsageTracker)
 	}
-	switch variable.OOMAction.Load() {
+
+	switch sessVars.DomVars.OOMAction.Load() {
 	case variable.OOMActionCancel:
 		action := &memory.PanicOnExceed{ConnID: ctx.GetSessionVars().ConnectionID}
 		action.SetLogHook(domain.GetDomain(ctx).ExpensiveQueryHandle().LogOnQueryExceedMemQuota)
@@ -1955,7 +1957,7 @@ func ResetContextOfStmt(ctx sessionctx.Context, s ast.StmtNode) (err error) {
 		sc.InitSQLDigest(prepareStmt.NormalizedSQL, prepareStmt.SQLDigest)
 		// For `execute stmt` SQL, should reset the SQL digest with the prepare SQL digest.
 		goCtx := context.Background()
-		if variable.EnablePProfSQLCPU.Load() && len(prepareStmt.NormalizedSQL) > 0 {
+		if sessVars.DomVars.EnablePProfSQLCPU.Load() && len(prepareStmt.NormalizedSQL) > 0 {
 			goCtx = pprof.WithLabels(goCtx, pprof.Labels("sql", util.QueryStrForLog(prepareStmt.NormalizedSQL)))
 			pprof.SetGoroutineLabels(goCtx)
 		}
@@ -2078,7 +2080,7 @@ func ResetContextOfStmt(ctx sessionctx.Context, s ast.StmtNode) (err error) {
 	sc.SkipASCIICheck = vars.SkipASCIICheck
 	sc.SkipUTF8MB4Check = !globalConfig.Instance.CheckMb4ValueInUTF8.Load()
 	vars.PreparedParams = vars.PreparedParams[:0]
-	if priority := mysql.PriorityEnum(atomic.LoadInt32(&variable.ForcePriority)); priority != mysql.NoPriority {
+	if priority := mysql.PriorityEnum(atomic.LoadInt32(&sessVars.DomVars.ForcePriority)); priority != mysql.NoPriority {
 		sc.Priority = priority
 	}
 	if vars.StmtCtx.LastInsertID > 0 {

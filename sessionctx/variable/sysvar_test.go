@@ -567,31 +567,31 @@ func TestInstanceScopedVars(t *testing.T) {
 	vars := NewSessionVars()
 	val, err := vars.GetSessionOrGlobalSystemVar(TiDBGeneralLog)
 	require.NoError(t, err)
-	require.Equal(t, BoolToOnOff(ProcessGeneralLog.Load()), val)
+	require.Equal(t, BoolToOnOff(GlobalDomVars.ProcessGeneralLog.Load()), val)
 
 	val, err = vars.GetSessionOrGlobalSystemVar(TiDBPProfSQLCPU)
 	require.NoError(t, err)
 	expected := "0"
-	if EnablePProfSQLCPU.Load() {
+	if GlobalDomVars.EnablePProfSQLCPU.Load() {
 		expected = "1"
 	}
 	require.Equal(t, expected, val)
 
 	val, err = vars.GetSessionOrGlobalSystemVar(TiDBExpensiveQueryTimeThreshold)
 	require.NoError(t, err)
-	require.Equal(t, fmt.Sprintf("%d", atomic.LoadUint64(&ExpensiveQueryTimeThreshold)), val)
+	require.Equal(t, fmt.Sprintf("%d", atomic.LoadUint64(&GlobalDomVars.ExpensiveQueryTimeThreshold)), val)
 
 	val, err = vars.GetSessionOrGlobalSystemVar(TiDBMemoryUsageAlarmRatio)
 	require.NoError(t, err)
-	require.Equal(t, fmt.Sprintf("%g", MemoryUsageAlarmRatio.Load()), val)
+	require.Equal(t, fmt.Sprintf("%g", GlobalDomVars.MemoryUsageAlarmRatio.Load()), val)
 
 	val, err = vars.GetSessionOrGlobalSystemVar(TiDBForcePriority)
 	require.NoError(t, err)
-	require.Equal(t, mysql.Priority2Str[mysql.PriorityEnum(atomic.LoadInt32(&ForcePriority))], val)
+	require.Equal(t, mysql.Priority2Str[mysql.PriorityEnum(atomic.LoadInt32(&GlobalDomVars.ForcePriority))], val)
 
 	val, err = vars.GetSessionOrGlobalSystemVar(TiDBDDLSlowOprThreshold)
 	require.NoError(t, err)
-	require.Equal(t, strconv.FormatUint(uint64(atomic.LoadUint32(&DDLSlowOprThreshold)), 10), val)
+	require.Equal(t, strconv.FormatUint(uint64(atomic.LoadUint32(&GlobalDomVars.DDLSlowOprThreshold)), 10), val)
 
 	val, err = vars.GetSessionOrGlobalSystemVar(PluginDir)
 	require.NoError(t, err)
@@ -630,7 +630,7 @@ func TestInstanceScopedVars(t *testing.T) {
 
 	val, err = vars.GetSessionOrGlobalSystemVar(TiDBLogFileMaxDays)
 	require.NoError(t, err)
-	require.Equal(t, fmt.Sprint(GlobalLogMaxDays.Load()), val)
+	require.Equal(t, fmt.Sprint(GlobalDomVars.GlobalLogMaxDays.Load()), val)
 }
 
 // TestDefaultValuesAreSettable that sysvars defaults are logically valid. i.e.
@@ -868,10 +868,10 @@ func TestDDLWorkers(t *testing.T) {
 
 	val, err = svBatchSize.Validate(vars, "10", ScopeGlobal)
 	require.NoError(t, err)
-	require.Equal(t, val, fmt.Sprint(MinDDLReorgBatchSize)) // converts it to min value
+	require.Equal(t, val, fmt.Sprint(DefMinDDLReorgBatchSize)) // converts it to min value
 	val, err = svBatchSize.Validate(vars, "999999", ScopeGlobal)
 	require.NoError(t, err)
-	require.Equal(t, val, fmt.Sprint(MaxDDLReorgBatchSize)) // converts it to max value
+	require.Equal(t, val, fmt.Sprint(DefMaxDDLReorgBatchSize)) // converts it to max value
 	val, err = svBatchSize.Validate(vars, "100", ScopeGlobal)
 	require.NoError(t, err)
 	require.Equal(t, val, "100") // unchanged

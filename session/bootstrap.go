@@ -805,7 +805,7 @@ func upgrade(s Session) {
 		if !useConcurrentDDL {
 			// Use another variable DDLForce2Queue but not EnableConcurrentDDL since in upgrade it may set global variable, the initial step will
 			// overwrite variable EnableConcurrentDDL.
-			variable.DDLForce2Queue.Store(true)
+			s.GetSessionVars().DomVars.DDLForce2Queue.Store(true)
 		}
 	}
 	// Do upgrade works then update bootstrap version.
@@ -813,7 +813,7 @@ func upgrade(s Session) {
 		upgrade(s, ver)
 	}
 
-	variable.DDLForce2Queue.Store(false)
+	s.GetSessionVars().DomVars.DDLForce2Queue.Store(false)
 	updateBootstrapVer(s)
 	ctx := kv.WithInternalSourceType(context.Background(), kv.InternalTxnBootstrap)
 	_, err = s.ExecuteInternal(ctx, "COMMIT")

@@ -265,7 +265,7 @@ func (s *schemaValidator) Check(txnTS uint64, schemaVer int64, relatedPhysicalTa
 }
 
 func (s *schemaValidator) enqueue(schemaVersion int64, change *transaction.RelatedSchemaChange) {
-	maxCnt := int(variable.GetMaxDeltaSchemaCount())
+	maxCnt := int(s.do.Vars.GetMaxDeltaSchemaCount())
 	if maxCnt <= 0 {
 		logutil.BgLogger().Info("the schema validator enqueue", zap.Int("delta max count", maxCnt))
 		return

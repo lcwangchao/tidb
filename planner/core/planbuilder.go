@@ -2372,7 +2372,7 @@ func mergeColumnList(choice1 model.ColumnChoice, list1 []*model.ColumnInfo, choi
 func (b *PlanBuilder) buildAnalyzeTable(as *ast.AnalyzeTableStmt, opts map[ast.AnalyzeOptionType]uint64, version int) (Plan, error) {
 	p := &Analyze{Opts: opts}
 	p.OptionsMap = make(map[int64]V2AnalyzeOptions)
-	usePersistedOptions := variable.PersistAnalyzeOptions.Load()
+	usePersistedOptions := b.ctx.GetSessionVars().DomVars.PersistAnalyzeOptions.Load()
 	for _, tbl := range as.TableNames {
 		if tbl.TableInfo.IsView() {
 			return nil, errors.Errorf("analyze view %s is not supported now", tbl.Name.O)

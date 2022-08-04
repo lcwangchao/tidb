@@ -224,7 +224,7 @@ func (s *rpcServer) createSession() (session.Session, error) {
 	vars.SetHashAggFinalConcurrency(1)
 	vars.StmtCtx.InitMemTracker(memory.LabelForSQLText, vars.MemQuotaQuery)
 	vars.StmtCtx.MemTracker.AttachToGlobalTracker(executor.GlobalMemoryUsageTracker)
-	switch variable.OOMAction.Load() {
+	switch do.Vars.OOMAction.Load() {
 	case variable.OOMActionCancel:
 		action := &memory.PanicOnExceed{}
 		action.SetLogHook(domain.GetDomain(se).ExpensiveQueryHandle().LogOnQueryExceedMemQuota)

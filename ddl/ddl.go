@@ -278,6 +278,7 @@ type ddlCtx struct {
 	tableLockCkr util.DeadTableLockChecker
 	etcdCli      *clientv3.Client
 	infoSyncer   *infosync.InfoSyncer
+	domVars      *variable.DomainVars
 
 	*waitSchemaSyncedController
 	*schemaVersionManager
@@ -555,6 +556,7 @@ func newDDL(ctx context.Context, options ...Option) *ddl {
 		schemaVersionManager:       newSchemaVersionManager(),
 		waitSchemaSyncedController: newWaitSchemaSyncedController(),
 		runningJobIDs:              make([]string, 0, jobRecordCapacity),
+		domVars:                    opt.domVars,
 	}
 	ddlCtx.reorgCtx.reorgCtxMap = make(map[int64]*reorgCtx)
 	ddlCtx.jobCtx.jobCtxMap = make(map[int64]*JobContext)
@@ -869,7 +871,7 @@ func (d *ddl) asyncNotifyWorker(job *model.Job) {
 	if !config.GetGlobalConfig().Instance.TiDBEnableDDL.Load() {
 		return
 	}
-	if variable.EnableConcurrentDDL.Load() {
+	if d.domVars.EnableConcurrentDDL.Load() {
 		if d.isOwner() {
 			asyncNotify(d.ddlJobCh)
 		} else {
@@ -1156,7 +1158,7 @@ func (d *ddl) SwitchConcurrentDDL(toConcurrentDDL bool) error {
 		err = d.MoveJobFromTable2Queue()
 	}
 	if err == nil {
-		variable.EnableConcurrentDDL.Store(toConcurrentDDL)
+		d.domVars.EnableConcurrentDDL.Store(toConcurrentDDL)
 	}
 	logutil.BgLogger().Info("[ddl] SwitchConcurrentDDL", zap.Bool("toConcurrentDDL", toConcurrentDDL), zap.Error(err))
 	return err
@@ -1278,7 +1280,7 @@ func GetDDLInfo(s sessionctx.Context) (*Info, error) {
 	}
 	t := meta.NewMeta(txn)
 	info.Jobs = make([]*model.Job, 0, 2)
-	enable := variable.EnableConcurrentDDL.Load()
+	enable := s.GetSessionVars().DomVars.EnableConcurrentDDL.Load()
 	var generalJob, reorgJob *model.Job
 	if enable {
 		generalJob, reorgJob, err = get2JobsFromTable(sess)
@@ -1351,7 +1353,7 @@ func get2JobsFromTable(sess *session) (*model.Job, *model.Job, error) {
 
 // CancelJobs cancels the DDL jobs.
 func CancelJobs(se sessionctx.Context, store kv.Storage, ids []int64) (errs []error, err error) {
-	if variable.EnableConcurrentDDL.Load() {
+	if se.GetSessionVars().DomVars.EnableConcurrentDDL.Load() {
 		return cancelConcurrencyJobs(se, ids)
 	}
 
@@ -1521,7 +1523,7 @@ func getDDLJobsInQueue(t *meta.Meta, jobListKey meta.JobListKeyType) ([]*model.J
 
 // GetAllDDLJobs get all DDL jobs and sorts jobs by job.ID.
 func GetAllDDLJobs(sess sessionctx.Context, t *meta.Meta) ([]*model.Job, error) {
-	if variable.EnableConcurrentDDL.Load() {
+	if sess.GetSessionVars().DomVars.EnableConcurrentDDL.Load() {
 		return getJobsBySQL(newSession(sess), JobTable, "1 order by job_id")
 	}
 
@@ -1730,7 +1732,7 @@ func GetHistoryJobByID(sess sessionctx.Context, id int64) (*model.Job, error) {
 
 // AddHistoryDDLJobForTest used for test.
 func AddHistoryDDLJobForTest(sess sessionctx.Context, t *meta.Meta, job *model.Job, updateRawArgs bool) error {
-	return AddHistoryDDLJob(newSession(sess), t, job, updateRawArgs, variable.EnableConcurrentDDL.Load())
+	return AddHistoryDDLJob(newSession(sess), t, job, updateRawArgs, sess.GetSessionVars().DomVars.EnableConcurrentDDL.Load())
 }
 
 // AddHistoryDDLJob record the history job.

@@ -554,6 +554,8 @@ type SessionVars struct {
 	Concurrency
 	MemQuota
 	BatchSize
+	// DomVars stores the vars of current domain
+	DomVars *DomainVars
 	// DMLBatchSize indicates the number of rows batch-committed for a statement.
 	// It will be used when using LOAD DATA or BatchInsert or BatchDelete is on.
 	DMLBatchSize        int
@@ -1234,7 +1236,7 @@ func (s *SessionVars) RaiseWarningWhenMPPEnforced(warning string) {
 
 // CheckAndGetTxnScope will return the transaction scope we should use in the current session.
 func (s *SessionVars) CheckAndGetTxnScope() string {
-	if s.InRestrictedSQL || !EnableLocalTxn.Load() {
+	if s.InRestrictedSQL || !s.DomVars.EnableLocalTxn.Load() {
 		return kv.GlobalTxnScope
 	}
 	if s.TxnScope.GetVarValue() == kv.LocalTxnScope {
@@ -1355,7 +1357,13 @@ func (connInfo *ConnectionInfo) IsSecureTransport() bool {
 
 // NewSessionVars creates a session vars object.
 func NewSessionVars() *SessionVars {
+	return NewSessionVarsWithDomVars(GlobalDomVars)
+}
+
+// NewSessionVarsWithDomVars creates a session vars object with domain vars
+func NewSessionVarsWithDomVars(domVars *DomainVars) *SessionVars {
 	vars := &SessionVars{
+		DomVars:                     domVars,
 		Users:                       make(map[string]types.Datum),
 		UserVarTypes:                make(map[string]*types.FieldType),
 		systems:                     make(map[string]string),
@@ -1440,7 +1448,7 @@ func NewSessionVars() *SessionVars {
 		MPPStoreLastFailTime:        make(map[string]time.Time),
 		MPPStoreFailTTL:             DefTiDBMPPStoreFailTTL,
 		Rng:                         mathutil.NewWithTime(),
-		StatsLoadSyncWait:           StatsLoadSyncWait.Load(),
+		StatsLoadSyncWait:           domVars.StatsLoadSyncWait.Load(),
 		EnableLegacyInstanceScope:   DefEnableLegacyInstanceScope,
 		RemoveOrderbyInSubquery:     DefTiDBRemoveOrderbyInSubquery,
 		EnableSkewDistinctAgg:       DefTiDBSkewDistinctAgg,
@@ -1491,7 +1499,7 @@ func NewSessionVars() *SessionVars {
 			vars.IsolationReadEngines[kv.TiDB] = struct{}{}
 		}
 	}
-	if !EnableLocalTxn.Load() {
+	if !domVars.EnableLocalTxn.Load() {
 		vars.TxnScope = kv.NewGlobalTxnScopeVar()
 	}
 	vars.systems[CharacterSetConnection], vars.systems[CollationConnection] = charset.GetDefaultCharsetAndCollate()

@@ -110,6 +110,8 @@ type Domain struct {
 	sysProcesses SysProcesses
 
 	ddlServiceNode *ddlservice.ServiceNode
+
+	Vars *variable.DomainVars
 }
 
 // InfoCache export for test.
@@ -761,7 +763,7 @@ func StartDDLDomain(store kv.Storage, ddlLease time.Duration, ddlNodeID string, 
 		return nil, errors.New("Only kv.EtcdBackend supported for store")
 	}
 
-	do = NewDomain(store, ddlLease, time.Duration(0), time.Duration(0), time.Duration(0), nil, func() {})
+	do = NewDomain(store, ddlLease, time.Duration(0), time.Duration(0), time.Duration(0), nil, variable.NewDomainVars(), func() {})
 	do.sysExecutorFactory = sysExecutorFactory
 	do.sysSessionPool = newSessionPool(200, func() (pools.Resource, error) {
 		return do.sysExecutorFactory(do)
@@ -827,7 +829,7 @@ func StartDDLDomain(store kv.Storage, ddlLease time.Duration, ddlNodeID string, 
 	do.wg.Add(1)
 	go do.serverIDKeeper()
 
-	do.info, err = infosync.NewInfoSyncerInit(ctx, ddlNodeID, do.ServerID, do.etcdClient, true)
+	do.info, err = infosync.NewInfoSyncerInit(ctx, ddlNodeID, do.ServerID, do.etcdClient, do.Vars, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -841,6 +843,7 @@ func StartDDLDomain(store kv.Storage, ddlLease time.Duration, ddlNodeID string, 
 		ddl.WithLease(ddlLease),
 		ddl.WithID(ddlNodeID),
 		ddl.WithInfoSyncer(do.info),
+		ddl.WithDomVars(do.Vars),
 	)
 
 	var pdClient pd.Client
@@ -874,11 +877,23 @@ func StartDDLDomain(store kv.Storage, ddlLease time.Duration, ddlNodeID string, 
 	do.wg.Add(2)
 	go do.infoSyncerKeeper()
 	go do.globalConfigSyncerKeeper()
+
+	se, err := sysExecutorFactory(do)
+	if err != nil {
+		do.Close()
+		return nil, err
+	}
+
+	if err = do.LoadSysVarCacheLoop(se.(sessionctx.Context)); err != nil {
+		do.Close()
+		return nil, err
+	}
+
 	return do, nil
 }
 
 // NewDomain creates a new domain. Should not create multiple domains for the same store.
-func NewDomain(store kv.Storage, ddlLease time.Duration, statsLease time.Duration, idxUsageSyncLease time.Duration, dumpFileGcLease time.Duration, factory pools.Factory, onClose func()) *Domain {
+func NewDomain(store kv.Storage, ddlLease time.Duration, statsLease time.Duration, idxUsageSyncLease time.Duration, dumpFileGcLease time.Duration, factory pools.Factory, domVars *variable.DomainVars, onClose func()) *Domain {
 	capacity := 200 // capacity of the sysSessionPool size
 	do := &Domain{
 		store:               store,
@@ -896,6 +911,7 @@ func NewDomain(store kv.Storage, ddlLease time.Duration, statsLease time.Duratio
 	do.SchemaValidator = NewSchemaValidator(ddlLease, do)
 	do.expensiveQueryHandle = expensivequery.NewExpensiveQueryHandle(do.exit)
 	do.sysProcesses = SysProcesses{mu: &sync.RWMutex{}, procMap: make(map[uint64]sessionctx.Context)}
+	do.Vars = domVars
 	variable.SetStatsCacheCapacity.Store(do.SetStatsCacheCapacity)
 	return do
 }
@@ -995,6 +1011,7 @@ func (do *Domain) Init(ddlLease time.Duration, sysExecutorFactory func(*Domain) 
 		ddl.WithLease(ddlLease),
 		ddl.WithInfoSyncer(do.info),
 		ddl.WithID(ddlID),
+		ddl.WithDomVars(do.Vars),
 	)
 	failpoint.Inject("MockReplaceDDL", func(val failpoint.Value) {
 		if val.(bool) {
@@ -1690,7 +1707,7 @@ func (do *Domain) autoAnalyzeWorker(owner owner.Manager) {
 	for {
 		select {
 		case <-analyzeTicker.C:
-			if variable.RunAutoAnalyze.Load() && owner.IsOwner() {
+			if do.Vars.RunAutoAnalyze.Load() && owner.IsOwner() {
 				statsHandle.HandleAutoAnalyze(do.InfoSchema())
 			}
 		case <-do.exit:

@@ -17,6 +17,8 @@ package ddl
 import (
 	"time"
 
+	"github.com/pingcap/tidb/sessionctx/variable"
+
 	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
@@ -35,6 +37,7 @@ type Options struct {
 	Lease      time.Duration
 	ID         string
 	infoSyncer *infosync.InfoSyncer
+	domVars    *variable.DomainVars
 }
 
 // WithEtcdClient specifies the `clientv3.Client` of DDL used to request the etcd service
@@ -82,5 +85,11 @@ func WithID(id string) Option {
 func WithInfoSyncer(infoSyncer *infosync.InfoSyncer) Option {
 	return func(options *Options) {
 		options.infoSyncer = infoSyncer
+	}
+}
+
+func WithDomVars(domVars *variable.DomainVars) Option {
+	return func(options *Options) {
+		options.domVars = domVars
 	}
 }

@@ -78,7 +78,8 @@ func matchSQLBinding(sctx sessionctx.Context, stmtNode ast.StmtNode) (bindRecord
 func Optimize(ctx context.Context, sctx sessionctx.Context, node ast.Node, is infoschema.InfoSchema) (core.Plan, types.NameSlice, error) {
 	sessVars := sctx.GetSessionVars()
 
-	if !sctx.GetSessionVars().InRestrictedSQL && variable.RestrictedReadOnly.Load() || variable.VarTiDBSuperReadOnly.Load() {
+	sessionVars := sctx.GetSessionVars()
+	if !sessionVars.InRestrictedSQL && sessionVars.DomVars.RestrictedReadOnly.Load() || sessionVars.DomVars.VarTiDBSuperReadOnly.Load() {
 		allowed, err := allowInReadOnlyMode(sctx, node)
 		if err != nil {
 			return nil, nil, err

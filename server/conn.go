@@ -1319,7 +1319,7 @@ func (cc *clientConn) dispatch(ctx context.Context, data []byte) error {
 	if topsqlstate.TopSQLEnabled() {
 		defer pprof.SetGoroutineLabels(ctx)
 	}
-	if variable.EnablePProfSQLCPU.Load() {
+	if variable.GlobalDomVars.EnablePProfSQLCPU.Load() {
 		label := getLastStmtInConn{cc}.PProfLabel()
 		if len(label) > 0 {
 			defer pprof.SetGoroutineLabels(ctx)

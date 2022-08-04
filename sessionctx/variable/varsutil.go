@@ -37,54 +37,54 @@ const secondsPerYear = 60 * 60 * 24 * 365
 
 // SetDDLReorgWorkerCounter sets ddlReorgWorkerCounter count.
 // Sysvar validation enforces the range to already be correct.
-func SetDDLReorgWorkerCounter(cnt int32) {
-	atomic.StoreInt32(&ddlReorgWorkerCounter, cnt)
+func (vs *DomainVars) SetDDLReorgWorkerCounter(cnt int32) {
+	atomic.StoreInt32(&vs.ddlReorgWorkerCounter, cnt)
 }
 
 // GetDDLReorgWorkerCounter gets ddlReorgWorkerCounter.
-func GetDDLReorgWorkerCounter() int32 {
-	return atomic.LoadInt32(&ddlReorgWorkerCounter)
+func (vs *DomainVars) GetDDLReorgWorkerCounter() int32 {
+	return atomic.LoadInt32(&vs.ddlReorgWorkerCounter)
 }
 
 // SetDDLReorgBatchSize sets ddlReorgBatchSize size.
 // Sysvar validation enforces the range to already be correct.
-func SetDDLReorgBatchSize(cnt int32) {
-	atomic.StoreInt32(&ddlReorgBatchSize, cnt)
+func (vs *DomainVars) SetDDLReorgBatchSize(cnt int32) {
+	atomic.StoreInt32(&vs.ddlReorgBatchSize, cnt)
 }
 
 // GetDDLReorgBatchSize gets ddlReorgBatchSize.
-func GetDDLReorgBatchSize() int32 {
-	return atomic.LoadInt32(&ddlReorgBatchSize)
+func (vs *DomainVars) GetDDLReorgBatchSize() int32 {
+	return atomic.LoadInt32(&vs.ddlReorgBatchSize)
 }
 
 // SetDDLErrorCountLimit sets ddlErrorCountlimit size.
-func SetDDLErrorCountLimit(cnt int64) {
-	atomic.StoreInt64(&ddlErrorCountlimit, cnt)
+func (vs *DomainVars) SetDDLErrorCountLimit(cnt int64) {
+	atomic.StoreInt64(&vs.ddlErrorCountLimit, cnt)
 }
 
 // GetDDLErrorCountLimit gets ddlErrorCountlimit size.
-func GetDDLErrorCountLimit() int64 {
-	return atomic.LoadInt64(&ddlErrorCountlimit)
+func (vs *DomainVars) GetDDLErrorCountLimit() int64 {
+	return atomic.LoadInt64(&vs.ddlErrorCountLimit)
 }
 
 // SetDDLReorgRowFormat sets ddlReorgRowFormat version.
-func SetDDLReorgRowFormat(format int64) {
-	atomic.StoreInt64(&ddlReorgRowFormat, format)
+func (vs *DomainVars) SetDDLReorgRowFormat(format int64) {
+	atomic.StoreInt64(&vs.ddlReorgRowFormat, format)
 }
 
 // GetDDLReorgRowFormat gets ddlReorgRowFormat version.
-func GetDDLReorgRowFormat() int64 {
-	return atomic.LoadInt64(&ddlReorgRowFormat)
+func (vs *DomainVars) GetDDLReorgRowFormat() int64 {
+	return atomic.LoadInt64(&vs.ddlReorgRowFormat)
 }
 
 // SetMaxDeltaSchemaCount sets maxDeltaSchemaCount size.
-func SetMaxDeltaSchemaCount(cnt int64) {
-	atomic.StoreInt64(&maxDeltaSchemaCount, cnt)
+func (vs *DomainVars) SetMaxDeltaSchemaCount(cnt int64) {
+	atomic.StoreInt64(&vs.maxDeltaSchemaCount, cnt)
 }
 
 // GetMaxDeltaSchemaCount gets maxDeltaSchemaCount size.
-func GetMaxDeltaSchemaCount() int64 {
-	return atomic.LoadInt64(&maxDeltaSchemaCount)
+func (vs *DomainVars) GetMaxDeltaSchemaCount() int64 {
+	return atomic.LoadInt64(&vs.maxDeltaSchemaCount)
 }
 
 // BoolToOnOff returns the string representation of a bool, i.e. "ON/OFF"

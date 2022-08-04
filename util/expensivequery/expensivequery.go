@@ -50,7 +50,8 @@ func (eqh *Handle) SetSessionManager(sm util.SessionManager) *Handle {
 
 // Run starts a expensive query checker goroutine at the start time of the server.
 func (eqh *Handle) Run() {
-	threshold := atomic.LoadUint64(&variable.ExpensiveQueryTimeThreshold)
+	domVars := variable.GlobalDomVars
+	threshold := atomic.LoadUint64(&domVars.ExpensiveQueryTimeThreshold)
 	// use 100ms as tickInterval temply, may use given interval or use defined variable later
 	tickInterval := time.Millisecond * time.Duration(100)
 	ticker := time.NewTicker(tickInterval)
@@ -77,7 +78,7 @@ func (eqh *Handle) Run() {
 					sm.Kill(info.ID, true)
 				}
 				if info.ID == util.GetAutoAnalyzeProcID(sm.ServerID) {
-					maxAutoAnalyzeTime := variable.MaxAutoAnalyzeTime.Load()
+					maxAutoAnalyzeTime := domVars.MaxAutoAnalyzeTime.Load()
 					if maxAutoAnalyzeTime > 0 && costTime > time.Duration(maxAutoAnalyzeTime)*time.Second {
 						logutil.BgLogger().Warn("auto analyze timeout, kill it", zap.Duration("costTime", costTime),
 							zap.Duration("maxAutoAnalyzeTime", time.Duration(maxAutoAnalyzeTime)*time.Second), zap.String("processInfo", info.String()))
@@ -85,9 +86,9 @@ func (eqh *Handle) Run() {
 					}
 				}
 			}
-			threshold = atomic.LoadUint64(&variable.ExpensiveQueryTimeThreshold)
+			threshold = atomic.LoadUint64(&domVars.ExpensiveQueryTimeThreshold)
 
-			record.memoryUsageAlarmRatio = variable.MemoryUsageAlarmRatio.Load()
+			record.memoryUsageAlarmRatio = domVars.MemoryUsageAlarmRatio.Load()
 			if record.err == nil {
 				record.alarm4ExcessiveMemUsage(sm)
 			}

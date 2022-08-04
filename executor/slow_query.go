@@ -292,8 +292,8 @@ func getOneLine(reader *bufio.Reader) ([]byte, error) {
 		tempLine, isPrefix, err = reader.ReadLine()
 		resByte = append(resByte, tempLine...) // nozero
 		// Use the max value of max_allowed_packet to check the single line length.
-		if len(resByte) > int(variable.MaxOfMaxAllowedPacket) {
-			return resByte, errors.Errorf("single line length exceeds limit: %v", variable.MaxOfMaxAllowedPacket)
+		if len(resByte) > int(variable.DefMaxOfMaxAllowedPacket) {
+			return resByte, errors.Errorf("single line length exceeds limit: %v", variable.DefMaxOfMaxAllowedPacket)
 		}
 		if err != nil {
 			return resByte, err

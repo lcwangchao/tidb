@@ -1000,56 +1000,99 @@ const (
 	DefEnableTiDBGCAwareMemoryTrack                = true
 	DefTiDBDefaultStrMatchSelectivity              = 0.8
 	DefTiDBEnableTmpStorageOnOOM                   = true
+	DefMinExpensiveQueryTimeThreshold              = 10 // 10s
+	// MaxDDLReorgBatchSize is exported for testing.
+	DefMaxDDLReorgBatchSize  int32  = 10240
+	DefMinDDLReorgBatchSize  int32  = 32
+	DefMaxOfMaxAllowedPacket uint64 = 1073741824
+	DefExecutorConcurrency          = 5
 )
 
-// Process global variables.
-var (
-	ProcessGeneralLog           = atomic.NewBool(false)
-	RunAutoAnalyze              = atomic.NewBool(DefTiDBEnableAutoAnalyze)
-	GlobalLogMaxDays            = atomic.NewInt32(int32(config.GetGlobalConfig().Log.File.MaxDays))
-	QueryLogMaxLen              = atomic.NewInt32(DefTiDBQueryLogMaxLen)
-	EnablePProfSQLCPU           = atomic.NewBool(false)
-	EnableBatchDML              = atomic.NewBool(false)
-	EnableTmpStorageOnOOM       = atomic.NewBool(DefTiDBEnableTmpStorageOnOOM)
-	ddlReorgWorkerCounter int32 = DefTiDBDDLReorgWorkerCount
-	ddlReorgBatchSize     int32 = DefTiDBDDLReorgBatchSize
-	ddlErrorCountlimit    int64 = DefTiDBDDLErrorCountLimit
-	ddlReorgRowFormat     int64 = DefTiDBRowFormatV2
-	maxDeltaSchemaCount   int64 = DefTiDBMaxDeltaSchemaCount
-	// MaxDDLReorgBatchSize is exported for testing.
-	MaxDDLReorgBatchSize int32 = 10240
-	MinDDLReorgBatchSize int32 = 32
+type DomainVars struct {
+	ProcessGeneralLog     *atomic.Bool
+	RunAutoAnalyze        *atomic.Bool
+	GlobalLogMaxDays      *atomic.Int32
+	QueryLogMaxLen        *atomic.Int32
+	EnablePProfSQLCPU     *atomic.Bool
+	EnableBatchDML        *atomic.Bool
+	ddlReorgWorkerCounter int32
+	ddlReorgBatchSize     int32
+	ddlErrorCountLimit    int64
+	ddlReorgRowFormat     int64
+	maxDeltaSchemaCount   int64
 	// DDLSlowOprThreshold is the threshold for ddl slow operations, uint is millisecond.
-	DDLSlowOprThreshold                   = config.GetGlobalConfig().Instance.DDLSlowOprThreshold
-	ForcePriority                         = int32(DefTiDBForcePriority)
-	MaxOfMaxAllowedPacket          uint64 = 1073741824
-	ExpensiveQueryTimeThreshold    uint64 = DefTiDBExpensiveQueryTimeThreshold
-	MinExpensiveQueryTimeThreshold uint64 = 10 // 10s
-	DefExecutorConcurrency                = 5
-	MemoryUsageAlarmRatio                 = atomic.NewFloat64(config.GetGlobalConfig().Instance.MemoryUsageAlarmRatio)
-	EnableLocalTxn                        = atomic.NewBool(DefTiDBEnableLocalTxn)
-	MaxTSOBatchWaitInterval               = atomic.NewFloat64(DefTiDBTSOClientBatchMaxWaitTime)
-	EnableTSOFollowerProxy                = atomic.NewBool(DefTiDBEnableTSOFollowerProxy)
-	RestrictedReadOnly                    = atomic.NewBool(DefTiDBRestrictedReadOnly)
-	VarTiDBSuperReadOnly                  = atomic.NewBool(DefTiDBSuperReadOnly)
-	PersistAnalyzeOptions                 = atomic.NewBool(DefTiDBPersistAnalyzeOptions)
-	TableCacheLease                       = atomic.NewInt64(DefTiDBTableCacheLease)
-	EnableColumnTracking                  = atomic.NewBool(DefTiDBEnableColumnTracking)
-	StatsLoadSyncWait                     = atomic.NewInt64(DefTiDBStatsLoadSyncWait)
-	StatsLoadPseudoTimeout                = atomic.NewBool(DefTiDBStatsLoadPseudoTimeout)
-	MemQuotaBindingCache                  = atomic.NewInt64(DefTiDBMemQuotaBindingCache)
-	GCMaxWaitTime                         = atomic.NewInt64(DefTiDBGCMaxWaitTime)
-	StatsCacheMemQuota                    = atomic.NewInt64(DefTiDBStatsCacheMemQuota)
-	OOMAction                             = atomic.NewString(DefTiDBMemOOMAction)
-	MaxAutoAnalyzeTime                    = atomic.NewInt64(DefTiDBMaxAutoAnalyzeTime)
+	DDLSlowOprThreshold         uint32
+	ForcePriority               int32
+	ExpensiveQueryTimeThreshold uint64
+	MemoryUsageAlarmRatio       *atomic.Float64
+	EnableLocalTxn              *atomic.Bool
+	MaxTSOBatchWaitInterval     *atomic.Float64
+	EnableTSOFollowerProxy      *atomic.Bool
+	RestrictedReadOnly          *atomic.Bool
+	VarTiDBSuperReadOnly        *atomic.Bool
+	PersistAnalyzeOptions       *atomic.Bool
+	TableCacheLease             *atomic.Int64
+	EnableColumnTracking        *atomic.Bool
+	StatsLoadSyncWait           *atomic.Int64
+	StatsLoadPseudoTimeout      *atomic.Bool
+	MemQuotaBindingCache        *atomic.Int64
+	GCMaxWaitTime               *atomic.Int64
+	StatsCacheMemQuota          *atomic.Int64
+	OOMAction                   *atomic.String
+	MaxAutoAnalyzeTime          *atomic.Int64
 	// variables for plan cache
-	EnablePreparedPlanCache           = atomic.NewBool(DefTiDBEnablePrepPlanCache)
-	PreparedPlanCacheSize             = atomic.NewUint64(DefTiDBPrepPlanCacheSize)
-	PreparedPlanCacheMemoryGuardRatio = atomic.NewFloat64(DefTiDBPrepPlanCacheMemoryGuardRatio)
-	EnableConcurrentDDL               = atomic.NewBool(DefTiDBEnableConcurrentDDL)
-	DDLForce2Queue                    = atomic.NewBool(false)
-	EnableNoopVariables               = atomic.NewBool(DefTiDBEnableNoopVariables)
-)
+	EnablePreparedPlanCache           *atomic.Bool
+	PreparedPlanCacheSize             *atomic.Uint64
+	PreparedPlanCacheMemoryGuardRatio *atomic.Float64
+	EnableConcurrentDDL               *atomic.Bool
+	DDLForce2Queue                    *atomic.Bool
+	EnableNoopVariables               *atomic.Bool
+	EnableTmpStorageOnOOM             *atomic.Bool
+}
+
+func NewDomainVars() *DomainVars {
+	return &DomainVars{
+		ProcessGeneralLog:                 atomic.NewBool(false),
+		RunAutoAnalyze:                    atomic.NewBool(DefTiDBEnableAutoAnalyze),
+		GlobalLogMaxDays:                  atomic.NewInt32(int32(config.GetGlobalConfig().Log.File.MaxDays)),
+		QueryLogMaxLen:                    atomic.NewInt32(DefTiDBQueryLogMaxLen),
+		EnablePProfSQLCPU:                 atomic.NewBool(false),
+		EnableBatchDML:                    atomic.NewBool(false),
+		ddlReorgWorkerCounter:             DefTiDBDDLReorgWorkerCount,
+		ddlReorgBatchSize:                 DefTiDBDDLReorgBatchSize,
+		ddlErrorCountLimit:                DefTiDBDDLErrorCountLimit,
+		ddlReorgRowFormat:                 DefTiDBRowFormatV2,
+		maxDeltaSchemaCount:               DefTiDBMaxDeltaSchemaCount,
+		DDLSlowOprThreshold:               config.GetGlobalConfig().Instance.DDLSlowOprThreshold,
+		ForcePriority:                     int32(DefTiDBForcePriority),
+		ExpensiveQueryTimeThreshold:       DefTiDBExpensiveQueryTimeThreshold,
+		MemoryUsageAlarmRatio:             atomic.NewFloat64(config.GetGlobalConfig().Instance.MemoryUsageAlarmRatio),
+		EnableLocalTxn:                    atomic.NewBool(DefTiDBEnableLocalTxn),
+		MaxTSOBatchWaitInterval:           atomic.NewFloat64(DefTiDBTSOClientBatchMaxWaitTime),
+		EnableTSOFollowerProxy:            atomic.NewBool(DefTiDBEnableTSOFollowerProxy),
+		RestrictedReadOnly:                atomic.NewBool(DefTiDBRestrictedReadOnly),
+		VarTiDBSuperReadOnly:              atomic.NewBool(DefTiDBSuperReadOnly),
+		PersistAnalyzeOptions:             atomic.NewBool(DefTiDBPersistAnalyzeOptions),
+		TableCacheLease:                   atomic.NewInt64(DefTiDBTableCacheLease),
+		EnableColumnTracking:              atomic.NewBool(DefTiDBEnableColumnTracking),
+		StatsLoadSyncWait:                 atomic.NewInt64(DefTiDBStatsLoadSyncWait),
+		StatsLoadPseudoTimeout:            atomic.NewBool(DefTiDBStatsLoadPseudoTimeout),
+		MemQuotaBindingCache:              atomic.NewInt64(DefTiDBMemQuotaBindingCache),
+		GCMaxWaitTime:                     atomic.NewInt64(DefTiDBGCMaxWaitTime),
+		StatsCacheMemQuota:                atomic.NewInt64(DefTiDBStatsCacheMemQuota),
+		OOMAction:                         atomic.NewString(DefTiDBMemOOMAction),
+		MaxAutoAnalyzeTime:                atomic.NewInt64(DefTiDBMaxAutoAnalyzeTime),
+		EnablePreparedPlanCache:           atomic.NewBool(DefTiDBEnablePrepPlanCache),
+		PreparedPlanCacheSize:             atomic.NewUint64(DefTiDBPrepPlanCacheSize),
+		PreparedPlanCacheMemoryGuardRatio: atomic.NewFloat64(DefTiDBPrepPlanCacheMemoryGuardRatio),
+		EnableConcurrentDDL:               atomic.NewBool(DefTiDBEnableConcurrentDDL),
+		DDLForce2Queue:                    atomic.NewBool(false),
+		EnableNoopVariables:               atomic.NewBool(DefTiDBEnableNoopVariables),
+		EnableTmpStorageOnOOM:             atomic.NewBool(DefTiDBEnableTmpStorageOnOOM),
+	}
+}
+
+var GlobalDomVars = NewDomainVars()
 
 var (
 	// SetMemQuotaAnalyze is the func registered by global/subglobal tracker to set memory quota.

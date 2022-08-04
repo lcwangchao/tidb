@@ -114,7 +114,7 @@ func (e *SetExecutor) setSysVariable(ctx context.Context, name string, v *expres
 		}
 		return variable.ErrUnknownSystemVar.GenWithStackByArgs(name)
 	}
-	if sysVar.IsNoop && !variable.EnableNoopVariables.Load() {
+	if sysVar.IsNoop && !sessionVars.DomVars.EnableNoopVariables.Load() {
 		// The variable is a noop. For compatibility we allow it to still
 		// be changed, but we append a warning since users might be expecting
 		// something that's not going to happen.

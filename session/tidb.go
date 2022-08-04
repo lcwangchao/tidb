@@ -74,7 +74,7 @@ func (dm *domainMap) Get(store kv.Storage) (d *domain.Domain, err error) {
 		onClose := func() {
 			dm.Delete(store)
 		}
-		d = domain.NewDomain(store, ddlLease, statisticLease, idxUsageSyncLease, planReplayerGCLease, factory, onClose)
+		d = domain.NewDomain(store, ddlLease, statisticLease, idxUsageSyncLease, planReplayerGCLease, factory, variable.GlobalDomVars, onClose)
 		err1 = d.Init(ddlLease, sysFactory)
 		if err1 != nil {
 			// If we don't clean it, there are some dirty data when retrying the function of Init.

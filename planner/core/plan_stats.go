@@ -34,7 +34,7 @@ func (c collectPredicateColumnsPoint) optimize(_ context.Context, plan LogicalPl
 	if plan.SCtx().GetSessionVars().InRestrictedSQL {
 		return plan, nil
 	}
-	predicateNeeded := variable.EnableColumnTracking.Load()
+	predicateNeeded := plan.SCtx().GetSessionVars().DomVars.EnableColumnTracking.Load()
 	syncWait := plan.SCtx().GetSessionVars().StatsLoadSyncWait * time.Millisecond.Nanoseconds()
 	histNeeded := syncWait > 0
 	predicateColumns, histNeededColumns := CollectColumnStatsUsage(plan, predicateNeeded, histNeeded)
@@ -106,7 +106,7 @@ func SyncWaitStatsLoad(plan LogicalPlan) (bool, error) {
 
 func handleTimeout(stmtCtx *stmtctx.StatementContext) error {
 	err := errors.New("Timeout when sync-load full stats for needed columns")
-	if variable.StatsLoadPseudoTimeout.Load() {
+	if variable.GlobalDomVars.StatsLoadPseudoTimeout.Load() {
 		stmtCtx.AppendWarning(err)
 		stmtCtx.StatsLoad.Fallback = true
 		return nil

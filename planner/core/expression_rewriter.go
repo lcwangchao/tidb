@@ -1311,7 +1311,7 @@ func (er *expressionRewriter) rewriteVariable(v *ast.VariableExpr) {
 		}
 		return
 	}
-	if sysVar.IsNoop && !variable.EnableNoopVariables.Load() {
+	if sysVar.IsNoop && !sessionVars.DomVars.EnableNoopVariables.Load() {
 		// The variable does nothing, append a warning to the statement output.
 		sessionVars.StmtCtx.AppendWarning(ErrGettingNoopVariable.GenWithStackByArgs(sysVar.Name))
 	}

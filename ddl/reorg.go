@@ -32,7 +32,6 @@ import (
 	"github.com/pingcap/tidb/parser/terror"
 	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/sessionctx/stmtctx"
-	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/statistics"
 	"github.com/pingcap/tidb/table"
 	"github.com/pingcap/tidb/table/tables"
@@ -747,7 +746,7 @@ func (r *reorgInfo) UpdateReorgMeta(startKey kv.Key, pool *sessionPool) (err err
 		sess.rollback()
 		return err
 	}
-	rh := newReorgHandler(meta.NewMeta(txn), sess, variable.EnableConcurrentDDL.Load())
+	rh := newReorgHandler(meta.NewMeta(txn), sess, se.GetSessionVars().DomVars.EnableConcurrentDDL.Load())
 	err = rh.UpdateDDLReorgHandle(r.Job, startKey, r.EndKey, r.PhysicalTableID, r.currElement)
 	err1 := sess.commit()
 	if err == nil {
@@ -766,7 +765,7 @@ type reorgHandler struct {
 
 // NewReorgHandlerForTest creates a new reorgHandler, only used in test.
 func NewReorgHandlerForTest(t *meta.Meta, sess sessionctx.Context) *reorgHandler {
-	return newReorgHandler(t, newSession(sess), variable.EnableConcurrentDDL.Load())
+	return newReorgHandler(t, newSession(sess), sess.GetSessionVars().DomVars.EnableConcurrentDDL.Load())
 }
 
 func newReorgHandler(t *meta.Meta, sess *session, enableConcurrentDDL bool) *reorgHandler {

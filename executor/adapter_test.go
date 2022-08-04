@@ -43,12 +43,10 @@ func TestQueryTime(t *testing.T) {
 }
 
 func TestFormatSQL(t *testing.T) {
-	val := executor.FormatSQL("aaaa")
+	val := executor.FormatSQL("aaaa", variable.GlobalDomVars.QueryLogMaxLen.Load())
 	require.Equal(t, "aaaa", val.String())
-	variable.QueryLogMaxLen.Store(0)
-	val = executor.FormatSQL("aaaaaaaaaaaaaaaaaaaa")
+	val = executor.FormatSQL("aaaaaaaaaaaaaaaaaaaa", 0)
 	require.Equal(t, "aaaaaaaaaaaaaaaaaaaa", val.String())
-	variable.QueryLogMaxLen.Store(5)
-	val = executor.FormatSQL("aaaaaaaaaaaaaaaaaaaa")
+	val = executor.FormatSQL("aaaaaaaaaaaaaaaaaaaa", 5)
 	require.Equal(t, "\"aaaaa\"(len:20)", val.String())
 }

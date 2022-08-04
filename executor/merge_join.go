@@ -20,7 +20,6 @@ import (
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/sessionctx/stmtctx"
-	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/util/chunk"
 	"github.com/pingcap/tidb/util/disk"
 	"github.com/pingcap/tidb/util/memory"
@@ -93,7 +92,7 @@ func (t *mergeJoinTable) init(exec *MergeJoinExec) {
 		t.rowContainer.GetMemTracker().SetLabel(memory.LabelForInnerTable)
 		t.rowContainer.GetDiskTracker().AttachTo(exec.diskTracker)
 		t.rowContainer.GetDiskTracker().SetLabel(memory.LabelForInnerTable)
-		if variable.EnableTmpStorageOnOOM.Load() {
+		if exec.ctx.GetSessionVars().DomVars.EnableTmpStorageOnOOM.Load() {
 			actionSpill := t.rowContainer.ActionSpill()
 			failpoint.Inject("testMergeJoinRowContainerSpill", func(val failpoint.Value) {
 				if val.(bool) {

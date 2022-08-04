@@ -637,9 +637,9 @@ func (h settingsHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if generalLog := req.Form.Get("tidb_general_log"); generalLog != "" {
 			switch generalLog {
 			case "0":
-				variable.ProcessGeneralLog.Store(false)
+				variable.GlobalDomVars.ProcessGeneralLog.Store(false)
 			case "1":
-				variable.ProcessGeneralLog.Store(true)
+				variable.GlobalDomVars.ProcessGeneralLog.Store(true)
 			default:
 				writeError(w, errors.New("illegal argument"))
 				return
@@ -696,7 +696,7 @@ func (h settingsHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			if threshold > 0 {
-				atomic.StoreUint32(&variable.DDLSlowOprThreshold, uint32(threshold))
+				atomic.StoreUint32(&variable.GlobalDomVars.DDLSlowOprThreshold, uint32(threshold))
 			}
 		}
 		if checkMb4ValueInUtf8 := req.Form.Get("check_mb4_value_in_utf8"); checkMb4ValueInUtf8 != "" {

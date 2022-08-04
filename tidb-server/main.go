@@ -180,7 +180,7 @@ func main() {
 	}
 	registerStores()
 	registerMetrics()
-	if variable.EnableTmpStorageOnOOM.Load() {
+	if variable.GlobalDomVars.EnableTmpStorageOnOOM.Load() {
 		config.GetGlobalConfig().UpdateTempStoragePath()
 		err := disk.InitializeTempDir()
 		terror.MustNil(err)
@@ -555,7 +555,7 @@ func setVersions() {
 
 func setGlobalVars() {
 	cfg := config.GetGlobalConfig()
-
+	domVars := variable.GlobalDomVars
 	// config.DeprecatedOptions records the config options that should be moved to [instance] section.
 	for _, deprecatedOption := range config.DeprecatedOptions {
 		for oldName := range deprecatedOption.NameMappings {
@@ -632,12 +632,12 @@ func setGlobalVars() {
 	kv.TxnEntrySizeLimit = cfg.Performance.TxnEntrySizeLimit
 
 	priority := mysql.Str2Priority(cfg.Instance.ForcePriority)
-	variable.ForcePriority = int32(priority)
+	domVars.ForcePriority = int32(priority)
 
-	variable.ProcessGeneralLog.Store(cfg.Instance.TiDBGeneralLog)
-	variable.EnablePProfSQLCPU.Store(cfg.Instance.EnablePProfSQLCPU)
-	atomic.StoreUint32(&variable.DDLSlowOprThreshold, cfg.Instance.DDLSlowOprThreshold)
-	atomic.StoreUint64(&variable.ExpensiveQueryTimeThreshold, cfg.Instance.ExpensiveQueryTimeThreshold)
+	domVars.ProcessGeneralLog.Store(cfg.Instance.TiDBGeneralLog)
+	domVars.EnablePProfSQLCPU.Store(cfg.Instance.EnablePProfSQLCPU)
+	atomic.StoreUint32(&domVars.DDLSlowOprThreshold, cfg.Instance.DDLSlowOprThreshold)
+	atomic.StoreUint64(&domVars.ExpensiveQueryTimeThreshold, cfg.Instance.ExpensiveQueryTimeThreshold)
 
 	if len(cfg.ServerVersion) > 0 {
 		mysql.ServerVersion = cfg.ServerVersion
@@ -666,11 +666,11 @@ func setGlobalVars() {
 	variable.SetSysVar(variable.TiDBSlowQueryFile, cfg.Log.SlowQueryFile)
 	variable.SetSysVar(variable.TiDBIsolationReadEngines, strings.Join(cfg.IsolationRead.Engines, ","))
 	variable.SetSysVar(variable.TiDBEnforceMPPExecution, variable.BoolToOnOff(config.GetGlobalConfig().Performance.EnforceMPP))
-	variable.MemoryUsageAlarmRatio.Store(cfg.Instance.MemoryUsageAlarmRatio)
+	domVars.MemoryUsageAlarmRatio.Store(cfg.Instance.MemoryUsageAlarmRatio)
 	if hostname, err := os.Hostname(); err == nil {
 		variable.SetSysVar(variable.Hostname, hostname)
 	}
-	variable.GlobalLogMaxDays.Store(int32(config.GetGlobalConfig().Log.File.MaxDays))
+	domVars.GlobalLogMaxDays.Store(int32(config.GetGlobalConfig().Log.File.MaxDays))
 
 	if cfg.Security.EnableSEM {
 		sem.Enable()

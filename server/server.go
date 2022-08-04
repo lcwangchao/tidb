@@ -37,6 +37,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http" //nolint:goimports
+
 	// For pprof
 	_ "net/http/pprof" // #nosec G108
 	"os"
@@ -338,7 +339,7 @@ func setSSLVariable(ca, key, cert string) {
 
 func setTxnScope() {
 	variable.SetSysVar(variable.TiDBTxnScope, func() string {
-		if !variable.EnableLocalTxn.Load() {
+		if !variable.GlobalDomVars.EnableLocalTxn.Load() {
 			return kv.GlobalTxnScope
 		}
 		if txnScope := config.GetTxnScopeFromConfig(); txnScope == kv.GlobalTxnScope {

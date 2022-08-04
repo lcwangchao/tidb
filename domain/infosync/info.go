@@ -112,6 +112,7 @@ type InfoSyncer struct {
 	labelRuleManager        LabelRuleManager
 	placementManager        PlacementManager
 	tiflashPlacementManager TiFlashPlacementManager
+	domVars                 *variable.DomainVars
 }
 
 // ServerInfo is server static information.
@@ -178,7 +179,7 @@ func setGlobalInfoSyncer(is *InfoSyncer) {
 	globalInfoSyncer.Store(is)
 }
 
-func NewInfoSyncerInit(ctx context.Context, id string, serverIDGetter func() uint64, etcdCli *clientv3.Client, skipRegisterToDashBoard bool) (*InfoSyncer, error) {
+func NewInfoSyncerInit(ctx context.Context, id string, serverIDGetter func() uint64, etcdCli *clientv3.Client, domVars *variable.DomainVars, skipRegisterToDashBoard bool) (*InfoSyncer, error) {
 	is := &InfoSyncer{
 		etcdCli:        etcdCli,
 		info:           getServerInfo(id, serverIDGetter),
@@ -192,12 +193,13 @@ func NewInfoSyncerInit(ctx context.Context, id string, serverIDGetter func() uin
 	is.labelRuleManager = initLabelRuleManager(etcdCli)
 	is.placementManager = initPlacementManager(etcdCli)
 	is.tiflashPlacementManager = initTiFlashPlacementManager(etcdCli)
+	is.domVars = domVars
 	return is, nil
 }
 
 // GlobalInfoSyncerInit return a new InfoSyncer. It is exported for testing.
 func GlobalInfoSyncerInit(ctx context.Context, id string, serverIDGetter func() uint64, etcdCli *clientv3.Client, skipRegisterToDashBoard bool) (*InfoSyncer, error) {
-	is, err := NewInfoSyncerInit(ctx, id, serverIDGetter, etcdCli, skipRegisterToDashBoard)
+	is, err := NewInfoSyncerInit(ctx, id, serverIDGetter, etcdCli, variable.GlobalDomVars, skipRegisterToDashBoard)
 	if err != nil {
 		return nil, err
 	}
@@ -640,7 +642,7 @@ func (is *InfoSyncer) ReportMinStartTS(store kv.Storage) {
 	}
 	now := oracle.GetTimeFromTS(currentVer.Ver)
 	// GCMaxWaitTime is in seconds, GCMaxWaitTime * 1000 converts it to milliseconds.
-	startTSLowerLimit := oracle.GoTimeToLowerLimitStartTS(now, variable.GCMaxWaitTime.Load()*1000)
+	startTSLowerLimit := oracle.GoTimeToLowerLimitStartTS(now, is.domVars.GCMaxWaitTime.Load()*1000)
 	minStartTS := oracle.GoTimeToTS(now)
 	logutil.BgLogger().Debug("ReportMinStartTS", zap.Uint64("initial minStartTS", minStartTS),
 		zap.Uint64("StartTSLowerLimit", startTSLowerLimit))

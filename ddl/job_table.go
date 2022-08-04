@@ -30,7 +30,6 @@ import (
 	"github.com/pingcap/tidb/meta"
 	"github.com/pingcap/tidb/metrics"
 	"github.com/pingcap/tidb/parser/model"
-	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/util/logutil"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
@@ -167,7 +166,7 @@ func (d *ddl) startDispatchLoop() {
 		if isChanClosed(d.ctx.Done()) {
 			return
 		}
-		if !variable.EnableConcurrentDDL.Load() || !d.isOwner() || d.waiting.Load() {
+		if !d.domVars.EnableConcurrentDDL.Load() || !d.isOwner() || d.waiting.Load() {
 			d.once.Store(true)
 			time.Sleep(time.Second)
 			continue

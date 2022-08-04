@@ -113,7 +113,7 @@ func HandleNonTransactionalDelete(ctx context.Context, stmt *ast.NonTransactiona
 
 func setMemTracker(se Session) *memory.Tracker {
 	memTracker := memory.NewTracker(memory.LabelForNonTransactionalDML, se.GetSessionVars().MemQuotaQuery)
-	switch variable.OOMAction.Load() {
+	switch se.GetSessionVars().DomVars.OOMAction.Load() {
 	case variable.OOMActionCancel:
 		action := &memory.PanicOnExceed{ConnID: se.GetSessionVars().ConnectionID}
 		action.SetLogHook(domain.GetDomain(se).ExpensiveQueryHandle().LogOnQueryExceedMemQuota)
@@ -135,7 +135,7 @@ func checkConstraint(stmt *ast.NonTransactionalDeleteStmt, se Session) error {
 		return errors.Errorf("non-transactional DML can only run in auto-commit mode. auto-commit:%v, inTxn:%v",
 			se.GetSessionVars().IsAutocommit(), se.GetSessionVars().InTxn())
 	}
-	if variable.EnableBatchDML.Load() && sessVars.DMLBatchSize > 0 && (sessVars.BatchDelete || sessVars.BatchInsert) {
+	if sessVars.DomVars.EnableBatchDML.Load() && sessVars.DMLBatchSize > 0 && (sessVars.BatchDelete || sessVars.BatchInsert) {
 		return errors.Errorf("can't run non-transactional DML with batch-dml")
 	}
 

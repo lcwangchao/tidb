@@ -935,10 +935,10 @@ func (a *ExecStmt) logAudit() {
 }
 
 // FormatSQL is used to format the original SQL, e.g. truncating long SQL, appending prepared arguments.
-func FormatSQL(sql string) stringutil.StringerFunc {
+func FormatSQL(sql string, maxQueryLen int32) stringutil.StringerFunc {
 	return func() string {
 		length := len(sql)
-		maxQueryLen := variable.QueryLogMaxLen.Load()
+		maxQueryLen := maxQueryLen
 		if maxQueryLen <= 0 {
 			return QueryReplacer.Replace(sql) // no limit
 		}
@@ -1115,7 +1115,7 @@ func (a *ExecStmt) FinishExecuteStmt(txnTS uint64, err error, hasMoreResults boo
 			metrics.TiFlashQueryTotalCounter.WithLabelValues(metrics.ExecuteErrorToLabel(err), metrics.LblError).Inc()
 		}
 	}
-	sessVars.PrevStmt = FormatSQL(a.GetTextToLog())
+	sessVars.PrevStmt = FormatSQL(a.GetTextToLog(), sessVars.DomVars.QueryLogMaxLen.Load())
 
 	a.observePhaseDurations(sessVars.InRestrictedSQL, execDetail.CommitDetail)
 	executeDuration := time.Since(sessVars.StartTime) - sessVars.DurationCompile
@@ -1163,7 +1163,7 @@ func (a *ExecStmt) LogSlowQuery(txnTS uint64, succ bool, hasMoreResults bool) {
 	if (!enable || costTime < threshold) && !force {
 		return
 	}
-	sql := FormatSQL(a.GetTextToLog())
+	sql := FormatSQL(a.GetTextToLog(), sessVars.DomVars.QueryLogMaxLen.Load())
 	_, digest := stmtCtx.SQLDigest()
 
 	var indexNames string

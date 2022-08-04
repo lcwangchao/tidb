@@ -55,7 +55,7 @@ func newBindCache() *bindCache {
 	cache := kvcache.NewSimpleLRUCache(mathutil.MaxUint, 0, 0)
 	c := bindCache{
 		cache:       cache,
-		memCapacity: variable.MemQuotaBindingCache.Load(),
+		memCapacity: variable.GlobalDomVars.MemQuotaBindingCache.Load(),
 		memTracker:  memory.NewTracker(memory.LabelForBindCache, -1),
 	}
 	return &c

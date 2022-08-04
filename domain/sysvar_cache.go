@@ -180,14 +180,14 @@ func (do *Domain) checkPDClientDynamicOption(name, sVal string) {
 		if err != nil {
 			break
 		}
-		variable.MaxTSOBatchWaitInterval.Store(val)
+		do.Vars.MaxTSOBatchWaitInterval.Store(val)
 	case variable.TiDBEnableTSOFollowerProxy:
 		val := variable.TiDBOptOn(sVal)
 		err := do.SetPDClientDynamicOption(pd.EnableTSOFollowerProxy, val)
 		if err != nil {
 			break
 		}
-		variable.EnableTSOFollowerProxy.Store(val)
+		do.Vars.EnableTSOFollowerProxy.Store(val)
 	}
 }
 

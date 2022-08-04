@@ -43,7 +43,7 @@ type statsCacheInner interface {
 func newStatsCache() statsCache {
 	enableQuota := config.GetGlobalConfig().Performance.EnableStatsCacheMemQuota
 	if enableQuota {
-		capacity := variable.StatsCacheMemQuota.Load()
+		capacity := variable.GlobalDomVars.StatsCacheMemQuota.Load()
 		return statsCache{
 			statsCacheInner: newStatsLruCache(capacity),
 		}

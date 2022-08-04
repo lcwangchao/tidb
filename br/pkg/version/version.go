@@ -158,7 +158,7 @@ func CheckVersionForDDL(s *metapb.Store, tikvVersion *semver.Version) error {
 	requireVersion := semver.New("6.2.0-alpha")
 	if tikvVersion.Compare(*requireVersion) < 0 {
 		log.Info("detected the old version of tidb cluster. set enable concurrent ddl to false")
-		variable.EnableConcurrentDDL.Store(false)
+		variable.GlobalDomVars.EnableConcurrentDDL.Store(false)
 		return nil
 	}
 	return nil

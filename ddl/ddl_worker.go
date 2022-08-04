@@ -35,7 +35,6 @@ import (
 	"github.com/pingcap/tidb/parser/terror"
 	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/sessionctx/binloginfo"
-	"github.com/pingcap/tidb/sessionctx/variable"
 	pumpcli "github.com/pingcap/tidb/tidb-binlog/pump_client"
 	tidbutil "github.com/pingcap/tidb/util"
 	"github.com/pingcap/tidb/util/dbterror"
@@ -293,7 +292,7 @@ func (d *ddl) addBatchDDLJobs(tasks []*limitJobTask) {
 	startTime := time.Now()
 	var err error
 	// DDLForce2Queue is a flag to tell DDL worker to always push the job to the DDL queue.
-	toTable := variable.EnableConcurrentDDL.Load() && !variable.DDLForce2Queue.Load()
+	toTable := d.domVars.EnableConcurrentDDL.Load() && !d.domVars.DDLForce2Queue.Load()
 	if toTable {
 		err = d.addBatchDDLJobs2Table(tasks)
 	} else {
@@ -694,7 +693,7 @@ func (w *worker) HandleDDLJobTable(d *ddlCtx, job *model.Job) error {
 	if err != nil {
 		return err
 	}
-	if !variable.EnableConcurrentDDL.Load() || d.waiting.Load() {
+	if !w.domVars.EnableConcurrentDDL.Load() || d.waiting.Load() {
 		w.sess.rollback()
 		return nil
 	}
@@ -840,7 +839,7 @@ func (w *worker) handleDDLJobQueue(d *ddlCtx) error {
 		err := kv.RunInNewTxn(ctx, d.store, false, func(ctx context.Context, txn kv.Transaction) error {
 			d.runningJobs.Lock()
 			// We are not owner, return and retry checking later.
-			if !d.isOwner() || variable.EnableConcurrentDDL.Load() || d.waiting.Load() {
+			if !d.isOwner() || w.domVars.EnableConcurrentDDL.Load() || d.waiting.Load() {
 				d.runningJobs.Unlock()
 				return nil
 			}
@@ -1034,7 +1033,7 @@ func (w *worker) countForPanic(job *model.Job) {
 	if err1 := loadDDLVars(w); err1 != nil {
 		logutil.Logger(w.logCtx).Error("[ddl] load DDL global variable failed", zap.Error(err1))
 	}
-	errorCount := variable.GetDDLErrorCountLimit()
+	errorCount := w.domVars.GetDDLErrorCountLimit()
 
 	if job.ErrorCount > errorCount {
 		msg := fmt.Sprintf("panic in handling DDL logic and error count beyond the limitation %d, cancelled", errorCount)
@@ -1061,8 +1060,8 @@ func (w *worker) countForError(err error, job *model.Job) error {
 		logutil.Logger(w.logCtx).Error("[ddl] load DDL global variable failed", zap.Error(err1))
 	}
 	// Check error limit to avoid falling into an infinite loop.
-	if job.ErrorCount > variable.GetDDLErrorCountLimit() && job.State == model.JobStateRunning && job.IsRollbackable() {
-		logutil.Logger(w.logCtx).Warn("[ddl] DDL job error count exceed the limit, cancelling it now", zap.Int64("jobID", job.ID), zap.Int64("errorCountLimit", variable.GetDDLErrorCountLimit()))
+	if job.ErrorCount > w.domVars.GetDDLErrorCountLimit() && job.State == model.JobStateRunning && job.IsRollbackable() {
+		logutil.Logger(w.logCtx).Warn("[ddl] DDL job error count exceed the limit, cancelling it now", zap.Int64("jobID", job.ID), zap.Int64("errorCountLimit", w.domVars.GetDDLErrorCountLimit()))
 		job.State = model.JobStateCancelling
 	}
 	return err

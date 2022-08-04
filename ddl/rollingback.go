@@ -24,7 +24,6 @@ import (
 	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/parser/terror"
-	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/util/dbterror"
 	"github.com/pingcap/tidb/util/logutil"
 	"go.uber.org/zap"
@@ -418,7 +417,7 @@ func convertJob2RollbackJob(w *worker, d *ddlCtx, t *meta.Meta, job *model.Job) 
 			if err1 := loadDDLVars(w); err1 != nil {
 				logutil.Logger(w.logCtx).Error("[ddl] load DDL global variable failed", zap.Error(err1))
 			}
-			errorCount := variable.GetDDLErrorCountLimit()
+			errorCount := w.domVars.GetDDLErrorCountLimit()
 			if job.ErrorCount > errorCount {
 				logutil.Logger(w.logCtx).Warn("[ddl] rollback DDL job error count exceed the limit, cancelled it now", zap.Int64("jobID", job.ID), zap.Int64("errorCountLimit", errorCount))
 				job.Error = toTError(errors.Errorf("rollback DDL job error count exceed the limit %d, cancelled it now", errorCount))

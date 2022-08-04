@@ -138,7 +138,7 @@ func (e *AnalyzeExec) Next(ctx context.Context, _ *chunk.Chunk) error {
 }
 
 func (e *AnalyzeExec) saveV2AnalyzeOpts() error {
-	if !variable.PersistAnalyzeOptions.Load() || len(e.OptionsMap) == 0 {
+	if !e.ctx.GetSessionVars().DomVars.PersistAnalyzeOptions.Load() || len(e.OptionsMap) == 0 {
 		return nil
 	}
 	// only to save table options if dynamic prune mode

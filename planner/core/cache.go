@@ -43,13 +43,13 @@ var (
 // SetPreparedPlanCache sets isEnabled to true, then prepared plan cache is enabled.
 // FIXME: leave it for test, remove it after implementing session-level plan-cache variables.
 func SetPreparedPlanCache(isEnabled bool) {
-	variable.EnablePreparedPlanCache.Store(isEnabled) // only for test
+	variable.GlobalDomVars.EnablePreparedPlanCache.Store(isEnabled) // only for test
 }
 
 // PreparedPlanCacheEnabled returns whether the prepared plan cache is enabled.
 // FIXME: leave it for test, remove it after implementing session-level plan-cache variables.
 func PreparedPlanCacheEnabled() bool {
-	return variable.EnablePreparedPlanCache.Load()
+	return variable.GlobalDomVars.EnablePreparedPlanCache.Load()
 }
 
 // planCacheKey is used to access Plan Cache. We put some variables that do not affect the plan into planCacheKey, such as the sql text.
@@ -160,8 +160,8 @@ func NewPlanCacheKey(sessionVars *variable.SessionVars, stmtText, stmtDB string,
 		selectLimit:              sessionVars.SelectLimit,
 		bindSQL:                  bindSQL,
 		inRestrictedSQL:          sessionVars.InRestrictedSQL,
-		restrictedReadOnly:       variable.RestrictedReadOnly.Load(),
-		TiDBSuperReadOnly:        variable.VarTiDBSuperReadOnly.Load(),
+		restrictedReadOnly:       sessionVars.DomVars.RestrictedReadOnly.Load(),
+		TiDBSuperReadOnly:        sessionVars.DomVars.VarTiDBSuperReadOnly.Load(),
 	}
 	for k, v := range sessionVars.IsolationReadEngines {
 		key.isolationReadEngines[k] = v
