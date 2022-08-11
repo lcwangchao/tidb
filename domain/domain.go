@@ -35,6 +35,7 @@ import (
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/ddl"
 	"github.com/pingcap/tidb/ddl/ddlservice"
+	"github.com/pingcap/tidb/ddl/schematracker"
 	ddlutil "github.com/pingcap/tidb/ddl/util"
 	"github.com/pingcap/tidb/domain/globalconfigsync"
 	"github.com/pingcap/tidb/domain/infosync"
@@ -919,7 +920,11 @@ func NewDomain(store kv.Storage, ddlLease time.Duration, statsLease time.Duratio
 const serverIDForStandalone = 1 // serverID for standalone deployment.
 
 // Init initializes a domain.
-func (do *Domain) Init(ddlLease time.Duration, sysExecutorFactory func(*Domain) (pools.Resource, error)) error {
+func (do *Domain) Init(
+	ddlLease time.Duration,
+	sysExecutorFactory func(*Domain) (pools.Resource, error),
+	ddlInjector func(ddl.DDL) *schematracker.Checker,
+) error {
 	do.sysExecutorFactory = sysExecutorFactory
 	perfschema.Init()
 	if ebd, ok := do.store.(kv.EtcdBackend); ok {
@@ -1018,6 +1023,11 @@ func (do *Domain) Init(ddlLease time.Duration, sysExecutorFactory func(*Domain) 
 			do.ddl = d
 		}
 	})
+	if ddlInjector != nil {
+		checker := ddlInjector(do.ddl)
+		checker.CreateTestDB()
+		do.ddl = checker
+	}
 
 	var pdClient pd.Client
 	if store, ok := do.store.(kv.StorageWithPD); ok {

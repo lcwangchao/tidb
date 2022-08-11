@@ -1082,7 +1082,6 @@ func NewDomainVars() *DomainVars {
 		StatsCacheMemQuota:                atomic.NewInt64(DefTiDBStatsCacheMemQuota),
 		OOMAction:                         atomic.NewString(DefTiDBMemOOMAction),
 		MaxAutoAnalyzeTime:                atomic.NewInt64(DefTiDBMaxAutoAnalyzeTime),
-		EnablePreparedPlanCache:           atomic.NewBool(DefTiDBEnablePrepPlanCache),
 		PreparedPlanCacheSize:             atomic.NewUint64(DefTiDBPrepPlanCacheSize),
 		PreparedPlanCacheMemoryGuardRatio: atomic.NewFloat64(DefTiDBPrepPlanCacheMemoryGuardRatio),
 		EnableConcurrentDDL:               atomic.NewBool(DefTiDBEnableConcurrentDDL),
