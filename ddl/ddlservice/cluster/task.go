@@ -32,22 +32,22 @@ import (
 )
 
 type clusterDDLTask struct {
-	ctx         context.Context
-	clusterID   string
-	nodeID      string
-	serviceEtcd *clientv3.Client
-	do          atomic.Value
-	cancel      func()
+	ctx       context.Context
+	clusterID string
+	nodeID    string
+	store     ddlservice.MetaStore
+	do        atomic.Value
+	cancel    func()
 }
 
 func NewClusterDDLTask(taskCtx *ddlservice.ClusterDDLTaskContext) ddlservice.ClusterDDLTask {
 	ctx, cancel := context.WithCancel(taskCtx.Context)
 	task := &clusterDDLTask{
-		ctx:         ctx,
-		clusterID:   taskCtx.ClusterID,
-		nodeID:      taskCtx.NodeID,
-		serviceEtcd: taskCtx.ServiceEtcd,
-		cancel:      cancel,
+		ctx:       ctx,
+		clusterID: taskCtx.ClusterID,
+		nodeID:    taskCtx.NodeID,
+		store:     taskCtx.Store,
+		cancel:    cancel,
 	}
 	go task.taskLoop()
 	return task
@@ -113,7 +113,7 @@ func (t *clusterDDLTask) ensureDomain() {
 	}()
 
 	var info *ddlservice.ClusterInfo
-	info, err = ddlservice.GetClusterInfo(t.ctx, t.serviceEtcd, t.clusterID)
+	info, err = t.store.GetClusterInfo(t.ctx, t.clusterID)
 	if info == nil {
 		err = errors.New("cannot get cluster info")
 		return

@@ -22,16 +22,22 @@ import (
 
 	"github.com/pingcap/tidb/util"
 	"github.com/pingcap/tidb/util/logutil"
-	"go.etcd.io/etcd/api/v3/mvccpb"
-	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.uber.org/zap"
 )
+
+type ClusterDDLTask interface {
+	Stop()
+	ClusterID() string
+	IsDDLOwner() bool
+}
+
+type CreateClusterDDLTaskFunc func(*ClusterDDLTaskContext) ClusterDDLTask
 
 type ServiceNode struct {
 	ctx          context.Context
 	id           string
-	etcdSession  *concurrency.Session
+	store        MetaStore
+	nodeSession  WorkerNodeSession
 	cancel       func()
 	once         sync.Once
 	taskFunc     CreateClusterDDLTaskFunc
@@ -39,27 +45,38 @@ type ServiceNode struct {
 	taskStatuses atomic.Value
 }
 
-func NewServiceNode(etcdSession *concurrency.Session, ddlID string, taskFunc CreateClusterDDLTaskFunc) *ServiceNode {
+func NewServiceNode(store MetaStore, ddlID string, taskFunc CreateClusterDDLTaskFunc) *ServiceNode {
 	id := DDLNodeIDPrefix + ddlID
 	ctx, cancel := context.WithCancel(context.Background())
 	return &ServiceNode{
-		ctx:         ctx,
-		id:          id,
-		etcdSession: etcdSession,
-		cancel:      cancel,
-		taskFunc:    taskFunc,
+		ctx:      ctx,
+		id:       id,
+		store:    store,
+		cancel:   cancel,
+		taskFunc: taskFunc,
 	}
 }
 
-func (n *ServiceNode) Start() {
+func (n *ServiceNode) Start() error {
+	nodeSess, err := n.store.CreateWorkerNodeSession(n.ctx, n.id, 0)
+	if err != nil {
+		return err
+	}
+
+	n.nodeSession = nodeSess
 	n.once.Do(func() {
 		go n.campaignLoop()
 		go n.nodeLoop()
 	})
+	return nil
 }
 
 func (n *ServiceNode) Stop() {
 	n.cancel()
+}
+
+func (n *ServiceNode) GetNodeSession() WorkerNodeSession {
+	return n.nodeSession
 }
 
 func (n *ServiceNode) getTasks() map[string]ClusterDDLTask {
@@ -78,7 +95,7 @@ func (n *ServiceNode) getTaskStatuses() map[string]*NodeClusterTaskStatus {
 
 func (n *ServiceNode) updateClusterDDLTasks() {
 	tasks := n.getTasks()
-	assignments, err := GetAssignmentMap(n.ctx, n.etcdSession.Client())
+	assignments, err := n.store.GetAllDDLOwnerAssignments(n.ctx)
 	if err != nil {
 		logutil.BgLogger().Error("setup cluster ddl tasks error", zap.Error(err))
 		return
@@ -96,10 +113,10 @@ func (n *ServiceNode) updateClusterDDLTasks() {
 		}
 
 		newTasks[clusterID] = n.taskFunc(&ClusterDDLTaskContext{
-			Context:     n.ctx,
-			NodeID:      n.id,
-			ClusterID:   clusterID,
-			ServiceEtcd: n.etcdSession.Client(),
+			Context:   n.ctx,
+			NodeID:    n.id,
+			ClusterID: clusterID,
+			Store:     n.store,
 		})
 	}
 
@@ -108,25 +125,25 @@ func (n *ServiceNode) updateClusterDDLTasks() {
 			task.Stop()
 		}
 	}
+
 	n.tasks.Store(newTasks)
 	n.updateNodeStatus()
 }
 
 func (n *ServiceNode) campaignLoop() {
-	election := concurrency.NewElection(n.etcdSession, coordinatorElectionPrefix)
 	for {
 		select {
 		case <-n.ctx.Done():
 			return
-		case <-n.etcdSession.Done():
+		case <-n.nodeSession.Done():
 			return
 		default:
 		}
-		n.campaignAndCoordinate(election)
+		n.campaignAndCoordinate()
 	}
 }
 
-func (n *ServiceNode) campaignAndCoordinate(election *concurrency.Election) {
+func (n *ServiceNode) campaignAndCoordinate() {
 	var wg util.WaitGroupWrapper
 	leaderCtx, cancel := context.WithCancel(n.ctx)
 	defer func() {
@@ -134,26 +151,9 @@ func (n *ServiceNode) campaignAndCoordinate(election *concurrency.Election) {
 		wg.Wait()
 	}()
 
-	if err := election.Campaign(n.ctx, n.id); err != nil {
-		logutil.BgLogger().Error("coordinator campaign failed", zap.Error(err), zap.String("nodeID", n.id))
-		return
-	}
-
-	resp, err := election.Leader(n.ctx)
+	ch, err := n.nodeSession.ElectLeader(n.ctx)
 	if err != nil {
-		logutil.BgLogger().Error("coordinator campaign failed, leader cannot be fetched", zap.Error(err), zap.String("nodeID", n.id))
-		return
-	}
-
-	if len(resp.Kvs) == 0 {
-		logutil.BgLogger().Error("coordinator campaign failed, leader is empty")
-		return
-	}
-
-	key := string(resp.Kvs[0].Key)
-	leaderID := string(resp.Kvs[0].Value)
-	if leaderID != n.id {
-		logutil.BgLogger().Error("coordinator campaign failed, leader not match", zap.String("leader", leaderID), zap.String("nodeID", n.id))
+		logutil.BgLogger().Error("coordinator campaign failed", zap.Error(err), zap.String("nodeID", n.id))
 		return
 	}
 
@@ -163,23 +163,11 @@ func (n *ServiceNode) campaignAndCoordinate(election *concurrency.Election) {
 		n.coordinateLoop(leaderCtx)
 	}()
 
-	watchCh := n.etcdSession.Client().Watch(n.ctx, key)
 	for {
 		select {
-		case resp, ok := <-watchCh:
-			if !ok {
-				return
-			}
-			if resp.Canceled {
-				return
-			}
-
-			for _, ev := range resp.Events {
-				if ev.Type == mvccpb.DELETE {
-					return
-				}
-			}
-		case <-n.etcdSession.Done():
+		case <-ch:
+			return
+		case <-n.nodeSession.Done():
 			return
 		case <-n.ctx.Done():
 			return
@@ -188,8 +176,8 @@ func (n *ServiceNode) campaignAndCoordinate(election *concurrency.Election) {
 }
 
 func (n *ServiceNode) coordinateLoop(ctx context.Context) {
-	watchClusters := n.etcdSession.Client().Watch(ctx, clusterInfoKeyPrefix, clientv3.WithPrefix())
-	watchNodes := n.etcdSession.Client().Watch(ctx, nodeKeyPrefix, clientv3.WithPrefix())
+	watchClusters := n.nodeSession.MetaStore().WatchClusters(ctx)
+	watchNodes := n.nodeSession.MetaStore().WatchNodeStatuses(ctx)
 	n.assignAllClusters(ctx)
 
 	ticker := time.Tick(time.Minute)
@@ -215,9 +203,8 @@ func (n *ServiceNode) assignAllClusters(ctx context.Context) {
 		}
 	}()
 
-	etcdCli := n.etcdSession.Client()
 	clusters := make(map[string]*ClusterInfo)
-	clusterList, err := ListClusterInfos(ctx, etcdCli)
+	clusterList, err := n.store.GetClusterInfoList(n.ctx)
 	if err != nil {
 		logutil.BgLogger().Error("assign clusters failed", zap.Error(err), zap.String("coordinator", n.id))
 		return
@@ -226,25 +213,21 @@ func (n *ServiceNode) assignAllClusters(ctx context.Context) {
 		clusters[cluster.ID] = cluster
 	}
 
-	nodes := make(map[string]*NodeInfo)
-	nodeList, err := ListNodes(ctx, etcdCli)
-	if err != nil {
-		logutil.BgLogger().Error("assign clusters failed", zap.Error(err), zap.String("coordinator", n.id))
-		return
-	}
-	for _, node := range nodeList {
-		nodes[node.ID] = node
-	}
-
-	assignments, err := GetAssignmentMap(ctx, etcdCli)
+	nodeList, err := n.store.GetAllWorkNodeStatuses(n.ctx)
 	if err != nil {
 		logutil.BgLogger().Error("assign clusters failed", zap.Error(err), zap.String("coordinator", n.id))
 		return
 	}
 
-	minClusterPerNode := len(clusters) / len(nodes)
+	assignments, err := n.store.GetAllDDLOwnerAssignments(ctx)
+	if err != nil {
+		logutil.BgLogger().Error("assign clusters failed", zap.Error(err), zap.String("coordinator", n.id))
+		return
+	}
+
+	minClusterPerNode := len(clusters) / len(nodeList)
 	maxClusterPerNode := minClusterPerNode
-	if len(clusters)%len(nodes) != 0 {
+	if len(clusters)%len(nodeList) != 0 {
 		maxClusterPerNode++
 	}
 
@@ -257,7 +240,7 @@ func (n *ServiceNode) assignAllClusters(ctx context.Context) {
 			continue
 		}
 
-		if _, ok := nodes[nodeID]; !ok {
+		if _, ok := nodeList[nodeID]; !ok {
 			orphanClusters = append(orphanClusters, clusterID)
 			continue
 		}
@@ -275,7 +258,7 @@ func (n *ServiceNode) assignAllClusters(ctx context.Context) {
 		}
 	}
 
-	for nodeID := range nodes {
+	for nodeID := range nodeList {
 		if _, ok := newNodeAssignmentList[nodeID]; !ok {
 			newNodeAssignmentList[nodeID] = nil
 		}
@@ -314,7 +297,7 @@ func (n *ServiceNode) assignAllClusters(ctx context.Context) {
 			zap.String("coordinator", n.id),
 			zap.String("clusterID", clusterID),
 		)
-		if err = DeleteAssignment(ctx, etcdCli, clusterID); err != nil {
+		if err = n.store.DeleteDDLOwnerAssignment(ctx, clusterID); err != nil {
 			logutil.BgLogger().Error(
 				"delete assignment failed",
 				zap.Error(err),
@@ -337,7 +320,7 @@ func (n *ServiceNode) assignAllClusters(ctx context.Context) {
 				zap.String("newNodeID", nodeID),
 			)
 
-			if err = SetAssignment(ctx, etcdCli, clusterID, nodeID); err != nil {
+			if err = n.store.SetDDLOwnerAssignment(ctx, clusterID, nodeID); err != nil {
 				logutil.BgLogger().Error(
 					"delete assignment failed",
 					zap.Error(err),
@@ -348,14 +331,6 @@ func (n *ServiceNode) assignAllClusters(ctx context.Context) {
 			}
 		}
 	}
-}
-
-func (n *ServiceNode) registerSelf() bool {
-	if err := RegisterNode(n.ctx, n.etcdSession, n.id); err != nil {
-		logutil.BgLogger().Error("register ddl service node failed", zap.Error(err), zap.String("nodeID", n.id))
-		return false
-	}
-	return true
 }
 
 func (n *ServiceNode) updateNodeStatus() {
@@ -384,7 +359,7 @@ func (n *ServiceNode) updateNodeStatus() {
 		return
 	}
 
-	logutil.BgLogger().Error(
+	logutil.BgLogger().Info(
 		"update node status",
 		zap.String("nodeID", n.id),
 	)
@@ -394,7 +369,7 @@ func (n *ServiceNode) updateNodeStatus() {
 		ClusterTasks: newTaskStatuses,
 	}
 
-	if err := UpdateNodeStatus(n.ctx, n.etcdSession, status); err != nil {
+	if err := n.nodeSession.UpdateWorkerNodeStatus(n.ctx, status); err != nil {
 		logutil.BgLogger().Error(
 			"update node status failed",
 			zap.Error(err),
@@ -406,50 +381,24 @@ func (n *ServiceNode) updateNodeStatus() {
 }
 
 func (n *ServiceNode) nodeLoop() {
-	nodeRegistered := n.registerSelf()
-	lastRegisterSelf := time.Now()
-
-	var lastUpdateTasks time.Time
-	if nodeRegistered {
-		n.updateClusterDDLTasks()
-		lastUpdateTasks = time.Now()
-	}
-
-	ticker := time.Tick(time.Second)
-	watch := n.etcdSession.Client().Watch(n.ctx, clusterAssignKeyPrefix, clientv3.WithPrefix())
+	ticker := time.Tick(time.Minute)
+	watch := n.nodeSession.MetaStore().WatchDDLOwnerAssignments(n.ctx)
 loop:
 	for {
 		select {
 		case <-ticker:
-			if !nodeRegistered && time.Since(lastRegisterSelf) > time.Second*10 {
-				nodeRegistered = n.registerSelf()
-			}
-
-			if !nodeRegistered {
-				break
-			}
-
-			n.updateNodeStatus()
-			if time.Since(lastUpdateTasks) > time.Minute {
-				n.updateClusterDDLTasks()
-				lastUpdateTasks = time.Now()
-			}
-		case <-watch:
-			if !nodeRegistered {
-				break
-			}
-
 			n.updateClusterDDLTasks()
-			lastUpdateTasks = time.Now()
+		case <-watch:
+			n.updateClusterDDLTasks()
 		case <-n.ctx.Done():
 			break loop
-		case <-n.etcdSession.Done():
+		case <-n.nodeSession.Done():
 			n.cancel()
 			break loop
 		}
 	}
 
-	if err := n.etcdSession.Close(); err != nil {
+	if err := n.nodeSession.Close(); err != nil {
 		logutil.BgLogger().Error("close session failed", zap.Error(err), zap.String("nodeID", n.id))
 	}
 

@@ -2063,15 +2063,20 @@ func (do *Domain) serverIDKeeper() {
 	}
 }
 
+func (do *Domain) GetDDLServiceNode() *ddlservice.ServiceNode {
+	return do.ddlServiceNode
+}
+
 func (do *Domain) StartDDLServiceNode(fn ddlservice.CreateClusterDDLTaskFunc) error {
-	se, err := concurrency.NewSession(do.etcdClient)
-	if err != nil {
-		return err
+	var store ddlservice.MetaStore
+	if do.etcdClient == nil {
+		store = ddlservice.NewMockMetaStore()
+	} else {
+		store = ddlservice.NewEtcdMetaStore(do.etcdClient)
 	}
 
-	do.ddlServiceNode = ddlservice.NewServiceNode(se, do.ddl.GetID(), fn)
-	do.ddlServiceNode.Start()
-	return nil
+	do.ddlServiceNode = ddlservice.NewServiceNode(store, do.ddl.GetID(), fn)
+	return do.ddlServiceNode.Start()
 }
 
 func init() {

@@ -26,7 +26,6 @@ import (
 	kvstore "github.com/pingcap/tidb/store"
 	"github.com/pingcap/tidb/store/driver"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/client/v3/concurrency"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/keepalive"
@@ -34,11 +33,11 @@ import (
 
 func main() {
 	ctx := context.TODO()
-	cfg := config.GetGlobalConfig()
 
 	err := kvstore.Register("tikv", driver.TiKVDriver{})
 	terror.MustNil(err)
 
+	cfg := config.GetGlobalConfig()
 	etcdCli, err := clientv3.New(clientv3.Config{
 		Endpoints:        []string{"127.0.0.1:2379"},
 		AutoSyncInterval: 30 * time.Second,
@@ -53,13 +52,10 @@ func main() {
 	})
 	terror.MustNil(err)
 
-	session, err := concurrency.NewSession(etcdCli)
-	terror.MustNil(err)
+	n := ddlservice.NewServiceNode(ddlservice.NewEtcdMetaStore(etcdCli), uuid.New().String(), cluster.NewClusterDDLTask)
+	terror.MustNil(n.Start())
 
-	n := ddlservice.NewServiceNode(session, uuid.New().String(), cluster.NewClusterDDLTask)
-	n.Start()
-
-	err = ddlservice.DelegateClusterDDL(ctx, etcdCli, &ddlservice.ClusterInfo{
+	err = n.GetNodeSession().MetaStore().DelegateClusterDDL(ctx, &ddlservice.ClusterInfo{
 		ID:        "cluster1",
 		StoreAddr: "tikv://127.0.0.1:3379",
 	})

@@ -23,7 +23,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pingcap/tidb/ddl/ddlservice"
 	"github.com/pingcap/tidb/domain"
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type httpError struct {
@@ -48,12 +47,16 @@ func BadRequest(msg string) *httpError {
 
 type httpContext struct {
 	context.Context
+	ddlservice.MetaStore
+	ddlservice.WorkerNodeSession
 
-	dom         *domain.Domain
-	serviceEtcd *clientv3.Client
+	dom *domain.Domain
+	r   *http.Request
+	w   http.ResponseWriter
+}
 
-	r *http.Request
-	w http.ResponseWriter
+func (ctx *httpContext) Done() <-chan struct{} {
+	return ctx.Context.Done()
 }
 
 func (ctx *httpContext) writeError(err error) {
@@ -110,7 +113,7 @@ func RegisterCluster(ctx *httpContext) (any, error) {
 		return nil, err
 	}
 
-	return nil, ddlservice.DelegateClusterDDL(ctx, ctx.serviceEtcd, clusterInfo)
+	return nil, ctx.DelegateClusterDDL(ctx, clusterInfo)
 }
 
 func UnregisterCluster(ctx *httpContext) (any, error) {
@@ -120,7 +123,7 @@ func UnregisterCluster(ctx *httpContext) (any, error) {
 		return nil, BadRequest("clusterID is empty")
 	}
 
-	return nil, ddlservice.RemoveCluster(ctx, ctx.serviceEtcd, clusterID)
+	return nil, ctx.RemoveClusterDDLDelegation(ctx, clusterID)
 }
 
 type ClusterScheduleInfo struct {
@@ -136,17 +139,17 @@ type ListRegisterClusterItem struct {
 }
 
 func ListRegisters(ctx *httpContext) (any, error) {
-	clusters, err := ddlservice.ListClusterInfos(ctx, ctx.serviceEtcd)
+	clusters, err := ctx.GetClusterInfoList(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	assignments, err := ddlservice.GetAssignmentMap(ctx, ctx.serviceEtcd)
+	assignments, err := ctx.GetAllDDLOwnerAssignments(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	statuses, err := ddlservice.GetNodeStatuses(ctx, ctx.serviceEtcd)
+	statuses, err := ctx.GetAllWorkNodeStatuses(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -199,17 +202,17 @@ type ClusterAssignmentInfo struct {
 }
 
 func ListServiceNodes(ctx *httpContext) (any, error) {
-	assignments, err := ddlservice.GetAssignmentMap(ctx, ctx.serviceEtcd)
+	assignments, err := ctx.GetAllDDLOwnerAssignments(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	clusters, err := ddlservice.ListClusterInfos(ctx, ctx.serviceEtcd)
+	clusters, err := ctx.GetClusterInfoList(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	nodeStatuses, err := ddlservice.GetNodeStatuses(ctx, ctx.serviceEtcd)
+	nodeStatuses, err := ctx.GetAllWorkNodeStatuses(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -227,18 +230,13 @@ func ListServiceNodes(ctx *httpContext) (any, error) {
 		nodeAssignments[nodeID] = list
 	}
 
-	leaderID, err := ddlservice.GetServiceLeaderID(ctx, ctx.serviceEtcd)
+	leaderID, err := ctx.GetServiceLeaderID(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	nodes, err := ddlservice.ListNodes(ctx, ctx.serviceEtcd)
-	if err != nil {
-		return nil, err
-	}
-
-	items := make([]*ListServiceNodeItem, 0, len(nodes))
-	for _, node := range nodes {
+	items := make([]*ListServiceNodeItem, 0, len(nodeStatuses))
+	for _, node := range nodeStatuses {
 		item := &ListServiceNodeItem{
 			ID:          node.ID,
 			Leader:      leaderID == node.ID,
@@ -250,12 +248,9 @@ func ListServiceNodes(ctx *httpContext) (any, error) {
 			item.Assignments = assignmentList
 		}
 
-		nodeStatus := nodeStatuses[node.ID]
 		clusterStatuses := make(map[string]*ddlservice.NodeClusterTaskStatus)
-		if nodeStatus != nil {
-			for id, status := range nodeStatus.ClusterTasks {
-				clusterStatuses[id] = status
-			}
+		for id, status := range node.ClusterTasks {
+			clusterStatuses[id] = status
 		}
 
 		for _, assignment := range item.Assignments {
@@ -276,15 +271,22 @@ func ListServiceNodes(ctx *httpContext) (any, error) {
 }
 
 func createHandleFunc(router *mux.Router, dom *domain.Domain) func(path string, fn func(*httpContext) (any, error)) *mux.Route {
+	node := dom.GetDDLServiceNode()
+	if node == nil {
+		return nil
+	}
+
+	nodeSession := node.GetNodeSession()
 	return func(path string, fn func(*httpContext) (any, error)) *mux.Route {
 		r := router.PathPrefix("/ddlservice").Subrouter()
 		return r.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 			ctx := &httpContext{
-				Context:     r.Context(),
-				dom:         dom,
-				serviceEtcd: dom.GetEtcdClient(),
-				r:           r,
-				w:           w,
+				MetaStore:         nodeSession.MetaStore(),
+				WorkerNodeSession: nodeSession,
+				Context:           r.Context(),
+				dom:               dom,
+				r:                 r,
+				w:                 w,
 			}
 
 			entity, err := fn(ctx)
@@ -317,6 +319,10 @@ func createHandleFunc(router *mux.Router, dom *domain.Domain) func(path string, 
 
 func Handle(router *mux.Router, dom *domain.Domain) {
 	handleFunc := createHandleFunc(router, dom)
+	if handleFunc == nil {
+		return
+	}
+
 	handleFunc("/registers", RegisterCluster).Methods("POST")
 	handleFunc("/registers/{clusterID}", UnregisterCluster).Methods("DELETE")
 	handleFunc("/registers", ListRegisters).Methods("GET")
