@@ -156,7 +156,13 @@ enterprise-clear:
 	cd extensions/enterprise/generate && $(GO) generate -run clear main.go
 
 enterprise-server:
-	make enterprise-prepare && make server && make enterprise-clear || (make enterprise-clear; exit 1)
+	make enterprise-prepare
+ifeq ($(TARGET), "")
+	CGO_ENABLED=1 $(GOBUILD) -tags enterprise $(RACE_FLAG) -ldflags '$(LDFLAGS) $(CHECK_FLAG)' -o bin/tidb-server tidb-server/main.go || (make enterprise-clear; exit 1)
+else
+	CGO_ENABLED=1 $(GOBUILD) -tags enterprise $(RACE_FLAG) -ldflags '$(LDFLAGS) $(CHECK_FLAG)' -o '$(TARGET)' tidb-server/main.go || (make enterprise-clear; exit 1)
+endif
+	make enterprise-clear
 
 server_debug:
 ifeq ($(TARGET), "")

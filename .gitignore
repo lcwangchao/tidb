@@ -35,3 +35,5 @@ bazel-out
 bazel-testlogs
 bazel-tidb
 .ijwb/
+
+/extensions/boot-*.go
