@@ -149,6 +149,15 @@ else
 	CGO_ENABLED=1 $(GOBUILD) $(RACE_FLAG) -ldflags '$(LDFLAGS) $(CHECK_FLAG)' -o '$(TARGET)' tidb-server/main.go
 endif
 
+enterprise-prepare:
+	cd extensions/enterprise/generate && $(GO) generate -run genfile main.go
+
+enterprise-clear:
+	cd extensions/enterprise/generate && $(GO) generate -run clear main.go
+
+enterprise-server:
+	make enterprise-prepare && make server && make enterprise-clear || (make enterprise-clear; exit 1)
+
 server_debug:
 ifeq ($(TARGET), "")
 	CGO_ENABLED=1 $(GOBUILD) -gcflags="all=-N -l" $(RACE_FLAG) -ldflags '$(LDFLAGS) $(CHECK_FLAG)' -o bin/tidb-server-debug tidb-server/main.go
