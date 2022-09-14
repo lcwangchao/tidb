@@ -18,6 +18,8 @@ import (
 	"context"
 	"crypto/tls"
 
+	"github.com/pingcap/tidb/extensions"
+
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/util/chunk"
 )
@@ -25,7 +27,7 @@ import (
 // IDriver opens IContext.
 type IDriver interface {
 	// OpenCtx opens an IContext with connection id, client capability, collation, dbname and optionally the tls state.
-	OpenCtx(connID uint64, capability uint32, collation uint8, dbname string, tlsState *tls.ConnectionState) (*TiDBContext, error)
+	OpenCtx(connID uint64, capability uint32, collation uint8, dbname string, tlsState *tls.ConnectionState, connExtensions *extensions.ConnExtensions) (*TiDBContext, error)
 }
 
 // PreparedStatement is the interface to use a prepared statement.

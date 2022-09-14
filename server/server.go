@@ -37,6 +37,9 @@ import (
 	"math/rand"
 	"net"
 	"net/http" //nolint:goimports
+
+	"github.com/pingcap/tidb/extensions"
+
 	// For pprof
 	_ "net/http/pprof" // #nosec G108
 	"os"
@@ -422,6 +425,18 @@ func (s *Server) startNetworkListener(listener net.Listener, isUnixSocket bool, 
 			}
 		}
 
+		connExtensions := extensions.Get().CreateConnExtensions()
+		clientConn.connExtensions = connExtensions
+		if connExtensions.ListenConnEvents() {
+			host, _, err := clientConn.PeerHost("")
+			if err != nil {
+				logutil.BgLogger().Error("get peer host failed", zap.Error(err))
+				terror.Log(clientConn.Close())
+				return
+			}
+			connExtensions.OnConnEstablished(host)
+		}
+
 		err = plugin.ForeachPlugin(plugin.Audit, func(p *plugin.Plugin) error {
 			authPlugin := plugin.DeclareAuditManifest(p.Manifest)
 			if authPlugin.OnConnectionEvent == nil {
@@ -501,8 +516,11 @@ func (s *Server) Close() {
 func (s *Server) onConn(conn *clientConn) {
 	ctx := logutil.WithConnID(context.Background(), conn.connectionID)
 	if err := conn.handshake(ctx); err != nil {
+		connInfo := conn.connectInfo()
+		conn.connExtensions.OnConnRejected(connInfo)
+
 		if plugin.IsEnable(plugin.Audit) && conn.getCtx() != nil {
-			conn.getCtx().GetSessionVars().ConnectionInfo = conn.connectInfo()
+			conn.getCtx().GetSessionVars().ConnectionInfo = connInfo
 			err = plugin.ForeachPlugin(plugin.Audit, func(p *plugin.Plugin) error {
 				authPlugin := plugin.DeclareAuditManifest(p.Manifest)
 				if authPlugin.OnConnectionEvent != nil {
@@ -548,6 +566,8 @@ func (s *Server) onConn(conn *clientConn) {
 
 	sessionVars := conn.ctx.GetSessionVars()
 	sessionVars.ConnectionInfo = conn.connectInfo()
+
+	conn.connExtensions.OnConnAuthenticated(sessionVars.ConnectionInfo)
 	err := plugin.ForeachPlugin(plugin.Audit, func(p *plugin.Plugin) error {
 		authPlugin := plugin.DeclareAuditManifest(p.Manifest)
 		if authPlugin.OnConnectionEvent != nil {
@@ -562,6 +582,7 @@ func (s *Server) onConn(conn *clientConn) {
 	connectedTime := time.Now()
 	conn.Run(ctx)
 
+	conn.connExtensions.OnConnDisconnect(sessionVars.ConnectionInfo)
 	err = plugin.ForeachPlugin(plugin.Audit, func(p *plugin.Plugin) error {
 		authPlugin := plugin.DeclareAuditManifest(p.Manifest)
 		if authPlugin.OnConnectionEvent != nil {

@@ -238,7 +238,7 @@ func (cc *clientConn) executePlanCacheStmt(ctx context.Context, stmt interface{}
 
 // The first return value indicates whether the call of executePreparedStmtAndWriteResult has no side effect and can be retried.
 // Currently the first return value is used to fallback to TiKV when TiFlash is down.
-func (cc *clientConn) executePreparedStmtAndWriteResult(ctx context.Context, stmt PreparedStatement, args []expression.Expression, useCursor bool) (bool, error) {
+func (cc *clientConn) executePreparedStmtAndWriteResult(ctx context.Context, stmt PreparedStatement, args []expression.Expression, useCursor bool) (retryable bool, err error) {
 	prepStmt, err := (&cc.ctx).GetSessionVars().GetPreparedStmtByID(uint32(stmt.ID()))
 	if err != nil {
 		return true, errors.Annotate(err, cc.preparedStmt2String(uint32(stmt.ID())))
@@ -247,6 +247,15 @@ func (cc *clientConn) executePreparedStmtAndWriteResult(ctx context.Context, stm
 		BinaryArgs: args,
 		PrepStmt:   prepStmt,
 	}
+
+	if cc.connExtensions != nil {
+		connInfo := cc.ctx.GetSessionVars().ConnectionInfo
+		sc := cc.extensionOnStmtStart(connInfo, execStmt)
+		defer func() {
+			cc.extensionOnStmtEnd(connInfo, sc, err)
+		}()
+	}
+
 	rs, err := (&cc.ctx).ExecuteStmt(ctx, execStmt)
 	if err != nil {
 		return true, errors.Annotate(err, cc.preparedStmt2String(uint32(stmt.ID())))
@@ -276,7 +285,7 @@ func (cc *clientConn) executePreparedStmtAndWriteResult(ctx context.Context, stm
 		return false, cc.flush(ctx)
 	}
 	defer terror.Call(rs.Close)
-	retryable, err := cc.writeResultset(ctx, rs, true, cc.ctx.Status(), 0)
+	retryable, err = cc.writeResultset(ctx, rs, true, cc.ctx.Status(), 0)
 	if err != nil {
 		return retryable, errors.Annotate(err, cc.preparedStmt2String(uint32(stmt.ID())))
 	}

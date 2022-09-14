@@ -54,6 +54,10 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/pingcap/tidb/expression"
+
+	"github.com/pingcap/tidb/extensions"
+
 	"github.com/opentracing/opentracing-go"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
@@ -212,6 +216,7 @@ type clientConn struct {
 		sync.RWMutex
 		cancelFunc context.CancelFunc
 	}
+	connExtensions *extensions.ConnExtensions
 }
 
 func (cc *clientConn) getCtx() *TiDBContext {
@@ -765,7 +770,7 @@ func (cc *clientConn) openSession() error {
 		tlsState := cc.tlsConn.ConnectionState()
 		tlsStatePtr = &tlsState
 	}
-	ctx, err := cc.server.driver.OpenCtx(cc.connectionID, cc.capability, cc.collation, cc.dbname, tlsStatePtr)
+	ctx, err := cc.server.driver.OpenCtx(cc.connectionID, cc.capability, cc.collation, cc.dbname, tlsStatePtr, cc.connExtensions)
 	if err != nil {
 		return err
 	}
@@ -1807,9 +1812,12 @@ func (cc *clientConn) handleQuery(ctx context.Context, sql string) (err error) {
 	sc := cc.ctx.GetSessionVars().StmtCtx
 	prevWarns := sc.GetWarnings()
 	var stmts []ast.StmtNode
+	connectionInfo := cc.ctx.GetSessionVars().ConnectionInfo
+	connExtensions := cc.ctx.GetExtensions()
 	if execStmt, ok := cc.ctx.Parameterize(ctx, sql); ok {
 		stmts = append(stmts, execStmt)
 	} else if stmts, err = cc.ctx.Parse(ctx, sql); err != nil {
+		connExtensions.OnStmtParseError(connectionInfo, sql)
 		return err
 	}
 
@@ -1846,14 +1854,21 @@ func (cc *clientConn) handleQuery(ctx context.Context, sql string) (err error) {
 		// Only pre-build point plans for multi-statement query
 		pointPlans, err = cc.prefetchPointPlanKeys(ctx, stmts)
 		if err != nil {
+			for _, stmt := range stmts {
+				extensionsStmtCtx := cc.extensionOnStmtStart(connectionInfo, stmt)
+				cc.extensionOnStmtEnd(connectionInfo, extensionsStmtCtx, err)
+			}
 			return err
 		}
 	}
+
 	if len(pointPlans) > 0 {
 		defer cc.ctx.ClearValue(plannercore.PointPlanKey)
 	}
 	var retryable bool
+	var extensionsStmtCtx *extensions.StmtContext
 	for i, stmt := range stmts {
+		extensionsStmtCtx = cc.extensionOnStmtStart(connectionInfo, stmt)
 		if len(pointPlans) > 0 {
 			// Save the point plan in Session, so we don't need to build the point plan again.
 			cc.ctx.SetValue(plannercore.PointPlanKey, plannercore.PointPlanVal{Plan: pointPlans[i]})
@@ -1892,8 +1907,59 @@ func (cc *clientConn) handleQuery(ctx context.Context, sql string) (err error) {
 				break
 			}
 		}
+		cc.extensionOnStmtEnd(connectionInfo, extensionsStmtCtx, nil)
 	}
+
+	if err != nil {
+		cc.extensionOnStmtEnd(connectionInfo, extensionsStmtCtx, err)
+	}
+
 	return err
+}
+
+func (cc *clientConn) extensionOnStmtStart(connInfo *variable.ConnectionInfo, stmt ast.StmtNode) *extensions.StmtContext {
+	if !cc.connExtensions.ListenStmtEvents() {
+		return nil
+	}
+
+	var arguments []interface{}
+	if execStmt, ok := stmt.(*ast.ExecuteStmt); ok {
+		preparedStmt, _ := plannercore.GetPreparedStmt(execStmt, cc.ctx.GetSessionVars())
+		if preparedStmt != nil {
+			stmt = preparedStmt.PreparedAst.Stmt
+		}
+
+		if len(execStmt.UsingVars) > 0 {
+			arguments = make([]interface{}, 0, len(execStmt.UsingVars))
+			for _, useVar := range execStmt.UsingVars {
+				arguments = append(arguments, useVar)
+			}
+		} else if execStmt.BinaryArgs != nil {
+			binaryArgs := execStmt.BinaryArgs.([]expression.Expression)
+			if len(binaryArgs) > 0 {
+				arguments = make([]interface{}, 0, len(binaryArgs))
+				for _, arg := range binaryArgs {
+					arguments = append(arguments, arg)
+				}
+			}
+		}
+	}
+
+	sc := extensions.NewStmtContextWithNode(stmt, arguments)
+	cc.connExtensions.OnStmtStart(connInfo, sc)
+	return sc
+}
+
+func (cc *clientConn) extensionOnStmtEnd(connInfo *variable.ConnectionInfo, sc *extensions.StmtContext, err error) {
+	if sc == nil || !cc.connExtensions.ListenStmtEvents() {
+		return
+	}
+
+	if err != nil {
+		sc.SetError(err)
+	}
+
+	cc.connExtensions.OnStmtEnd(connInfo, sc)
 }
 
 // prefetchPointPlanKeys extracts the point keys in multi-statement query,
@@ -2419,7 +2485,7 @@ func (cc *clientConn) handleResetConnection(ctx context.Context) error {
 		tlsState := cc.tlsConn.ConnectionState()
 		tlsStatePtr = &tlsState
 	}
-	tidbCtx, err := cc.server.driver.OpenCtx(cc.connectionID, cc.capability, cc.collation, cc.dbname, tlsStatePtr)
+	tidbCtx, err := cc.server.driver.OpenCtx(cc.connectionID, cc.capability, cc.collation, cc.dbname, tlsStatePtr, cc.connExtensions)
 	if err != nil {
 		return err
 	}
@@ -2439,8 +2505,10 @@ func (cc *clientConn) handleResetConnection(ctx context.Context) error {
 }
 
 func (cc *clientConn) handleCommonConnectionReset(ctx context.Context) error {
-	cc.ctx.GetSessionVars().ConnectionInfo = cc.connectInfo()
+	connInfo := cc.connectInfo()
+	cc.ctx.GetSessionVars().ConnectionInfo = connInfo
 
+	cc.connExtensions.OnConnReset(connInfo)
 	err := plugin.ForeachPlugin(plugin.Audit, func(p *plugin.Plugin) error {
 		authPlugin := plugin.DeclareAuditManifest(p.Manifest)
 		if authPlugin.OnConnectionEvent != nil {

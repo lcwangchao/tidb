@@ -22,6 +22,7 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/expression"
+	"github.com/pingcap/tidb/extensions"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/metrics"
 	"github.com/pingcap/tidb/parser/ast"
@@ -148,6 +149,12 @@ const (
 	// Disable indicates disable plugins.
 	Disable
 )
+
+// ExtensionCommand defines extension command execution
+type ExtensionCommand struct {
+	baseSchemaProducer
+	Handler extensions.ExtensionCmdHandler
+}
 
 // AdminPlugins administrates tidb plugins.
 type AdminPlugins struct {

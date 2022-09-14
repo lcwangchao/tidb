@@ -22,6 +22,7 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
+	"github.com/pingcap/tidb/extensions"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/ast"
 	"github.com/pingcap/tidb/parser/model"
@@ -357,6 +358,11 @@ func (*Context) StmtGetMutation(_ int64) *binlog.TableMutation {
 
 // AddTableLock implements the sessionctx.Context interface.
 func (*Context) AddTableLock(_ []model.TableLockTpInfo) {
+}
+
+// GetExtensions returns the extensions
+func (*Context) GetExtensions() *extensions.ConnExtensions {
+	return nil
 }
 
 // ReleaseTableLocks implements the sessionctx.Context interface.

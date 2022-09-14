@@ -21,6 +21,8 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/pingcap/tidb/extensions"
+
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/kv"
@@ -191,8 +193,10 @@ func (ts *TiDBStatement) Close() error {
 }
 
 // OpenCtx implements IDriver.
-func (qd *TiDBDriver) OpenCtx(connID uint64, capability uint32, collation uint8, dbname string, tlsState *tls.ConnectionState) (*TiDBContext, error) {
-	se, err := session.CreateSession(qd.store)
+func (qd *TiDBDriver) OpenCtx(connID uint64, capability uint32, collation uint8, dbname string, tlsState *tls.ConnectionState, connExtensions *extensions.ConnExtensions) (*TiDBContext, error) {
+	se, err := session.CreateSessionWithOpt(qd.store, &session.Opt{
+		ConnExtensions: connExtensions,
+	})
 	if err != nil {
 		return nil, err
 	}

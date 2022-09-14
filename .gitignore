@@ -36,4 +36,4 @@ bazel-testlogs
 bazel-tidb
 .ijwb/
 
-/extensions/boot-*.go
+/extensions/load/load-*.go

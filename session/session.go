@@ -36,6 +36,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pingcap/tidb/extensions"
+
 	"github.com/ngaut/pools"
 	"github.com/opentracing/opentracing-go"
 	"github.com/pingcap/errors"
@@ -273,9 +275,16 @@ type session struct {
 
 	// Contains a list of sessions used to collect advisory locks.
 	advisoryLocks map[string]*advisoryLock
+
+	extensions *extensions.ConnExtensions
 }
 
 var parserPool = &sync.Pool{New: func() interface{} { return parser.New() }}
+
+// GetExtensions returns the extensions
+func (s *session) GetExtensions() *extensions.ConnExtensions {
+	return s.extensions
+}
 
 // AddTableLock adds table lock to the session lock map.
 func (s *session) AddTableLock(locks []model.TableLockTpInfo) {
@@ -2548,6 +2557,7 @@ func CreateSession4Test(store kv.Storage) (Session, error) {
 // Opt describes the option for creating session
 type Opt struct {
 	PreparedPlanCache sessionctx.PlanCache
+	ConnExtensions    *extensions.ConnExtensions
 }
 
 // CreateSession4TestWithOpt creates a new session environment for test.
@@ -2848,8 +2858,9 @@ func createSessionWithOpt(store kv.Storage, opt *Opt) (*session, error) {
 		sessionStatesHandlers: make(map[sessionstates.SessionStateType]sessionctx.SessionStatesHandler),
 	}
 	s.functionUsageMu.builtinFunctionUsage = make(telemetry.BuiltinFunctionsUsage)
-	if opt != nil && opt.PreparedPlanCache != nil {
+	if opt != nil {
 		s.preparedPlanCache = opt.PreparedPlanCache
+		s.extensions = opt.ConnExtensions
 	}
 	s.mu.values = make(map[fmt.Stringer]interface{})
 	s.lockedTables = make(map[int64]model.TableLockTpInfo)

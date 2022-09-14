@@ -298,6 +298,7 @@ import (
 	any                   "ANY"
 	ascii                 "ASCII"
 	attributes            "ATTRIBUTES"
+	audit                 "AUDIT"
 	statsOptions          "STATS_OPTIONS"
 	statsSampleRate       "STATS_SAMPLE_RATE"
 	statsColChoice        "STATS_COL_CHOICE"
@@ -861,6 +862,7 @@ import (
 	AlterPolicyStmt            "Alter Placement Policy statement"
 	AlterSequenceStmt          "Alter sequence statement"
 	AnalyzeTableStmt           "Analyze table statement"
+	AuditAdminStmt             "Audit admin statement"
 	BeginTransactionStmt       "BEGIN TRANSACTION statement"
 	BinlogStmt                 "Binlog base64 statement"
 	BRIEStmt                   "BACKUP or RESTORE statement"
@@ -6005,6 +6007,7 @@ UnReservedKeyword:
 |	"AUTO_INCREMENT"
 |	"AFTER"
 |	"ALWAYS"
+|   "AUDIT"
 |	"AVG"
 |	"BEGIN"
 |	"BIT"
@@ -10297,6 +10300,12 @@ AdminStmtLimitOpt:
 		$$ = &ast.LimitSimple{Offset: $4.(uint64), Count: $2.(uint64)}
 	}
 
+AuditAdminStmt:
+	"AUDIT" "ADMIN"
+	{
+		$$ = &ast.AuditCmdStmt{}
+	}
+
 AdminStmt:
 	"ADMIN" "SHOW" "DDL"
 	{
@@ -11282,6 +11291,7 @@ Statement:
 |	AlterSequenceStmt
 |	AlterPolicyStmt
 |	AnalyzeTableStmt
+|   AuditAdminStmt
 |	BeginTransactionStmt
 |	BinlogStmt
 |	BRIEStmt

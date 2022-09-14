@@ -115,6 +115,12 @@ type DMLNode interface {
 	dmlStatement()
 }
 
+// ExtensionCmdNode extension's command node
+type ExtensionCmdNode interface {
+	StmtNode
+	extensionCmdStatement()
+}
+
 // ResultField represents a result field which can be a column from a table,
 // or an expression in select field. It is a generated property during
 // binding process. ResultField is the key element to evaluate a ColumnNameExpr.

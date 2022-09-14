@@ -37,7 +37,7 @@ import (
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/executor"
-	_ "github.com/pingcap/tidb/extensions"
+	_ "github.com/pingcap/tidb/extensions/load"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/metrics"
 	"github.com/pingcap/tidb/parser/mysql"

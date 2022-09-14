@@ -359,7 +359,7 @@ func TestErrorNoRollback(t *testing.T) {
 func TestPrepareCount(t *testing.T) {
 	ts := createTidbTestSuite(t)
 
-	qctx, err := ts.tidbdrv.OpenCtx(uint64(0), 0, uint8(tmysql.DefaultCollationID), "test", nil)
+	qctx, err := ts.tidbdrv.OpenCtx(uint64(0), 0, uint8(tmysql.DefaultCollationID), "test", nil, nil)
 	require.NoError(t, err)
 	prepareCnt := atomic.LoadInt64(&variable.PreparedStmtCount)
 	ctx := context.Background()

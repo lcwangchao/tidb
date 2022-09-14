@@ -6886,3 +6886,9 @@ func TestIntervalPartition(t *testing.T) {
 
 	RunTest(t, table, false)
 }
+
+func TestAA(t *testing.T) {
+	p := parser.New()
+	_, _, err := p.Parse("admin audit", "", "")
+	require.NoError(t, err)
+}

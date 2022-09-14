@@ -21,6 +21,7 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
+	"github.com/pingcap/tidb/extensions"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/metrics"
 	"github.com/pingcap/tidb/parser/model"
@@ -178,6 +179,8 @@ type Context interface {
 	ReleaseAdvisoryLock(string) bool
 	// ReleaseAllAdvisoryLocks releases all advisory locks that this session holds.
 	ReleaseAllAdvisoryLocks() int
+	// GetExtensions returns the extensions
+	GetExtensions() *extensions.ConnExtensions
 }
 
 // TxnFuture is an interface where implementations have a kv.Transaction field and after

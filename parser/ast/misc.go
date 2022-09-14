@@ -3448,6 +3448,21 @@ func (n *ShowImportStmt) Restore(ctx *format.RestoreCtx) error {
 	return nil
 }
 
+type AuditCmdStmt struct {
+	extensionCmdNode
+}
+
+func (n *AuditCmdStmt) Accept(v Visitor) (Node, bool) {
+	newNode, _ := v.Enter(n)
+	n = newNode.(*AuditCmdStmt)
+	return v.Leave(n)
+}
+
+func (n *AuditCmdStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("AUDIT ADMIN")
+	return nil
+}
+
 // Ident is the table identifier composed of schema name and table name.
 type Ident struct {
 	Schema model.CIStr

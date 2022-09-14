@@ -305,6 +305,8 @@ func (b *executorBuilder) build(p plannercore.Plan) Executor {
 		return b.buildCTETableReader(v)
 	case *plannercore.CompactTable:
 		return b.buildCompactTable(v)
+	case *plannercore.ExtensionCommand:
+		return b.buildExtensionCommand(v)
 	default:
 		if mp, ok := p.(MockPhysicalPlan); ok {
 			return mp.GetExecutor()
@@ -5103,5 +5105,12 @@ func (b *executorBuilder) buildCompactTable(v *plannercore.CompactTable) Executo
 		baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID()),
 		tableInfo:    v.TableInfo,
 		tikvStore:    tikvStore,
+	}
+}
+
+func (b *executorBuilder) buildExtensionCommand(v *plannercore.ExtensionCommand) Executor {
+	return &ExtensionCmdExec{
+		baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ID()),
+		handler:      v.Handler,
 	}
 }

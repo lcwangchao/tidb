@@ -96,6 +96,14 @@ type dmlNode struct {
 // dmlStatement implements DMLNode interface.
 func (dn *dmlNode) dmlStatement() {}
 
+// extensionCmdNode is the struct implements ExtensionCmdNode interface.
+type extensionCmdNode struct {
+	stmtNode
+}
+
+// extensionCmdNode implements ExtensionCmdNode interface.
+func (dn *extensionCmdNode) extensionCmdStatement() {}
+
 // exprNode is the struct implements Expression interface.
 // Expression implementations should embed it in.
 type exprNode struct {

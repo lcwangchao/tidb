@@ -781,6 +781,8 @@ func (b *PlanBuilder) Build(ctx context.Context, node ast.Node) (Plan, error) {
 		return b.buildSplitRegion(x)
 	case *ast.CompactTableStmt:
 		return b.buildCompactTable(x)
+	case ast.ExtensionCmdNode:
+		return b.buildExtensionCmd(x)
 	}
 	return nil, ErrUnsupportedType.GenWithStack("Unsupported type %T", node)
 }
@@ -4952,6 +4954,29 @@ func (b *PlanBuilder) buildCompactTable(node *ast.CompactTableStmt) (Plan, error
 		TableInfo:   tblInfo,
 	}
 	return p, nil
+}
+
+func (b *PlanBuilder) buildExtensionCmd(node ast.ExtensionCmdNode) (Plan, error) {
+	handler, err := b.ctx.GetExtensions().CreateExtensionCmdHandler(node)
+	if err != nil {
+		return nil, err
+	}
+
+	plan := &ExtensionCommand{
+		Handler: handler,
+	}
+
+	if num := handler.OutputColumnsNum(); num > 0 {
+		schema := newColumnsWithNames(num)
+		addColumn := func(tableName, name string, tp byte, size int) {
+			schema.Append(buildColumnWithName(tableName, name, tp, size))
+		}
+		handler.BuildOutputSchema(addColumn)
+		plan.SetSchema(schema.col2Schema())
+		plan.names = schema.names
+	}
+
+	return plan, nil
 }
 
 func extractPatternLikeName(patternLike *ast.PatternLikeExpr) string {
