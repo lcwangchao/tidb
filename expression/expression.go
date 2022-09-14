@@ -176,6 +176,9 @@ type Expression interface {
 	// Column: ColumnFlag+encoded value
 	// ScalarFunction: SFFlag+encoded function name + encoded arg_1 + encoded arg_2 + ...
 	HashCode(sc *stmtctx.StatementContext) []byte
+
+	// MemoryUsage return the memory usage of Expression
+	MemoryUsage() int64
 }
 
 // CNFExprs stands for a CNF expression.
@@ -1148,7 +1151,7 @@ func scalarExprSupportedByFlash(function *ScalarFunction) bool {
 		default:
 			return false
 		}
-	case ast.Upper, ast.Ucase, ast.Lower, ast.Lcase:
+	case ast.Upper, ast.Ucase, ast.Lower, ast.Lcase, ast.Space:
 		return true
 	case ast.Sysdate:
 		return true

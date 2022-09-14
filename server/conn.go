@@ -54,10 +54,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/pingcap/tidb/expression"
-
-	"github.com/pingcap/tidb/extensions"
-
 	"github.com/opentracing/opentracing-go"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
@@ -65,6 +61,8 @@ import (
 	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/errno"
 	"github.com/pingcap/tidb/executor"
+	"github.com/pingcap/tidb/expression"
+	"github.com/pingcap/tidb/extensions"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/metrics"
@@ -675,6 +673,11 @@ func (cc *clientConn) readOptionalSSLRequestAndHandshakeResponse(ctx context.Con
 		if err != nil {
 			return err
 		}
+	case mysql.AuthTiDBSM3Password:
+		resp.Auth, err = cc.authSM3(ctx)
+		if err != nil {
+			return err
+		}
 	case mysql.AuthNativePassword:
 	case mysql.AuthSocket:
 	case mysql.AuthTiDBSessionToken:
@@ -702,6 +705,7 @@ func (cc *clientConn) handleAuthPlugin(ctx context.Context, resp *handshakeRespo
 
 		switch resp.AuthPlugin {
 		case mysql.AuthCachingSha2Password:
+		case mysql.AuthTiDBSM3Password:
 		case mysql.AuthNativePassword:
 		case mysql.AuthSocket:
 		case mysql.AuthTiDBSessionToken:
@@ -745,6 +749,27 @@ func (cc *clientConn) authSha(ctx context.Context) ([]byte, error) {
 	data, err := cc.readPacket()
 	if err != nil {
 		logutil.Logger(ctx).Error("authSha packet read failed", zap.Error(err))
+		return nil, err
+	}
+	return bytes.Trim(data, "\x00"), nil
+}
+
+// authSM3 implements the tidb_sm3_password specific part of the protocol.
+func (cc *clientConn) authSM3(ctx context.Context) ([]byte, error) {
+	err := cc.writePacket([]byte{0, 0, 0, 0, 1, 4})
+	if err != nil {
+		logutil.Logger(ctx).Error("authSM3 packet write failed", zap.Error(err))
+		return nil, err
+	}
+	err = cc.flush(ctx)
+	if err != nil {
+		logutil.Logger(ctx).Error("authSM3 packet flush failed", zap.Error(err))
+		return nil, err
+	}
+
+	data, err := cc.readPacket()
+	if err != nil {
+		logutil.Logger(ctx).Error("authSM3 packet read failed", zap.Error(err))
 		return nil, err
 	}
 	return bytes.Trim(data, "\x00"), nil
@@ -901,6 +926,11 @@ func (cc *clientConn) checkAuthPlugin(ctx context.Context, resp *handshakeRespon
 	// method to match the one configured for that specific user.
 	if (cc.authPlugin != userplugin) || (cc.authPlugin != resp.AuthPlugin) {
 		if resp.Capability&mysql.ClientPluginAuth > 0 {
+			// For compatibility, since most mysql client doesn't support 'tidb_sm3_password',
+			// they can connect to TiDB using a `tidb_sm3_password` user with a 'caching_sha2_password' plugin.
+			if userplugin == mysql.AuthTiDBSM3Password {
+				userplugin = mysql.AuthCachingSha2Password
+			}
 			authData, err := cc.authSwitchRequest(ctx, userplugin)
 			if err != nil {
 				return nil, err
@@ -1810,14 +1840,11 @@ func (cc *clientConn) audit(eventType plugin.GeneralEvent) {
 func (cc *clientConn) handleQuery(ctx context.Context, sql string) (err error) {
 	defer trace.StartRegion(ctx, "handleQuery").End()
 	sc := cc.ctx.GetSessionVars().StmtCtx
+	connectionInfo := cc.ctx.GetSessionVars().ConnectionInfo
 	prevWarns := sc.GetWarnings()
 	var stmts []ast.StmtNode
-	connectionInfo := cc.ctx.GetSessionVars().ConnectionInfo
-	connExtensions := cc.ctx.GetExtensions()
-	if execStmt, ok := cc.ctx.Parameterize(ctx, sql); ok {
-		stmts = append(stmts, execStmt)
-	} else if stmts, err = cc.ctx.Parse(ctx, sql); err != nil {
-		connExtensions.OnStmtParseError(connectionInfo, sql)
+	if stmts, err = cc.ctx.Parse(ctx, sql); err != nil {
+		cc.connExtensions.OnStmtParseError(connectionInfo, sql)
 		return err
 	}
 
