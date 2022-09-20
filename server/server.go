@@ -425,7 +425,12 @@ func (s *Server) startNetworkListener(listener net.Listener, isUnixSocket bool, 
 			}
 		}
 
-		connExtensions := extensions.Get().CreateConnExtensions()
+		ext, err := extensions.Get()
+		if err != nil {
+			logutil.BgLogger().Error("Failed to get extensions", zap.Error(err))
+			return
+		}
+		connExtensions := ext.CreateConnExtensions()
 		clientConn.connExtensions = connExtensions
 		if connExtensions.ListenConnEvents() {
 			host, _, err := clientConn.PeerHost("")

@@ -19,13 +19,31 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/parser/ast"
+	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/util/chunk"
 )
+
+type CmdContext interface {
+	context.Context
+	SessionContext
+}
 
 type ExtensionCmdHandler interface {
 	OutputColumnsNum() int
 	BuildOutputSchema(addColumn func(tableName, name string, tp byte, size int))
-	ExecuteCmd(ctx context.Context, chk *chunk.Chunk) error
+	ExecuteCmd(ctx CmdContext, chk *chunk.Chunk) error
+}
+
+func WithDynamicPrivileges(privileges []string) ExtensionOption {
+	return func(ext *extensionManifest) {
+		ext.dynPrivileges = privileges
+	}
+}
+
+func WithSysVariables(vars []*variable.SysVar) ExtensionOption {
+	return func(ext *extensionManifest) {
+		ext.sysVariables = vars
+	}
 }
 
 func WithHandleCommand(fn func(ast.ExtensionCmdNode) (ExtensionCmdHandler, error)) ExtensionOption {

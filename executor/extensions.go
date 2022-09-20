@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"github.com/pingcap/tidb/extensions"
+	"github.com/pingcap/tidb/extensions/extensionctx"
 	"github.com/pingcap/tidb/util/chunk"
 )
 
@@ -34,7 +35,12 @@ func (e *ExtensionCmdExec) Next(ctx context.Context, req *chunk.Chunk) error {
 		return nil
 	}
 
-	if err := e.handler.ExecuteCmd(ctx, req); err != nil {
+	cmdCtx := extensionctx.NewCmdContext(
+		ctx,
+		extensionctx.NewSessionContext(e.ctx),
+	)
+
+	if err := e.handler.ExecuteCmd(cmdCtx, req); err != nil {
 		return err
 	}
 

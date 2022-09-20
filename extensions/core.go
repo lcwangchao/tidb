@@ -19,14 +19,52 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/parser/ast"
+	"github.com/pingcap/tidb/parser/auth"
+	"github.com/pingcap/tidb/sessionctx/variable"
 )
 
 type ExtensionOption func(ext *extensionManifest)
 
 type extensionManifest struct {
 	name          string
+	dynPrivileges []string
+	sysVariables  []*variable.SysVar
 	handleCommand func(ast.ExtensionCmdNode) (ExtensionCmdHandler, error)
 	handleConnect func() (ConnHandler, error)
+}
+
+func (e *extensionManifest) init() error {
+	var initedPrivs []string
+	var initedSysVars []*variable.SysVar
+
+	for _, priv := range e.dynPrivileges {
+		if err := RegisterDynamicPrivilege(priv); err != nil {
+			e.deInit(initedPrivs, initedSysVars)
+			return err
+		}
+		initedPrivs = append(initedPrivs, priv)
+	}
+
+	for _, sysVar := range e.sysVariables {
+		if v := variable.GetSysVar(sysVar.Name); v != nil {
+			e.deInit(initedPrivs, initedSysVars)
+			return errors.Errorf("sys var exists: %s", sysVar.Name)
+		}
+		initedSysVars = append(initedSysVars, sysVar)
+		variable.RegisterSysVar(sysVar)
+	}
+
+	return nil
+}
+
+func (e *extensionManifest) deInit(dynPrivs []string, sysVars []*variable.SysVar) {
+	for _, priv := range dynPrivs {
+		RemoveDynamicPrivilege(priv)
+	}
+
+	for _, sysVar := range sysVars {
+		variable.UnregisterSysVar(sysVar.Name)
+	}
 }
 
 func newExtension(name string, opts ...ExtensionOption) *extensionManifest {
@@ -70,18 +108,59 @@ func (e *Extensions) addExtension(extension *extensionManifest) (*Extensions, er
 }
 
 var extensions *Extensions
-var lock sync.RWMutex
+var inited bool
+var lock sync.Mutex
 
-func Get() *Extensions {
-	lock.RLock()
-	defer lock.RUnlock()
-	return extensions
+func Get() (*Extensions, error) {
+	lock.Lock()
+	defer lock.Unlock()
+	if extensions == nil {
+		inited = true
+		return extensions, nil
+	}
+
+	if !inited {
+		return nil, errors.New("extensions not inited")
+	}
+	return extensions, nil
+}
+
+func Init() error {
+	lock.Lock()
+	defer lock.Unlock()
+	if inited {
+		return nil
+	}
+
+	if extensions == nil {
+		inited = true
+		return nil
+	}
+
+	var allInited []*extensionManifest
+	for _, ext := range extensions.items {
+		if err := ext.init(); err != nil {
+			for _, e := range allInited {
+				e.deInit(e.dynPrivileges, e.sysVariables)
+			}
+			return err
+		}
+		allInited = append(allInited, ext)
+	}
+
+	inited = true
+	return nil
 }
 
 func Register(name string, opts ...ExtensionOption) error {
 	lock.Lock()
 	defer lock.Unlock()
-	newExtensions, err := extensions.addExtension(newExtension(name, opts...))
+	if inited {
+		return errors.New("extensions has been inited")
+	}
+
+	ext := newExtension(name, opts...)
+	newExtensions, err := extensions.addExtension(ext)
 	if err != nil {
 		return err
 	}
@@ -90,8 +169,26 @@ func Register(name string, opts ...ExtensionOption) error {
 	return nil
 }
 
-func Clear() {
+func DeInit() {
 	lock.Lock()
 	defer lock.Unlock()
+
+	for _, ext := range extensions.items {
+		ext.deInit(ext.dynPrivileges, ext.sysVariables)
+	}
+
 	extensions = nil
+	inited = false
 }
+
+type PrivilegeManager interface {
+	RequestDynamicVerificationWithUser(privName string, grantable bool, user *auth.UserIdentity) bool
+}
+
+type SessionContext interface {
+	GetPrivilegeManager() PrivilegeManager
+	GetUser() *auth.UserIdentity
+}
+
+var RegisterDynamicPrivilege func(string) error
+var RemoveDynamicPrivilege func(string) bool

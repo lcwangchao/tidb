@@ -32,7 +32,7 @@ type ConnHandler interface {
 type ConnEventTp int8
 
 const (
-	ConnEstablished ConnEventTp = iota
+	Connected ConnEventTp = iota
 	ConnAuthenticated
 	ConnRejected
 	ConnReset
@@ -151,7 +151,7 @@ func (e *ConnExtensions) ListenConnEvents() bool {
 
 func (e *ConnExtensions) OnConnEstablished(host string) {
 	e.onConnEvent(&ConnEvent{
-		Tp: ConnEstablished,
+		Tp: Connected,
 		ConnectionInfo: &variable.ConnectionInfo{
 			Host: host,
 		},

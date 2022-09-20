@@ -37,6 +37,7 @@ import (
 	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/executor"
+	"github.com/pingcap/tidb/extensions"
 	_ "github.com/pingcap/tidb/extensions/load"
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/metrics"
@@ -168,6 +169,8 @@ var (
 )
 
 func main() {
+	terror.MustNil(extensions.Init())
+
 	help := flag.Bool("help", false, "show the usage")
 	flag.Parse()
 	if *help {

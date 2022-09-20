@@ -22,6 +22,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/pingcap/tidb/extensions"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/parser/auth"
 	"github.com/pingcap/tidb/parser/mysql"
@@ -654,6 +655,20 @@ func RegisterDynamicPrivilege(privName string) error {
 	return nil
 }
 
+// RemoveDynamicPrivilege is used by plugins to remove privilege from TiDB
+func RemoveDynamicPrivilege(privName string) bool {
+	privNameInUpper := strings.ToUpper(privName)
+	dynamicPrivLock.Lock()
+	defer dynamicPrivLock.Unlock()
+	for idx, priv := range dynamicPrivs {
+		if privNameInUpper == priv {
+			dynamicPrivs = append(dynamicPrivs[:idx], dynamicPrivs[idx+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
 // GetDynamicPrivileges returns the list of registered DYNAMIC privileges
 // for use in meta data commands (i.e. SHOW PRIVILEGES)
 func GetDynamicPrivileges() []string {
@@ -663,4 +678,9 @@ func GetDynamicPrivileges() []string {
 	privCopy := make([]string, len(dynamicPrivs))
 	copy(privCopy, dynamicPrivs)
 	return privCopy
+}
+
+func init() {
+	extensions.RegisterDynamicPrivilege = RegisterDynamicPrivilege
+	extensions.RemoveDynamicPrivilege = RemoveDynamicPrivilege
 }
