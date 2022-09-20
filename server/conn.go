@@ -54,6 +54,8 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/pingcap/tidb/extensions/extensionctx"
+
 	"github.com/opentracing/opentracing-go"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
@@ -61,7 +63,6 @@ import (
 	"github.com/pingcap/tidb/domain/infosync"
 	"github.com/pingcap/tidb/errno"
 	"github.com/pingcap/tidb/executor"
-	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/extensions"
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
@@ -226,6 +227,7 @@ func (cc *clientConn) getCtx() *TiDBContext {
 func (cc *clientConn) setCtx(ctx *TiDBContext) {
 	cc.ctx.Lock()
 	cc.ctx.TiDBContext = ctx
+	cc.connExtensions.SetSessionContext(extensionctx.NewSessionContext(ctx))
 	cc.ctx.Unlock()
 }
 
@@ -1853,11 +1855,10 @@ func (cc *clientConn) audit(eventType plugin.GeneralEvent) {
 func (cc *clientConn) handleQuery(ctx context.Context, sql string) (err error) {
 	defer trace.StartRegion(ctx, "handleQuery").End()
 	sc := cc.ctx.GetSessionVars().StmtCtx
-	connectionInfo := cc.ctx.GetSessionVars().ConnectionInfo
 	prevWarns := sc.GetWarnings()
 	var stmts []ast.StmtNode
 	if stmts, err = cc.ctx.Parse(ctx, sql); err != nil {
-		cc.connExtensions.OnStmtParseError(connectionInfo, sql)
+		cc.connExtensions.OnStmtParseError(sql)
 		return err
 	}
 
@@ -1895,8 +1896,8 @@ func (cc *clientConn) handleQuery(ctx context.Context, sql string) (err error) {
 		pointPlans, err = cc.prefetchPointPlanKeys(ctx, stmts)
 		if err != nil {
 			for _, stmt := range stmts {
-				extensionsStmtCtx := cc.extensionOnStmtStart(connectionInfo, stmt)
-				cc.extensionOnStmtEnd(connectionInfo, extensionsStmtCtx, err)
+				cc.connExtensions.OnStmtStart(stmt)
+				cc.connExtensions.OnStmtEnd(err)
 			}
 			return err
 		}
@@ -1906,9 +1907,8 @@ func (cc *clientConn) handleQuery(ctx context.Context, sql string) (err error) {
 		defer cc.ctx.ClearValue(plannercore.PointPlanKey)
 	}
 	var retryable bool
-	var extensionsStmtCtx *extensions.StmtContext
 	for i, stmt := range stmts {
-		extensionsStmtCtx = cc.extensionOnStmtStart(connectionInfo, stmt)
+		cc.connExtensions.OnStmtStart(stmt)
 		if len(pointPlans) > 0 {
 			// Save the point plan in Session, so we don't need to build the point plan again.
 			cc.ctx.SetValue(plannercore.PointPlanKey, plannercore.PointPlanVal{Plan: pointPlans[i]})
@@ -1947,59 +1947,14 @@ func (cc *clientConn) handleQuery(ctx context.Context, sql string) (err error) {
 				break
 			}
 		}
-		cc.extensionOnStmtEnd(connectionInfo, extensionsStmtCtx, nil)
+		cc.connExtensions.OnStmtEnd(nil)
 	}
 
 	if err != nil {
-		cc.extensionOnStmtEnd(connectionInfo, extensionsStmtCtx, err)
+		cc.connExtensions.OnStmtEnd(err)
 	}
 
 	return err
-}
-
-func (cc *clientConn) extensionOnStmtStart(connInfo *variable.ConnectionInfo, stmt ast.StmtNode) *extensions.StmtContext {
-	if !cc.connExtensions.ListenStmtEvents() {
-		return nil
-	}
-
-	var arguments []interface{}
-	if execStmt, ok := stmt.(*ast.ExecuteStmt); ok {
-		preparedStmt, _ := plannercore.GetPreparedStmt(execStmt, cc.ctx.GetSessionVars())
-		if preparedStmt != nil {
-			stmt = preparedStmt.PreparedAst.Stmt
-		}
-
-		if len(execStmt.UsingVars) > 0 {
-			arguments = make([]interface{}, 0, len(execStmt.UsingVars))
-			for _, useVar := range execStmt.UsingVars {
-				arguments = append(arguments, useVar)
-			}
-		} else if execStmt.BinaryArgs != nil {
-			binaryArgs := execStmt.BinaryArgs.([]expression.Expression)
-			if len(binaryArgs) > 0 {
-				arguments = make([]interface{}, 0, len(binaryArgs))
-				for _, arg := range binaryArgs {
-					arguments = append(arguments, arg)
-				}
-			}
-		}
-	}
-
-	sc := extensions.NewStmtContextWithNode(stmt, arguments)
-	cc.connExtensions.OnStmtStart(connInfo, sc)
-	return sc
-}
-
-func (cc *clientConn) extensionOnStmtEnd(connInfo *variable.ConnectionInfo, sc *extensions.StmtContext, err error) {
-	if sc == nil || !cc.connExtensions.ListenStmtEvents() {
-		return
-	}
-
-	if err != nil {
-		sc.SetError(err)
-	}
-
-	cc.connExtensions.OnStmtEnd(connInfo, sc)
 }
 
 // prefetchPointPlanKeys extracts the point keys in multi-statement query,

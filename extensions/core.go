@@ -186,8 +186,14 @@ type PrivilegeManager interface {
 }
 
 type SessionContext interface {
+	GetConnectionInfo() *variable.ConnectionInfo
+	GetSessionOrGlobalSystemVar(name string) (string, error)
+	GetGlobalSysVar(name string) (string, error)
 	GetPrivilegeManager() PrivilegeManager
 	GetUser() *auth.UserIdentity
+
+	CreateStmtEventContextWithRawSQL(sql string) StmtEventContext
+	CreateStmtEventContextWithStmt(stmt ast.StmtNode) StmtEventContext
 }
 
 var RegisterDynamicPrivilege func(string) error

@@ -15,12 +15,11 @@
 package extensionctx
 
 import (
-	"context"
-
 	"github.com/pingcap/tidb/extensions"
 	"github.com/pingcap/tidb/parser/auth"
 	"github.com/pingcap/tidb/privilege"
 	"github.com/pingcap/tidb/sessionctx"
+	"github.com/pingcap/tidb/sessionctx/variable"
 )
 
 type seContext struct {
@@ -33,22 +32,22 @@ func NewSessionContext(sctx sessionctx.Context) extensions.SessionContext {
 	}
 }
 
+func (s *seContext) GetConnectionInfo() *variable.ConnectionInfo {
+	return s.GetSessionVars().ConnectionInfo
+}
+
+func (s *seContext) GetSessionOrGlobalSystemVar(name string) (string, error) {
+	return s.GetSessionVars().GetSessionOrGlobalSystemVar(name)
+}
+
+func (s *seContext) GetGlobalSysVar(name string) (string, error) {
+	return s.GetSessionVars().GetGlobalSystemVar(name)
+}
+
 func (s *seContext) GetPrivilegeManager() extensions.PrivilegeManager {
 	return privilege.GetPrivilegeManager(s)
 }
 
 func (s *seContext) GetUser() *auth.UserIdentity {
 	return s.GetSessionVars().User
-}
-
-type cmdContext struct {
-	context.Context
-	extensions.SessionContext
-}
-
-func NewCmdContext(ctx context.Context, sctx extensions.SessionContext) extensions.CmdContext {
-	return &cmdContext{
-		Context:        ctx,
-		SessionContext: sctx,
-	}
 }

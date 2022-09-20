@@ -15,12 +15,9 @@
 package extensions
 
 import (
-	"fmt"
-	"strings"
-
+	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/parser"
 	"github.com/pingcap/tidb/parser/ast"
-	"github.com/pingcap/tidb/parser/format"
 	"github.com/pingcap/tidb/sessionctx/variable"
 )
 
@@ -39,13 +36,8 @@ const (
 	ConnDisconnect
 )
 
-type ConnEvent struct {
-	Tp ConnEventTp
-	*variable.ConnectionInfo
-}
-
 type ConnEventListener interface {
-	OnConnEvent(event *ConnEvent)
+	OnConnEvent(tp ConnEventTp, connInfo *variable.ConnectionInfo)
 }
 
 type StmtEventTp int8
@@ -56,173 +48,137 @@ const (
 	StmtEnd
 )
 
-type StmtEvent struct {
-	Tp   StmtEventTp
-	Conn *variable.ConnectionInfo
-	*StmtContext
+type StmtEventContext interface {
+	SessionContext
+	OriginalSQL() string
+	StmtDigest() (string, *parser.Digest)
+	StmtArguments() []string
+	Error() error
+	SetError(err error)
 }
 
 type StmtEventListener interface {
-	OnStmtEvent(event *StmtEvent)
-}
-
-type StmtContext struct {
-	stmt         ast.StmtNode
-	rawArguments []interface{}
-	originalSQL  string
-	arguments    []string
-	digest       struct {
-		normalized string
-		digest     *parser.Digest
-	}
-	err error
-}
-
-func NewStmtContextWithNode(stmt ast.StmtNode, arguments []interface{}) *StmtContext {
-	return &StmtContext{
-		stmt:         stmt,
-		rawArguments: arguments,
-	}
-}
-
-func NewStmtContextWithRawText(rawText string) *StmtContext {
-	return &StmtContext{
-		originalSQL: rawText,
-	}
-}
-
-func (sc *StmtContext) OriginalSQL() string {
-	if sc.originalSQL == "" {
-		sc.originalSQL = sc.stmt.Text()
-	}
-	return sc.originalSQL
-}
-
-func (sc *StmtContext) StmtArguments() []string {
-	if len(sc.rawArguments) == 0 {
-		return nil
-	}
-
-	if len(sc.arguments) == 0 {
-		sc.arguments = make([]string, 0, len(sc.rawArguments))
-		for _, rawArg := range sc.rawArguments {
-			switch arg := rawArg.(type) {
-			case ast.Node:
-				var sb strings.Builder
-				ctx := format.NewRestoreCtx(format.DefaultRestoreFlags, &sb)
-				_ = arg.Restore(ctx)
-				sc.arguments = append(sc.arguments, sb.String())
-			case fmt.Stringer:
-				sc.arguments = append(sc.arguments, arg.String())
-			default:
-				sc.arguments = append(sc.arguments, "unknown")
-			}
-		}
-	}
-
-	return sc.arguments
-}
-
-func (sc *StmtContext) StmtDigest() (string, *parser.Digest) {
-	if sc.digest.normalized == "" {
-		sc.digest.normalized, sc.digest.digest = parser.NormalizeDigest(sc.OriginalSQL())
-	}
-	return sc.digest.normalized, sc.digest.digest
-}
-
-func (sc *StmtContext) Error() error {
-	return sc.err
-}
-
-func (sc *StmtContext) SetError(err error) {
-	sc.err = err
+	OnStmtEvent(tp StmtEventTp, stmt StmtEventContext)
 }
 
 type ConnExtensions struct {
-	*Extensions
+	extensions *Extensions
 
+	seCtx         SessionContext
+	stmtEventCtx  StmtEventContext
 	connListeners []ConnEventListener
 	stmtListeners []StmtEventListener
 }
 
-func (e *ConnExtensions) ListenConnEvents() bool {
-	return len(e.connListeners) > 0
+func (e *ConnExtensions) CreateExtensionCmdHandler(node ast.ExtensionCmdNode) (ExtensionCmdHandler, error) {
+	errorMsg := "no matched extension found"
+	if e == nil {
+		return nil, errors.New(errorMsg)
+	}
+
+	for _, item := range e.extensions.items {
+		if fn := item.handleCommand; fn != nil {
+			handler, err := fn(node)
+			if err != nil {
+				return nil, err
+			}
+
+			if handler != nil {
+				return handler, nil
+			}
+		}
+	}
+
+	return nil, errors.New(errorMsg)
 }
 
-func (e *ConnExtensions) OnConnEstablished(host string) {
-	e.onConnEvent(&ConnEvent{
-		Tp: Connected,
-		ConnectionInfo: &variable.ConnectionInfo{
-			Host: host,
-		},
+func (e *ConnExtensions) SetSessionContext(seCtx SessionContext) {
+	if e == nil {
+		return
+	}
+	e.seCtx = seCtx
+}
+
+func (e *ConnExtensions) GetSessionContext() SessionContext {
+	if e == nil {
+		return nil
+	}
+	return e.seCtx
+}
+
+func (e *ConnExtensions) OnConnected(host string) {
+	if e == nil || len(e.connListeners) == 0 {
+		return
+	}
+	e.onConnEvent(Connected, &variable.ConnectionInfo{
+		Host: host,
 	})
 }
 
 func (e *ConnExtensions) OnConnRejected(connInfo *variable.ConnectionInfo) {
-	e.onConnEvent(&ConnEvent{
-		Tp:             ConnRejected,
-		ConnectionInfo: connInfo,
-	})
+	if e == nil || len(e.connListeners) == 0 {
+		return
+	}
+	e.onConnEvent(ConnRejected, connInfo)
 }
 
 func (e *ConnExtensions) OnConnAuthenticated(connInfo *variable.ConnectionInfo) {
-	e.onConnEvent(&ConnEvent{
-		Tp:             ConnAuthenticated,
-		ConnectionInfo: connInfo,
-	})
+	if e == nil || len(e.connListeners) == 0 {
+		return
+	}
+	e.onConnEvent(ConnAuthenticated, connInfo)
 }
 
 func (e *ConnExtensions) OnConnReset(connInfo *variable.ConnectionInfo) {
-	e.onConnEvent(&ConnEvent{
-		Tp:             ConnReset,
-		ConnectionInfo: connInfo,
-	})
+	if e == nil || len(e.connListeners) == 0 {
+		return
+	}
+	e.onConnEvent(ConnRejected, connInfo)
 }
 
 func (e *ConnExtensions) OnConnDisconnect(connInfo *variable.ConnectionInfo) {
-	e.onConnEvent(&ConnEvent{
-		Tp:             ConnDisconnect,
-		ConnectionInfo: connInfo,
-	})
+	if e == nil || len(e.connListeners) == 0 {
+		return
+	}
+	e.onConnEvent(ConnDisconnect, connInfo)
 }
 
-func (e *ConnExtensions) ListenStmtEvents() bool {
-	return len(e.stmtListeners) != 0
+func (e *ConnExtensions) OnStmtParseError(rawText string) {
+	if e == nil || len(e.stmtListeners) == 0 {
+		return
+	}
+	e.onStmtEvent(StmtParserError, e.seCtx.CreateStmtEventContextWithRawSQL(rawText))
 }
 
-func (e *ConnExtensions) OnStmtParseError(connInfo *variable.ConnectionInfo, rawText string) {
-	e.onStmtEvent(&StmtEvent{
-		Tp:          StmtParserError,
-		Conn:        connInfo,
-		StmtContext: NewStmtContextWithRawText(rawText),
-	})
+func (e *ConnExtensions) OnStmtStart(stmt ast.StmtNode) {
+	if e == nil || len(e.stmtListeners) == 0 {
+		return
+	}
+	e.stmtEventCtx = e.seCtx.CreateStmtEventContextWithStmt(stmt)
+	e.onStmtEvent(StmtStart, e.stmtEventCtx)
 }
 
-func (e *ConnExtensions) OnStmtStart(connInfo *variable.ConnectionInfo, sc *StmtContext) {
-	e.onStmtEvent(&StmtEvent{
-		Tp:          StmtStart,
-		Conn:        connInfo,
-		StmtContext: sc,
-	})
+func (e *ConnExtensions) OnStmtEnd(err error) {
+	if e == nil || len(e.stmtListeners) == 0 {
+		return
+	}
+	defer func() {
+		e.stmtEventCtx = nil
+	}()
+
+	e.stmtEventCtx.SetError(err)
+	e.onStmtEvent(StmtEnd, e.stmtEventCtx)
 }
 
-func (e *ConnExtensions) OnStmtEnd(connInfo *variable.ConnectionInfo, sc *StmtContext) {
-	e.onStmtEvent(&StmtEvent{
-		Tp:          StmtEnd,
-		Conn:        connInfo,
-		StmtContext: sc,
-	})
-}
-
-func (e *ConnExtensions) onConnEvent(event *ConnEvent) {
+func (e *ConnExtensions) onConnEvent(tp ConnEventTp, connInfo *variable.ConnectionInfo) {
 	for _, l := range e.connListeners {
-		l.OnConnEvent(event)
+		l.OnConnEvent(tp, connInfo)
 	}
 }
 
-func (e *ConnExtensions) onStmtEvent(event *StmtEvent) {
+func (e *ConnExtensions) onStmtEvent(tp StmtEventTp, stmt StmtEventContext) {
 	for _, l := range e.stmtListeners {
-		l.OnStmtEvent(event)
+		l.OnStmtEvent(tp, stmt)
 	}
 }
 
@@ -233,18 +189,21 @@ func WithHandleConnect(fn func() (ConnHandler, error)) ExtensionOption {
 }
 
 func (e *Extensions) CreateConnExtensions() *ConnExtensions {
-	connExtensions := &ConnExtensions{
-		Extensions: e,
-	}
-
 	if e == nil {
-		return connExtensions
+		return nil
 	}
 
+	var connExtensions *ConnExtensions
 	for _, item := range e.items {
 		handler, err := item.handleConnect()
 		if err != nil {
 			return nil
+		}
+
+		if connExtensions == nil {
+			connExtensions = &ConnExtensions{
+				extensions: extensions,
+			}
 		}
 
 		connExtensions.connListeners = append(connExtensions.connListeners, handler.CreateConnEventListener())

@@ -17,7 +17,6 @@ package extensions
 import (
 	"context"
 
-	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/parser/ast"
 	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/util/chunk"
@@ -50,26 +49,4 @@ func WithHandleCommand(fn func(ast.ExtensionCmdNode) (ExtensionCmdHandler, error
 	return func(ext *extensionManifest) {
 		ext.handleCommand = fn
 	}
-}
-
-func (e *Extensions) CreateExtensionCmdHandler(node ast.ExtensionCmdNode) (ExtensionCmdHandler, error) {
-	errorMsg := "no matched extension found"
-	if e == nil {
-		return nil, errors.New(errorMsg)
-	}
-
-	for _, item := range e.items {
-		if fn := item.handleCommand; fn != nil {
-			handler, err := fn(node)
-			if err != nil {
-				return nil, err
-			}
-
-			if handler != nil {
-				return handler, nil
-			}
-		}
-	}
-
-	return nil, errors.New(errorMsg)
 }

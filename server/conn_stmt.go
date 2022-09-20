@@ -248,13 +248,8 @@ func (cc *clientConn) executePreparedStmtAndWriteResult(ctx context.Context, stm
 		PrepStmt:   prepStmt,
 	}
 
-	if cc.connExtensions != nil {
-		connInfo := cc.ctx.GetSessionVars().ConnectionInfo
-		sc := cc.extensionOnStmtStart(connInfo, execStmt)
-		defer func() {
-			cc.extensionOnStmtEnd(connInfo, sc, err)
-		}()
-	}
+	cc.connExtensions.OnStmtStart(execStmt)
+	defer cc.connExtensions.OnStmtEnd(err)
 
 	rs, err := (&cc.ctx).ExecuteStmt(ctx, execStmt)
 	if err != nil {
