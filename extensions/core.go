@@ -19,92 +19,33 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/parser/ast"
-	"github.com/pingcap/tidb/parser/auth"
 	"github.com/pingcap/tidb/sessionctx/variable"
 )
 
 type ExtensionOption func(ext *extensionManifest)
 
-type extensionManifest struct {
-	name          string
-	dynPrivileges []string
-	sysVariables  []*variable.SysVar
-	handleCommand func(ast.ExtensionCmdNode) (ExtensionCmdHandler, error)
-	handleConnect func() (ConnHandler, error)
-}
-
-func (e *extensionManifest) init() error {
-	var initedPrivs []string
-	var initedSysVars []*variable.SysVar
-
-	for _, priv := range e.dynPrivileges {
-		if err := RegisterDynamicPrivilege(priv); err != nil {
-			e.deInit(initedPrivs, initedSysVars)
-			return err
-		}
-		initedPrivs = append(initedPrivs, priv)
-	}
-
-	for _, sysVar := range e.sysVariables {
-		if v := variable.GetSysVar(sysVar.Name); v != nil {
-			e.deInit(initedPrivs, initedSysVars)
-			return errors.Errorf("sys var exists: %s", sysVar.Name)
-		}
-		initedSysVars = append(initedSysVars, sysVar)
-		variable.RegisterSysVar(sysVar)
-	}
-
-	return nil
-}
-
-func (e *extensionManifest) deInit(dynPrivs []string, sysVars []*variable.SysVar) {
-	for _, priv := range dynPrivs {
-		RemoveDynamicPrivilege(priv)
-	}
-
-	for _, sysVar := range sysVars {
-		variable.UnregisterSysVar(sysVar.Name)
+func WithHandleConnect(fn func() (ConnHandler, error)) ExtensionOption {
+	return func(ext *extensionManifest) {
+		ext.handleConnect = fn
 	}
 }
 
-func newExtension(name string, opts ...ExtensionOption) *extensionManifest {
-	extension := &extensionManifest{name: name}
-	for _, opt := range opts {
-		opt(extension)
+func WithDynamicPrivileges(privileges []string) ExtensionOption {
+	return func(ext *extensionManifest) {
+		ext.dynPrivileges = privileges
 	}
-	return extension
 }
 
-type Extensions struct {
-	items map[string]*extensionManifest
+func WithSysVariables(vars []*variable.SysVar) ExtensionOption {
+	return func(ext *extensionManifest) {
+		ext.sysVariables = vars
+	}
 }
 
-func (e *Extensions) copy() *Extensions {
-	newExtensions := &Extensions{
-		items: make(map[string]*extensionManifest),
+func WithHandleCommand(fn func(ast.ExtensionCmdNode) (ExtensionCmdHandler, error)) ExtensionOption {
+	return func(ext *extensionManifest) {
+		ext.handleCommand = fn
 	}
-
-	if e != nil {
-		for name, item := range e.items {
-			newExtensions.items[name] = item
-		}
-	}
-
-	return newExtensions
-}
-
-func (e *Extensions) addExtension(extension *extensionManifest) (*Extensions, error) {
-	if extension == nil {
-		return nil, errors.Errorf("extension is nil")
-	}
-
-	cp := e.copy()
-	if _, ok := cp.items[extension.name]; ok {
-		return nil, errors.Errorf("extension with name '%s' has been registered", extension.name)
-	}
-
-	cp.items[extension.name] = extension
-	return cp, nil
 }
 
 var extensions *Extensions
@@ -181,19 +122,86 @@ func DeInit() {
 	inited = false
 }
 
-type PrivilegeManager interface {
-	RequestDynamicVerificationWithUser(privName string, grantable bool, user *auth.UserIdentity) bool
+type extensionManifest struct {
+	name          string
+	dynPrivileges []string
+	sysVariables  []*variable.SysVar
+	handleCommand func(ast.ExtensionCmdNode) (ExtensionCmdHandler, error)
+	handleConnect func() (ConnHandler, error)
 }
 
-type SessionContext interface {
-	GetConnectionInfo() *variable.ConnectionInfo
-	GetSessionOrGlobalSystemVar(name string) (string, error)
-	GetGlobalSysVar(name string) (string, error)
-	GetPrivilegeManager() PrivilegeManager
-	GetUser() *auth.UserIdentity
+func newExtension(name string, opts ...ExtensionOption) *extensionManifest {
+	extension := &extensionManifest{name: name}
+	for _, opt := range opts {
+		opt(extension)
+	}
+	return extension
+}
 
-	CreateStmtEventContextWithRawSQL(sql string) StmtEventContext
-	CreateStmtEventContextWithStmt(stmt ast.StmtNode) StmtEventContext
+func (e *extensionManifest) init() error {
+	var initedPrivs []string
+	var initedSysVars []*variable.SysVar
+
+	for _, priv := range e.dynPrivileges {
+		if err := RegisterDynamicPrivilege(priv); err != nil {
+			e.deInit(initedPrivs, initedSysVars)
+			return err
+		}
+		initedPrivs = append(initedPrivs, priv)
+	}
+
+	for _, sysVar := range e.sysVariables {
+		if v := variable.GetSysVar(sysVar.Name); v != nil {
+			e.deInit(initedPrivs, initedSysVars)
+			return errors.Errorf("sys var exists: %s", sysVar.Name)
+		}
+		initedSysVars = append(initedSysVars, sysVar)
+		variable.RegisterSysVar(sysVar)
+	}
+
+	return nil
+}
+
+func (e *extensionManifest) deInit(dynPrivs []string, sysVars []*variable.SysVar) {
+	for _, priv := range dynPrivs {
+		RemoveDynamicPrivilege(priv)
+	}
+
+	for _, sysVar := range sysVars {
+		variable.UnregisterSysVar(sysVar.Name)
+	}
+}
+
+type Extensions struct {
+	items map[string]*extensionManifest
+}
+
+func (e *Extensions) copy() *Extensions {
+	newExtensions := &Extensions{
+		items: make(map[string]*extensionManifest),
+	}
+
+	if e != nil {
+		for name, item := range e.items {
+			newExtensions.items[name] = item
+		}
+	}
+
+	return newExtensions
+}
+
+func (e *Extensions) addExtension(extension *extensionManifest) (*Extensions, error) {
+	if extension == nil {
+		return nil, errors.Errorf("extension is nil")
+	}
+
+	cp := e.copy()
+	if _, ok := cp.items[extension.name]; ok {
+		return nil, errors.Errorf("extension with name '%s' has been registered", extension.name)
+	}
+
+	cp.items[extension.name] = extension
+	return cp, nil
 }
 
 var RegisterDynamicPrivilege func(string) error

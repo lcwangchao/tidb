@@ -18,12 +18,21 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/parser"
 	"github.com/pingcap/tidb/parser/ast"
+	"github.com/pingcap/tidb/parser/auth"
 	"github.com/pingcap/tidb/sessionctx/variable"
 )
 
-type ConnHandler interface {
-	CreateConnEventListener() ConnEventListener
-	CreateStmtEventListener() StmtEventListener
+type SessionContext interface {
+	GetConnectionInfo() *variable.ConnectionInfo
+
+	GetSessionOrGlobalSystemVar(name string) (string, error)
+	GetGlobalSysVar(name string) (string, error)
+
+	GetUser() *auth.UserIdentity
+	RequestDynamicVerificationWithUser(privName string, grantable bool, user *auth.UserIdentity) bool
+
+	CreateStmtEventContextWithRawSQL(sql string) StmtEventContext
+	CreateStmtEventContextWithStmt(stmt ast.StmtNode) StmtEventContext
 }
 
 type ConnEventTp int8
@@ -61,6 +70,11 @@ type StmtEventListener interface {
 	OnStmtEvent(tp StmtEventTp, stmt StmtEventContext)
 }
 
+type ConnHandler interface {
+	ConnEventListener() ConnEventListener
+	StmtEventListener() StmtEventListener
+}
+
 type ConnExtensions struct {
 	extensions *Extensions
 
@@ -68,6 +82,31 @@ type ConnExtensions struct {
 	stmtEventCtx  StmtEventContext
 	connListeners []ConnEventListener
 	stmtListeners []StmtEventListener
+}
+
+func NewConnExtensions(mainExtensions *Extensions) *ConnExtensions {
+	if mainExtensions == nil {
+		return nil
+	}
+
+	var connExtensions *ConnExtensions
+	for _, item := range mainExtensions.items {
+		handler, err := item.handleConnect()
+		if err != nil {
+			return nil
+		}
+
+		if connExtensions == nil {
+			connExtensions = &ConnExtensions{
+				extensions: mainExtensions,
+			}
+		}
+
+		connExtensions.connListeners = append(connExtensions.connListeners, handler.ConnEventListener())
+		connExtensions.stmtListeners = append(connExtensions.stmtListeners, handler.StmtEventListener())
+	}
+
+	return connExtensions
 }
 
 func (e *ConnExtensions) CreateExtensionCmdHandler(node ast.ExtensionCmdNode) (ExtensionCmdHandler, error) {
@@ -165,7 +204,6 @@ func (e *ConnExtensions) OnStmtEnd(err error) {
 	defer func() {
 		e.stmtEventCtx = nil
 	}()
-
 	e.stmtEventCtx.SetError(err)
 	e.onStmtEvent(StmtEnd, e.stmtEventCtx)
 }
@@ -180,35 +218,4 @@ func (e *ConnExtensions) onStmtEvent(tp StmtEventTp, stmt StmtEventContext) {
 	for _, l := range e.stmtListeners {
 		l.OnStmtEvent(tp, stmt)
 	}
-}
-
-func WithHandleConnect(fn func() (ConnHandler, error)) ExtensionOption {
-	return func(ext *extensionManifest) {
-		ext.handleConnect = fn
-	}
-}
-
-func (e *Extensions) CreateConnExtensions() *ConnExtensions {
-	if e == nil {
-		return nil
-	}
-
-	var connExtensions *ConnExtensions
-	for _, item := range e.items {
-		handler, err := item.handleConnect()
-		if err != nil {
-			return nil
-		}
-
-		if connExtensions == nil {
-			connExtensions = &ConnExtensions{
-				extensions: extensions,
-			}
-		}
-
-		connExtensions.connListeners = append(connExtensions.connListeners, handler.CreateConnEventListener())
-		connExtensions.stmtListeners = append(connExtensions.stmtListeners, handler.CreateStmtEventListener())
-	}
-
-	return connExtensions
 }

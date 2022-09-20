@@ -425,20 +425,20 @@ func (s *Server) startNetworkListener(listener net.Listener, isUnixSocket bool, 
 			}
 		}
 
-		ext, err := extensions.Get()
+		mainExtensions, err := extensions.Get()
 		if err != nil {
 			logutil.BgLogger().Error("Failed to get extensions", zap.Error(err))
 			return
 		}
-		connExtensions := ext.CreateConnExtensions()
-		clientConn.connExtensions = connExtensions
+
+		clientConn.connExtensions = extensions.NewConnExtensions(mainExtensions)
 		host, _, err := clientConn.PeerHost("")
 		if err != nil {
 			logutil.BgLogger().Error("get peer host failed", zap.Error(err))
 			terror.Log(clientConn.Close())
 			return
 		}
-		connExtensions.OnConnected(host)
+		clientConn.connExtensions.OnConnected(host)
 
 		err = plugin.ForeachPlugin(plugin.Audit, func(p *plugin.Plugin) error {
 			authPlugin := plugin.DeclareAuditManifest(p.Manifest)

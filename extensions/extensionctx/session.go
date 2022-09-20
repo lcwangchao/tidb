@@ -44,8 +44,8 @@ func (s *seContext) GetGlobalSysVar(name string) (string, error) {
 	return s.GetSessionVars().GetGlobalSystemVar(name)
 }
 
-func (s *seContext) GetPrivilegeManager() extensions.PrivilegeManager {
-	return privilege.GetPrivilegeManager(s)
+func (s *seContext) RequestDynamicVerificationWithUser(privName string, grantable bool, user *auth.UserIdentity) bool {
+	return privilege.GetPrivilegeManager(s).RequestDynamicVerificationWithUser(privName, grantable, user)
 }
 
 func (s *seContext) GetUser() *auth.UserIdentity {
