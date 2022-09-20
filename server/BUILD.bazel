@@ -32,6 +32,8 @@ go_library(
         "//errno",
         "//executor",
         "//expression",
+        "//extensions",
+        "//extensions/extensionctx",
         "//infoschema",
         "//kv",
         "//meta",

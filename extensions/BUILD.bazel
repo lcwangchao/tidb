@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "extensions",
+    srcs = [
+        "cmd.go",
+        "conn.go",
+        "core.go",
+        "error.go",
+    ],
+    importpath = "github.com/pingcap/tidb/extensions",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//parser",
+        "//parser/ast",
+        "//parser/auth",
+        "//parser/mysql",
+        "//sessionctx/variable",
+        "//util/chunk",
+        "//util/dbterror",
+        "@com_github_pingcap_errors//:errors",
+    ],
+)

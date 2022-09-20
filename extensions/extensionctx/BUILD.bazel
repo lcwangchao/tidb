@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "extensionctx",
+    srcs = [
+        "cmd.go",
+        "event.go",
+        "session.go",
+    ],
+    importpath = "github.com/pingcap/tidb/extensions/extensionctx",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//expression",
+        "//extensions",
+        "//parser",
+        "//parser/ast",
+        "//parser/auth",
+        "//parser/format",
+        "//planner/core",
+        "//privilege",
+        "//sessionctx",
+        "//sessionctx/variable",
+    ],
+)

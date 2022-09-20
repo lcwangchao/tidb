@@ -78,6 +78,7 @@ go_library(
         "//errno",
         "//expression",
         "//expression/aggregation",
+        "//extensions",
         "//infoschema",
         "//kv",
         "//lock",
