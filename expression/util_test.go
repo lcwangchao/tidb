@@ -16,9 +16,11 @@ package expression
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/pingcap/log"
 	"github.com/pingcap/tidb/parser/ast"
 	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/parser/mysql"
@@ -598,4 +600,30 @@ func (m *MockExpr) SetCharsetAndCollation(chs, coll string) {}
 
 func (m *MockExpr) MemoryUsage() (sum int64) {
 	return
+}
+
+func BenchmarkWrite(b *testing.B) {
+	f, err := os.OpenFile("/tmp/log.txt", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0755)
+	if err != nil {
+		panic(err)
+	}
+
+	_, _, err = log.InitLogger(&log.Config{
+		Level:  "info",
+		Format: "text",
+		File: log.FileLogConfig{
+			Filename: "/tmp/log.txt",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = f.WriteString("AAAAAAAAAABBBBAAAAAAAAAABBBBAAAAAAAAAABBBBAAAAAAAAAABBBBAAAAAAAAAABBBBAAAAAAAAAABBBBAAAAAAAAAABBBBAAAAAAAAAABBBB")
+		//if err != nil {
+		//	panic(err)
+		//}
+	}
 }

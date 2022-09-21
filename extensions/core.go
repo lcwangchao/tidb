@@ -24,7 +24,7 @@ import (
 
 type ExtensionOption func(ext *extensionManifest)
 
-func WithHandleConnect(fn func() (ConnHandler, error)) ExtensionOption {
+func WithHandleConnect(fn func() (*ConnHandler, error)) ExtensionOption {
 	return func(ext *extensionManifest) {
 		ext.handleConnect = fn
 	}
@@ -127,7 +127,7 @@ type extensionManifest struct {
 	dynPrivileges []string
 	sysVariables  []*variable.SysVar
 	handleCommand func(ast.ExtensionCmdNode) (ExtensionCmdHandler, error)
-	handleConnect func() (ConnHandler, error)
+	handleConnect func() (*ConnHandler, error)
 }
 
 func newExtension(name string, opts ...ExtensionOption) *extensionManifest {

@@ -70,9 +70,9 @@ type StmtEventListener interface {
 	OnStmtEvent(tp StmtEventTp, stmt StmtEventContext)
 }
 
-type ConnHandler interface {
-	ConnEventListener() ConnEventListener
-	StmtEventListener() StmtEventListener
+type ConnHandler struct {
+	ConnEventListener
+	StmtEventListener
 }
 
 type ConnExtensions struct {
@@ -102,8 +102,8 @@ func NewConnExtensions(mainExtensions *Extensions) *ConnExtensions {
 			}
 		}
 
-		connExtensions.connListeners = append(connExtensions.connListeners, handler.ConnEventListener())
-		connExtensions.stmtListeners = append(connExtensions.stmtListeners, handler.StmtEventListener())
+		connExtensions.connListeners = append(connExtensions.connListeners, handler.ConnEventListener)
+		connExtensions.stmtListeners = append(connExtensions.stmtListeners, handler.StmtEventListener)
 	}
 
 	return connExtensions
