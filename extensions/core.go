@@ -50,11 +50,11 @@ func WithHandleCommand(fn func(ast.ExtensionCmdNode) (ExtensionCmdHandler, error
 
 var extensions *Extensions
 var inited bool
-var lock sync.Mutex
+var lock sync.RWMutex
 
 func Get() (*Extensions, error) {
-	lock.Lock()
-	defer lock.Unlock()
+	lock.RLock()
+	defer lock.RUnlock()
 	if extensions == nil {
 		inited = true
 		return extensions, nil
@@ -110,7 +110,7 @@ func Register(name string, opts ...ExtensionOption) error {
 	return nil
 }
 
-func DeInit() {
+func Clear() {
 	lock.Lock()
 	defer lock.Unlock()
 
