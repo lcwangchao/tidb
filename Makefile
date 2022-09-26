@@ -146,13 +146,12 @@ else
 endif
 
 enterprise-prepare:
-	cd extensions/enterprise/generate && $(GO) generate -run genfile main.go
+	git submodule init && git submodule update && cd extensions/enterprise/generate && $(GO) generate -run genfile main.go
 
 enterprise-clear:
 	cd extensions/enterprise/generate && $(GO) generate -run clear main.go
 
-enterprise-server:
-	make enterprise-prepare
+enterprise-server: enterprise-prepare
 ifeq ($(TARGET), "")
 	CGO_ENABLED=1 $(GOBUILD) -tags enterprise $(RACE_FLAG) -ldflags '$(LDFLAGS) $(CHECK_FLAG)' -o bin/tidb-server tidb-server/main.go
 else

@@ -22,28 +22,28 @@ import (
 	"github.com/pingcap/tidb/sessionctx/variable"
 )
 
-type ExtensionOption func(ext *extensionManifest)
+type ExtensionOption func(ext *ExtensionManifest)
 
 func WithHandleConnect(fn func() (*ConnHandler, error)) ExtensionOption {
-	return func(ext *extensionManifest) {
+	return func(ext *ExtensionManifest) {
 		ext.handleConnect = fn
 	}
 }
 
-func WithDynamicPrivileges(privileges []string) ExtensionOption {
-	return func(ext *extensionManifest) {
+func WithNewDynamicPrivileges(privileges []string) ExtensionOption {
+	return func(ext *ExtensionManifest) {
 		ext.dynPrivileges = privileges
 	}
 }
 
-func WithSysVariables(vars []*variable.SysVar) ExtensionOption {
-	return func(ext *extensionManifest) {
+func WithNewSysVariables(vars []*variable.SysVar) ExtensionOption {
+	return func(ext *ExtensionManifest) {
 		ext.sysVariables = vars
 	}
 }
 
 func WithHandleCommand(fn func(ast.ExtensionCmdNode) (ExtensionCmdHandler, error)) ExtensionOption {
-	return func(ext *extensionManifest) {
+	return func(ext *ExtensionManifest) {
 		ext.handleCommand = fn
 	}
 }
@@ -78,7 +78,7 @@ func Init() error {
 		return nil
 	}
 
-	var allInited []*extensionManifest
+	var allInited []*ExtensionManifest
 	for _, ext := range extensions.items {
 		if err := ext.init(); err != nil {
 			for _, e := range allInited {
@@ -93,14 +93,18 @@ func Init() error {
 	return nil
 }
 
-func Register(name string, opts ...ExtensionOption) error {
+func Register(createFn func() (*ExtensionManifest, error)) error {
 	lock.Lock()
 	defer lock.Unlock()
 	if inited {
 		return errors.New("extensions has been inited")
 	}
 
-	ext := newExtension(name, opts...)
+	ext, err := createFn()
+	if err != nil {
+		return err
+	}
+
 	newExtensions, err := extensions.addExtension(ext)
 	if err != nil {
 		return err
@@ -122,7 +126,7 @@ func Clear() {
 	inited = false
 }
 
-type extensionManifest struct {
+type ExtensionManifest struct {
 	name          string
 	dynPrivileges []string
 	sysVariables  []*variable.SysVar
@@ -130,15 +134,15 @@ type extensionManifest struct {
 	handleConnect func() (*ConnHandler, error)
 }
 
-func newExtension(name string, opts ...ExtensionOption) *extensionManifest {
-	extension := &extensionManifest{name: name}
+func NewExtension(name string, opts ...ExtensionOption) *ExtensionManifest {
+	extension := &ExtensionManifest{name: name}
 	for _, opt := range opts {
 		opt(extension)
 	}
 	return extension
 }
 
-func (e *extensionManifest) init() error {
+func (e *ExtensionManifest) init() error {
 	var initedPrivs []string
 	var initedSysVars []*variable.SysVar
 
@@ -162,7 +166,7 @@ func (e *extensionManifest) init() error {
 	return nil
 }
 
-func (e *extensionManifest) deInit(dynPrivs []string, sysVars []*variable.SysVar) {
+func (e *ExtensionManifest) deInit(dynPrivs []string, sysVars []*variable.SysVar) {
 	for _, priv := range dynPrivs {
 		RemoveDynamicPrivilege(priv)
 	}
@@ -173,12 +177,12 @@ func (e *extensionManifest) deInit(dynPrivs []string, sysVars []*variable.SysVar
 }
 
 type Extensions struct {
-	items map[string]*extensionManifest
+	items map[string]*ExtensionManifest
 }
 
 func (e *Extensions) copy() *Extensions {
 	newExtensions := &Extensions{
-		items: make(map[string]*extensionManifest),
+		items: make(map[string]*ExtensionManifest),
 	}
 
 	if e != nil {
@@ -190,7 +194,7 @@ func (e *Extensions) copy() *Extensions {
 	return newExtensions
 }
 
-func (e *Extensions) addExtension(extension *extensionManifest) (*Extensions, error) {
+func (e *Extensions) addExtension(extension *ExtensionManifest) (*Extensions, error) {
 	if extension == nil {
 		return nil, errors.Errorf("extension is nil")
 	}
