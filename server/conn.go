@@ -1330,6 +1330,10 @@ func (cc *clientConn) dispatch(ctx context.Context, data []byte) error {
 		cc.ctx.SetCommandValue(cmd)
 	}
 
+	if stmtCtx := vars.StmtCtx; stmtCtx != nil {
+		stmtCtx.Expired = true
+	}
+
 	dataStr := string(hack.String(data))
 	switch cmd {
 	case mysql.ComPing, mysql.ComStmtClose, mysql.ComStmtSendLongData, mysql.ComStmtReset,

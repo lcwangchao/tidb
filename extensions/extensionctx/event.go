@@ -15,106 +15,133 @@
 package extensionctx
 
 import (
-	"fmt"
-	"strings"
+	"context"
+	"sync"
 
-	"github.com/pingcap/tidb/expression"
-	plannercore "github.com/pingcap/tidb/planner/core"
-
+	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/extensions"
 	"github.com/pingcap/tidb/parser"
 	"github.com/pingcap/tidb/parser/ast"
-	"github.com/pingcap/tidb/parser/format"
+	"github.com/pingcap/tidb/parser/terror"
+	plannercore "github.com/pingcap/tidb/planner/core"
+	"github.com/pingcap/tidb/sessionctx/stmtctx"
+	"github.com/pingcap/tidb/sessiontxn"
+	"github.com/pingcap/tidb/types"
+	"github.com/pingcap/tidb/util/chunk"
 )
 
 func (s *seContext) CreateStmtEventContextWithRawSQL(sql string) extensions.StmtEventContext {
 	return &stmtEventContext{
-		SessionContext: s,
-		originalSQL:    sql,
+		seContext:   s,
+		rawStmtText: sql,
 	}
 }
 
 func (s *seContext) CreateStmtEventContextWithStmt(stmt ast.StmtNode) extensions.StmtEventContext {
-	var arguments []interface{}
+	stmtEventCtx := &stmtEventContext{
+		seContext: s,
+		stmt:      stmt,
+	}
+
 	if execStmt, ok := stmt.(*ast.ExecuteStmt); ok {
-		preparedStmt, _ := plannercore.GetPreparedStmt(execStmt, s.GetSessionVars())
-		if preparedStmt != nil {
-			stmt = preparedStmt.PreparedAst.Stmt
-		}
-
-		if len(execStmt.UsingVars) > 0 {
-			arguments = make([]interface{}, 0, len(execStmt.UsingVars))
-			for _, useVar := range execStmt.UsingVars {
-				arguments = append(arguments, useVar)
-			}
-		} else if execStmt.BinaryArgs != nil {
-			binaryArgs := execStmt.BinaryArgs.([]expression.Expression)
-			if len(binaryArgs) > 0 {
-				arguments = make([]interface{}, 0, len(binaryArgs))
-				for _, arg := range binaryArgs {
-					arguments = append(arguments, arg)
-				}
-			}
-		}
+		stmtEventCtx.executeStmt = execStmt
+		stmtEventCtx.prepared, _ = plannercore.GetPreparedStmt(execStmt, s.GetSessionVars())
 	}
-
-	return &stmtEventContext{
-		SessionContext: s,
-		stmt:           stmt,
-		rawArguments:   arguments,
-	}
+	return stmtEventCtx
 }
 
 type stmtEventContext struct {
-	extensions.SessionContext
-	stmt         ast.StmtNode
-	rawArguments []interface{}
-	originalSQL  string
-	arguments    []string
-	digest       struct {
-		normalized string
-		digest     *parser.Digest
+	*seContext
+	stmt        ast.StmtNode
+	rawStmtText string
+
+	stmtCtx *stmtctx.StatementContext
+	err     error
+
+	executeStmt *ast.ExecuteStmt
+	prepared    *plannercore.PlanCacheStmt
+	argsText    string
+}
+
+func (sc *stmtEventContext) getStmtCtx() *stmtctx.StatementContext {
+	if stmtCtx := sc.GetSessionVars().StmtCtx; stmtCtx != nil && !stmtCtx.Expired {
+		return stmtCtx
 	}
-	err error
+
+	if sc.stmtCtx == nil {
+		stmtCtx := &stmtctx.StatementContext{}
+		if sc.prepared != nil {
+			stmtCtx.OriginalSQL = sc.prepared.StmtText
+			stmtCtx.InitSQLDigest(sc.prepared.NormalizedSQL, sc.prepared.SQLDigest)
+		} else if sc.stmt != nil {
+			stmtCtx.OriginalSQL = sc.stmt.Text()
+		} else {
+			stmtCtx.OriginalSQL = sc.rawStmtText
+		}
+		sc.stmtCtx = stmtCtx
+	}
+
+	return sc.stmtCtx
 }
 
 func (sc *stmtEventContext) OriginalSQL() string {
-	if sc.originalSQL == "" {
-		sc.originalSQL = sc.stmt.Text()
-	}
-	return sc.originalSQL
+	return sc.getStmtCtx().OriginalSQL
 }
 
-func (sc *stmtEventContext) StmtArguments() []string {
-	if len(sc.rawArguments) == 0 {
-		return nil
+func (sc *stmtEventContext) SQLDigest() (normalized string, sqlDigest *parser.Digest) {
+	return sc.getStmtCtx().SQLDigest()
+}
+
+var planBuilderPool = sync.Pool{
+	New: func() interface{} {
+		return plannercore.NewPlanBuilder()
+	},
+}
+
+func (sc *stmtEventContext) ArgumentsText() string {
+	executeStmt := sc.executeStmt
+	if executeStmt == nil {
+		return ""
 	}
 
-	if len(sc.arguments) == 0 {
-		sc.arguments = make([]string, 0, len(sc.rawArguments))
-		for _, rawArg := range sc.rawArguments {
-			switch arg := rawArg.(type) {
-			case ast.Node:
-				var sb strings.Builder
-				ctx := format.NewRestoreCtx(format.DefaultRestoreFlags, &sb)
-				_ = arg.Restore(ctx)
-				sc.arguments = append(sc.arguments, sb.String())
-			case fmt.Stringer:
-				sc.arguments = append(sc.arguments, arg.String())
-			default:
-				sc.arguments = append(sc.arguments, "unknown")
-			}
+	if executeStmt.BinaryArgs == nil && len(executeStmt.UsingVars) == 0 {
+		return ""
+	}
+
+	if sc.argsText != "" {
+		return sc.argsText
+	}
+
+	sessVars := sc.GetSessionVars()
+	stmtCtx := sessVars.StmtCtx
+	var datums []types.Datum
+	if stmtCtx != nil && !stmtCtx.Expired && len(sessVars.PreparedParams) == len(executeStmt.UsingVars) {
+		sc.argsText = types.DatumsToStrNoErr(sessVars.PreparedParams)
+		return sc.argsText
+	}
+
+	planBuilder := planBuilderPool.Get().(*plannercore.PlanBuilder)
+	defer planBuilderPool.Put(planBuilder.ResetForReuse())
+	planBuilder.Init(sc, sessiontxn.GetTxnManager(sc).GetTxnInfoSchema(), nil)
+
+	plan, err := planBuilder.Build(context.TODO(), sc.executeStmt)
+	if err != nil {
+		terror.Log(errors.Trace(err))
+		return ""
+	}
+
+	datums = make([]types.Datum, 0, len(executeStmt.UsingVars))
+	for _, exp := range plan.(*plannercore.Execute).Params {
+		datum, err := exp.Eval(chunk.Row{})
+		if err != nil {
+			terror.Log(errors.Trace(err))
+			return ""
 		}
+		datums = append(datums, datum)
 	}
 
-	return sc.arguments
-}
-
-func (sc *stmtEventContext) StmtDigest() (string, *parser.Digest) {
-	if sc.digest.normalized == "" {
-		sc.digest.normalized, sc.digest.digest = parser.NormalizeDigest(sc.OriginalSQL())
-	}
-	return sc.digest.normalized, sc.digest.digest
+	sc.argsText = types.DatumsToStrNoErr(datums)
+	return sc.argsText
 }
 
 func (sc *stmtEventContext) Error() error {

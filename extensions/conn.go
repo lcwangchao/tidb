@@ -60,8 +60,8 @@ const (
 type StmtEventContext interface {
 	SessionContext
 	OriginalSQL() string
-	StmtDigest() (string, *parser.Digest)
-	StmtArguments() []string
+	SQLDigest() (string, *parser.Digest)
+	ArgumentsText() string
 	Error() error
 	SetError(err error)
 }
