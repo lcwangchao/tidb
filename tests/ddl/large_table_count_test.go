@@ -16,11 +16,15 @@ package ddl
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/pingcap/tidb/types"
 
 	"github.com/pingcap/tidb/infoschema"
 	"github.com/pingcap/tidb/kv"
@@ -32,21 +36,21 @@ import (
 
 const createTplTable = `create table customer (
 		c_id int not null,
-		c_d_id tinyint not null,
+		c_d_id smallint not null,
 		c_w_id smallint not null,
 		c_first varchar(16),
-		c_middle char(2),
+		c_middle char(8),
 		c_last varchar(16),
 		c_street_1 varchar(20),
 		c_street_2 varchar(20),
 		c_city varchar(20),
-		c_state char(2),
+		c_state char(8),
 		c_zip char(9),
 		c_phone char(16),
 		c_since datetime,
-		c_credit char(2),
+		c_credit char(8),
 		c_credit_lim bigint,
-		c_discount decimal(4,2),
+		c_discount decimal(12,2),
 		c_balance decimal(12,2),
 		c_ytd_payment decimal(12,2),
 		c_payment_cnt smallint,
@@ -55,7 +59,78 @@ const createTplTable = `create table customer (
 		PRIMARY KEY(c_w_id, c_d_id, c_id))
 `
 
-func BenchmarkLargeTableCountMem(b *testing.B) {
+func BenchmarkLargeTableCountStatsMem(b *testing.B) {
+	db, err := sql.Open("mysql", "root@tcp(127.0.0.1:4000)/test")
+	defer func() {
+		require.NoError(b, db.Close())
+	}()
+	require.NoError(b, err)
+	conn, err := db.Conn(context.TODO())
+	defer func() {
+		require.NoError(b, conn.Close())
+	}()
+	_, err = conn.ExecContext(context.TODO(), "create database if not exists btest")
+	require.NoError(b, err)
+	_, err = conn.ExecContext(context.TODO(), "drop table if exists customer")
+	require.NoError(b, err)
+	_, err = conn.ExecContext(context.TODO(), createTplTable)
+	require.NoError(b, err)
+
+	store, do := testkit.CreateMockStoreAndDomain(b)
+	tk := testkit.NewTestKit(b, store)
+	tk.MustExec("use test")
+	tk.MustExec(createTplTable)
+	tbl, err := do.InfoSchema().TableByName(model.NewCIStr("test"), model.NewCIStr("customer"))
+	require.NoError(b, err)
+	tblInfo := tbl.Meta()
+
+	tblCnt := 1000
+	tblNames := make([]string, 0, tblCnt)
+	for i := 1; i <= tblCnt; i++ {
+		tblNames = append(tblNames, fmt.Sprintf("btest.customer%04d", i))
+	}
+
+	for _, name := range tblNames {
+		_, err = conn.ExecContext(context.TODO(), fmt.Sprintf("create table if not exists %s like test.customer", name))
+		require.NoError(b, err)
+		_, err = conn.ExecContext(context.TODO(), fmt.Sprintf("delete from %s where 1", name))
+		require.NoError(b, err)
+	}
+
+	batch := make([]string, 0, 1024)
+	insertCnt := 1024
+	for i := 1; i <= insertCnt; i++ {
+		values := make([]string, 0, len(tblInfo.Columns))
+		for _, c := range tblInfo.Columns {
+			switch c.FieldType.EvalType() {
+			case types.ETInt, types.ETReal, types.ETDecimal:
+				values = append(values, fmt.Sprintf("%d", i))
+			case types.ETString:
+				values = append(values, fmt.Sprintf("'s%d'", i))
+			case types.ETDatetime:
+				values = append(values, fmt.Sprintf("'20%02d-%02d-%02d 12:00:00.%d'", i%23, i%12+1, i%28+1, i))
+			default:
+				values = append(values, "NULL")
+			}
+		}
+		batch = append(batch, fmt.Sprintf("(%s)", strings.Join(values, ", ")))
+		if i == insertCnt || len(batch) == cap(batch) {
+			for _, name := range tblNames {
+				insertSQL := fmt.Sprintf("insert into %s values\n  %s;", name, strings.Join(batch, ",\n  "))
+				_, err = conn.ExecContext(context.TODO(), insertSQL)
+				require.NoError(b, err)
+			}
+			batch = batch[:0]
+		}
+	}
+
+	for _, name := range tblNames {
+		_, err = conn.ExecContext(context.TODO(), "analyze table "+name)
+		require.NoError(b, err)
+	}
+}
+
+func BenchmarkLargeTableCountMetaMem(b *testing.B) {
 	store, do := testkit.CreateMockStoreAndDomain(b)
 	tk := testkit.NewTestKit(b, store)
 	tk.MustExec("use test")
