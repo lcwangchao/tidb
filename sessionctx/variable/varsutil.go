@@ -116,7 +116,7 @@ func int32ToBoolStr(i int32) string {
 	return Off
 }
 
-func checkCollation(vars *SessionVars, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
+func checkCollation(normalizedValue string) (string, error) {
 	coll, err := collate.GetCollationByName(normalizedValue)
 	if err != nil {
 		return normalizedValue, errors.Trace(err)
@@ -136,7 +136,7 @@ func checkCharacterSet(normalizedValue string, argName string) (string, error) {
 }
 
 // checkReadOnly requires TiDBEnableNoopFuncs=1 for the same scope otherwise an error will be returned.
-func checkReadOnly(vars *SessionVars, normalizedValue string, originalValue string, scope ScopeFlag, offlineMode bool) (string, error) {
+func checkReadOnly(vars *SysVarOpContext, normalizedValue string, originalValue string, scope ScopeFlag, offlineMode bool) (string, error) {
 	errMsg := ErrFunctionsNoopImpl.GenWithStackByArgs("READ ONLY")
 	if offlineMode {
 		errMsg = ErrFunctionsNoopImpl.GenWithStackByArgs("OFFLINE MODE")
@@ -146,10 +146,10 @@ func checkReadOnly(vars *SessionVars, normalizedValue string, originalValue stri
 			if vars.NoopFuncsMode == OffInt {
 				return Off, errMsg
 			}
-			vars.StmtCtx.AppendWarning(errMsg)
+			vars.AppendWarning(errMsg)
 		}
 		if scope == ScopeGlobal {
-			val, err := vars.GlobalVarsAccessor.GetGlobalSysVar(TiDBEnableNoopFuncs)
+			val, err := vars.GlobalVarsAccessor().GetGlobalSysVar(TiDBEnableNoopFuncs)
 			if err != nil {
 				return originalValue, errUnknownSystemVariable.GenWithStackByArgs(TiDBEnableNoopFuncs)
 			}
@@ -157,20 +157,20 @@ func checkReadOnly(vars *SessionVars, normalizedValue string, originalValue stri
 				return Off, errMsg
 			}
 			if val == Warn {
-				vars.StmtCtx.AppendWarning(errMsg)
+				vars.AppendWarning(errMsg)
 			}
 		}
 	}
 	return normalizedValue, nil
 }
 
-func checkIsolationLevel(vars *SessionVars, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
+func checkIsolationLevel(vars *SysVarOpContext, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
 	if normalizedValue == "SERIALIZABLE" || normalizedValue == "READ-UNCOMMITTED" {
 		returnErr := ErrUnsupportedIsolationLevel.GenWithStackByArgs(normalizedValue)
 		if !TiDBOptOn(vars.systems[TiDBSkipIsolationLevelCheck]) {
 			return normalizedValue, ErrUnsupportedIsolationLevel.GenWithStackByArgs(normalizedValue)
 		}
-		vars.StmtCtx.AppendWarning(returnErr)
+		vars.AppendWarning(returnErr)
 	}
 	return normalizedValue, nil
 }
@@ -179,8 +179,8 @@ func checkIsolationLevel(vars *SessionVars, normalizedValue string, originalValu
 // This supports the use case that a TiDB server *older* than 5.0 is a member of the cluster.
 // i.e. system variables such as tidb_gc_concurrency, tidb_gc_enable, tidb_gc_life_time
 // do not exist.
-func getTiDBTableValue(vars *SessionVars, name, defaultVal string) (string, error) {
-	val, err := vars.GlobalVarsAccessor.GetTiDBTableValue(name)
+func getTiDBTableValue(vars *SysVarOpContext, name, defaultVal string) (string, error) {
+	val, err := vars.GlobalVarsAccessor().GetTiDBTableValue(name)
 	if err != nil { // handle empty result or other errors
 		return defaultVal, nil
 	}
@@ -191,9 +191,9 @@ func getTiDBTableValue(vars *SessionVars, name, defaultVal string) (string, erro
 // This supports the use case that a TiDB server *older* than 5.0 is a member of the cluster.
 // i.e. system variables such as tidb_gc_concurrency, tidb_gc_enable, tidb_gc_life_time
 // do not exist.
-func setTiDBTableValue(vars *SessionVars, name, value, comment string) error {
+func setTiDBTableValue(vars *SysVarOpContext, name, value, comment string) error {
 	value = OnOffToTrueFalse(value)
-	return vars.GlobalVarsAccessor.SetTiDBTableValue(name, value, comment)
+	return vars.GlobalVarsAccessor().SetTiDBTableValue(name, value, comment)
 }
 
 // In mysql.tidb the convention has been to store the string value "true"/"false",
@@ -227,8 +227,8 @@ const (
 )
 
 // appendDeprecationWarning adds a warning that the item is deprecated.
-func appendDeprecationWarning(s *SessionVars, name, replacement string) {
-	s.StmtCtx.AppendWarning(errWarnDeprecatedSyntax.FastGenByArgs(name, replacement))
+func appendDeprecationWarning(ctx *SysVarOpContext, name, replacement string) {
+	ctx.AppendWarning(errWarnDeprecatedSyntax.FastGenByArgs(name, replacement))
 }
 
 // TiDBOptOn could be used for all tidb session variable options, we use "ON"/1 to turn on those options.
@@ -385,10 +385,10 @@ func parseTimeZone(s string) (*time.Location, error) {
 	return nil, ErrUnknownTimeZone.GenWithStackByArgs(s)
 }
 
-func parseMemoryLimit(s *SessionVars, normalizedValue string, originalValue string) (byteSize uint64, normalizedStr string, err error) {
+func parseMemoryLimit(s *SysVarOpContext, normalizedValue string, originalValue string) (byteSize uint64, normalizedStr string, err error) {
 	defer func() {
 		if err == nil && byteSize > 0 && byteSize < (512<<20) {
-			s.StmtCtx.AppendWarning(ErrTruncatedWrongValue.GenWithStackByArgs(TiDBServerMemoryLimit, originalValue))
+			s.AppendWarning(ErrTruncatedWrongValue.GenWithStackByArgs(TiDBServerMemoryLimit, originalValue))
 			byteSize = 512 << 20
 			normalizedStr = "512MB"
 		}
@@ -445,7 +445,7 @@ func parseByteSize(s string) (byteSize uint64, normalizedStr string) {
 	return 0, ""
 }
 
-func setSnapshotTS(s *SessionVars, sVal string) error {
+func setSnapshotTS(s *SysVarOpContext, sVal string) error {
 	if sVal == "" {
 		s.SnapshotTS = 0
 		s.SnapshotInfoschema = nil
@@ -462,12 +462,12 @@ func setSnapshotTS(s *SessionVars, sVal string) error {
 	return err
 }
 
-func parseTSFromNumberOrTime(s *SessionVars, sVal string) (uint64, error) {
+func parseTSFromNumberOrTime(s *SysVarOpContext, sVal string) (uint64, error) {
 	if tso, err := strconv.ParseUint(sVal, 10, 64); err == nil {
 		return tso, nil
 	}
 
-	t, err := types.ParseTime(s.StmtCtx, sVal, mysql.TypeTimestamp, types.MaxFsp, nil)
+	t, err := s.ParseTime(sVal, mysql.TypeTimestamp, types.MaxFsp, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -476,13 +476,13 @@ func parseTSFromNumberOrTime(s *SessionVars, sVal string) (uint64, error) {
 	return oracle.GoTimeToTS(t1), err
 }
 
-func setTxnReadTS(s *SessionVars, sVal string) error {
+func setTxnReadTS(s *SysVarOpContext, sVal string) error {
 	if sVal == "" {
 		s.TxnReadTS = NewTxnReadTS(0)
 		return nil
 	}
 
-	t, err := types.ParseTime(s.StmtCtx, sVal, mysql.TypeTimestamp, types.MaxFsp, nil)
+	t, err := s.ParseTime(sVal, mysql.TypeTimestamp, types.MaxFsp, nil)
 	if err != nil {
 		return err
 	}
@@ -497,7 +497,7 @@ func setTxnReadTS(s *SessionVars, sVal string) error {
 	return err
 }
 
-func setReadStaleness(s *SessionVars, sVal string) error {
+func setReadStaleness(s *SysVarOpContext, sVal string) error {
 	if sVal == "" || sVal == "0" {
 		s.ReadStaleness = 0
 		return nil
@@ -532,8 +532,8 @@ func collectAllowFuncName4ExpressionIndex() string {
 	return strings.Join(str, ", ")
 }
 
-func updatePasswordValidationLength(s *SessionVars, length int32) error {
-	err := s.GlobalVarsAccessor.SetGlobalSysVarOnly(context.Background(), ValidatePasswordLength, strconv.FormatInt(int64(length), 10), false)
+func updatePasswordValidationLength(s *SysVarOpContext, length int32) error {
+	err := s.GlobalVarsAccessor().SetGlobalSysVarOnly(context.Background(), ValidatePasswordLength, strconv.FormatInt(int64(length), 10), false)
 	if err != nil {
 		return err
 	}

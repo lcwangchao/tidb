@@ -667,113 +667,26 @@ type HookContext interface {
 	GetStore() kv.Storage
 }
 
-// SessionVars is to handle user-defined or global variables in the current session.
-type SessionVars struct {
+type SessionSysVars struct {
 	Concurrency
 	MemQuota
 	BatchSize
+	// systems variables, don't modify it directly, use GetSystemVar/SetSystemVar method.
+	systems map[string]string
+
 	// DMLBatchSize indicates the number of rows batch-committed for a statement.
 	// It will be used when using LOAD DATA or BatchInsert or BatchDelete is on.
 	DMLBatchSize        int
 	RetryLimit          int64
 	DisableTxnAutoRetry bool
-	userVars            struct {
-		// lock is for user defined variables. values and types is read/write protected.
-		lock sync.RWMutex
-		// values stores the Datum for user variables
-		values map[string]types.Datum
-		// types stores the FieldType for user variables, it cannot be inferred from values when values have not been set yet.
-		types map[string]*types.FieldType
-	}
-	// systems variables, don't modify it directly, use GetSystemVar/SetSystemVar method.
-	systems map[string]string
-	// stmtVars variables are temporarily set by SET_VAR hint
-	// It only take effect for the duration of a single statement
-	stmtVars map[string]string
-	// SysWarningCount is the system variable "warning_count", because it is on the hot path, so we extract it from the systems
-	SysWarningCount int
-	// SysErrorCount is the system variable "error_count", because it is on the hot path, so we extract it from the systems
-	SysErrorCount uint16
-	// nonPreparedPlanCacheStmts stores PlanCacheStmts for non-prepared plan cache.
-	nonPreparedPlanCacheStmts *kvcache.SimpleLRUCache
-	// PreparedStmts stores prepared statement.
-	PreparedStmts        map[uint32]interface{}
-	PreparedStmtNameToID map[string]uint32
-	// preparedStmtID is id of prepared statement.
-	preparedStmtID uint32
-	// Parameter values for plan cache.
-	PlanCacheParams   *PlanCacheParamList
-	LastUpdateTime4PC types.Time
-
-	// ActiveRoles stores active roles for current user
-	ActiveRoles []*auth.RoleIdentity
-
-	RetryInfo *RetryInfo
-	//  TxnCtx Should be reset on transaction finished.
-	TxnCtx *TransactionContext
-	// TxnCtxMu is used to protect TxnCtx.
-	TxnCtxMu sync.Mutex
-
-	// TxnManager is used to manage txn context in session
-	TxnManager interface{}
+	// SnapshotTS is used for reading history data. For simplicity, SnapshotTS only supports distsql request.
+	SnapshotTS uint64
 
 	// KVVars is the variables for KV storage.
 	KVVars *tikvstore.Variables
 
-	// txnIsolationLevelOneShot is used to implements "set transaction isolation level ..."
-	txnIsolationLevelOneShot struct {
-		state txnIsolationLevelOneShotState
-		value string
-	}
-
 	// Status stands for the session status. e.g. in transaction or not, auto commit is on or off, and so on.
 	Status uint16
-
-	// ClientCapability is client's capability.
-	ClientCapability uint32
-
-	// TLSConnectionState is the TLS connection state (nil if not using TLS).
-	TLSConnectionState *tls.ConnectionState
-
-	// ConnectionID is the connection id of the current session.
-	ConnectionID uint64
-
-	// PlanID is the unique id of logical and physical plan.
-	PlanID atomic.Int32
-
-	// PlanColumnID is the unique id for column when building plan.
-	PlanColumnID atomic.Int64
-
-	// MapScalarSubQ maps the scalar sub queries from its ID to its struct.
-	MapScalarSubQ []interface{}
-
-	// MapHashCode2UniqueID4ExtendedCol map the expr's hash code to specified unique ID.
-	MapHashCode2UniqueID4ExtendedCol map[string]int
-
-	// User is the user identity with which the session login.
-	User *auth.UserIdentity
-
-	// Port is the port of the connected socket
-	Port string
-
-	// CurrentDB is the default database of this session.
-	CurrentDB string
-
-	// CurrentDBChanged indicates if the CurrentDB has been updated, and if it is we should print it into
-	// the slow log to make it be compatible with MySQL, https://github.com/pingcap/tidb/issues/17846.
-	CurrentDBChanged bool
-
-	// StrictSQLMode indicates if the session is in strict mode.
-	StrictSQLMode bool
-
-	// CommonGlobalLoaded indicates if common global variable has been loaded for this session.
-	CommonGlobalLoaded bool
-
-	// InRestrictedSQL indicates if the session is handling restricted SQL execution.
-	InRestrictedSQL bool
-
-	// SnapshotTS is used for reading history data. For simplicity, SnapshotTS only supports distsql request.
-	SnapshotTS uint64
 
 	// TxnReadTS is used for staleness transaction, it provides next staleness transaction startTS.
 	TxnReadTS *TxnReadTS
@@ -781,24 +694,22 @@ type SessionVars struct {
 	// SnapshotInfoschema is used with SnapshotTS, when the schema version at snapshotTS less than current schema
 	// version, we load an old version schema for query.
 	SnapshotInfoschema interface{}
+	// SysWarningCount is the system variable "warning_count", because it is on the hot path, so we extract it from the systems
+	SysWarningCount int
+	// SysErrorCount is the system variable "error_count", because it is on the hot path, so we extract it from the systems
+	SysErrorCount uint16
+	// allowMPPExecution means if we should use mpp way to execute query.
+	// Default value is `true`, means to be determined by the optimizer.
+	// Value set to `false` means never use mpp.
+	allowMPPExecution bool
 
-	// BinlogClient is used to write binlog.
-	BinlogClient *pumpcli.PumpsClient
+	// StrictSQLMode indicates if the session is in strict mode.
+	StrictSQLMode bool
 
-	// GlobalVarsAccessor is used to set and get global variables.
-	GlobalVarsAccessor GlobalVarAccessor
-
-	// LastFoundRows is the number of found rows of last query statement
-	LastFoundRows uint64
-
-	// StmtCtx holds variables for current executing statement.
-	StmtCtx *stmtctx.StatementContext
-
-	// RefCountOfStmtCtx indicates the reference count of StmtCtx. When the
-	// StmtCtx is accessed by other sessions, e.g. oom-alarm-handler/expensive-query-handler, add one first.
-	// Note: this variable should be accessed and updated by atomic operations.
-	RefCountOfStmtCtx stmtctx.ReferenceCount
-
+	// allowTiFlashCop means if we must use mpp way to execute query.
+	// Default value is `false`, means to be determined by the optimizer.
+	// Value set to `true` means we may fall back to TiFlash cop if possible.
+	allowTiFlashCop bool
 	// AllowAggPushDown can be set to false to forbid aggregation push down.
 	AllowAggPushDown bool
 
@@ -830,25 +741,12 @@ type SessionVars struct {
 	// MultiStatementMode permits incorrect client library usage. Not recommended to be turned on.
 	MultiStatementMode int
 
-	// InMultiStmts indicates whether the statement is a multi-statement like `update t set a=1; update t set b=2;`.
-	InMultiStmts bool
-
 	// AllowWriteRowID variable is currently not recommended to be turned on.
 	AllowWriteRowID bool
 
 	// AllowBatchCop means if we should send batch coprocessor to TiFlash. Default value is 1, means to use batch cop in case of aggregation and join.
 	// Value set to 2 means to force to send batch cop for any query. Value set to 0 means never use batch cop.
 	AllowBatchCop int
-
-	// allowMPPExecution means if we should use mpp way to execute query.
-	// Default value is `true`, means to be determined by the optimizer.
-	// Value set to `false` means never use mpp.
-	allowMPPExecution bool
-
-	// allowTiFlashCop means if we must use mpp way to execute query.
-	// Default value is `false`, means to be determined by the optimizer.
-	// Value set to `true` means we may fall back to TiFlash cop if possible.
-	allowTiFlashCop bool
 
 	// HashExchangeWithNewCollation means if we support hash exchange when new collation is enabled.
 	// Default value is `true`, means support hash exchange when new collation is enabled.
@@ -942,14 +840,6 @@ type SessionVars struct {
 	// CopTiFlashConcurrencyFactor is the concurrency number of computation in tiflash coprocessor.
 	CopTiFlashConcurrencyFactor float64
 
-	// CurrInsertValues is used to record current ValuesExpr's values.
-	// See http://dev.mysql.com/doc/refman/5.7/en/miscellaneous-functions.html#function_values
-	CurrInsertValues chunk.Row
-
-	// In https://github.com/pingcap/tidb/issues/14164, we can see that MySQL can enter the column that is not in the insert's SELECT's output.
-	// We store the extra columns in this variable.
-	CurrInsertBatchExtraCols [][]types.Datum
-
 	// Per-connection time zones. Each client that connects has its own time zone setting, given by the session time_zone variable.
 	// See https://dev.mysql.com/doc/refman/5.7/en/time-zone-support.html
 	TimeZone *time.Location
@@ -977,10 +867,6 @@ type SessionVars struct {
 
 	// BatchCommit indicates if we should split the transaction into multiple batches.
 	BatchCommit bool
-
-	// IDAllocator is provided by kvEncoder, if it is provided, we will use it to alloc auto id instead of using
-	// Table.alloc.
-	IDAllocator autoid.Allocator
 
 	// OptimizerSelectivityLevel defines the level of the selectivity estimation in plan.
 	OptimizerSelectivityLevel int
@@ -1041,13 +927,8 @@ type SessionVars struct {
 	// EnableChunkRPC indicates whether the coprocessor request can use chunk API.
 	EnableChunkRPC bool
 
-	writeStmtBufs WriteStmtBufs
-
 	// ConstraintCheckInPlace indicates whether to check the constraint when the SQL executing.
 	ConstraintCheckInPlace bool
-
-	// CommandValue indicates which command current session is doing.
-	CommandValue uint32
 
 	// TiDBOptJoinReorderThreshold defines the minimal number of join nodes
 	// to use the greedy join reorder algorithm.
@@ -1074,41 +955,8 @@ type SessionVars struct {
 	// See https://github.com/pingcap/tidb/blob/7105505a78fc886c33258caa5813baf197b15247/docs/design/2023-06-30-configurable-kv-timeout.md?plain=1#L14-L15
 	TidbKvReadTimeout uint64
 
-	// Killed is a flag to indicate that this query is killed.
-	Killed uint32
-
-	// ConnectionStatus indicates current connection status.
-	ConnectionStatus int32
-
-	// ConnectionInfo indicates current connection info used by current session.
-	ConnectionInfo *ConnectionInfo
-
 	// NoopFuncsMode allows OFF/ON/WARN values as 0/1/2.
 	NoopFuncsMode int
-
-	// StartTime is the start time of the last query.
-	StartTime time.Time
-
-	// DurationParse is the duration of parsing SQL string to AST of the last query.
-	DurationParse time.Duration
-
-	// DurationCompile is the duration of compiling AST to execution plan of the last query.
-	DurationCompile time.Duration
-
-	// RewritePhaseInfo records all information about the rewriting phase.
-	RewritePhaseInfo
-
-	// DurationOptimization is the duration of optimizing a query.
-	DurationOptimization time.Duration
-
-	// DurationWaitTS is the duration of waiting for a snapshot TS
-	DurationWaitTS time.Duration
-
-	// PrevStmt is used to store the previous executed statement in the current session.
-	PrevStmt fmt.Stringer
-
-	// prevStmtDigest is used to store the digest of the previous statement in the current session.
-	prevStmtDigest string
 
 	// AllowRemoveAutoInc indicates whether a user can drop the auto_increment column attribute or not.
 	AllowRemoveAutoInc bool
@@ -1146,8 +994,6 @@ type SessionVars struct {
 
 	mppExchangeCompressionMode kv.ExchangeCompressionMode
 
-	PlannerSelectBlockAsName atomic.Pointer[[]ast.HintTable]
-
 	// LockWaitTimeout is the duration waiting for pessimistic lock in milliseconds
 	LockWaitTimeout int64
 
@@ -1160,44 +1006,24 @@ type SessionVars struct {
 	// MetricSchemaRangeDuration indicates the step when query metric schema.
 	MetricSchemaRangeDuration int64
 
-	// Some data of cluster-level memory tables will be retrieved many times in different inspection rules,
-	// and the cost of retrieving some data is expensive. We use the `TableSnapshot` to cache those data
-	// and obtain them lazily, and provide a consistent view of inspection tables for each inspection rules.
-	// All cached snapshots will be released at the end of retrieving
-	InspectionTableCache map[string]TableSnapshot
-
 	// RowEncoder is reused in session for encode row data.
 	RowEncoder rowcodec.Encoder
-
-	// SequenceState cache all sequence's latest value accessed by lastval() builtins. It's a session scoped
-	// variable, and all public methods of SequenceState are currently-safe.
-	SequenceState *SequenceState
 
 	// WindowingUseHighPrecision determines whether to compute window operations without loss of precision.
 	// see https://dev.mysql.com/doc/refman/8.0/en/window-function-optimization.html for more details.
 	WindowingUseHighPrecision bool
 
-	// FoundInPlanCache indicates whether this statement was found in plan cache.
-	FoundInPlanCache bool
 	// PrevFoundInPlanCache indicates whether the last statement was found in plan cache.
 	PrevFoundInPlanCache bool
 
-	// FoundInBinding indicates whether the execution plan is matched with the hints in the binding.
-	FoundInBinding bool
 	// PrevFoundInBinding indicates whether the last execution plan is matched with the hints in the binding.
 	PrevFoundInBinding bool
-
-	// OptimizerUseInvisibleIndexes indicates whether optimizer can use invisible index
-	OptimizerUseInvisibleIndexes bool
 
 	// SelectLimit limits the max counts of select statement's output
 	SelectLimit uint64
 
 	// EnableClusteredIndex indicates whether to enable clustered index when creating a new table.
 	EnableClusteredIndex ClusteredIndexDefMode
-
-	// PresumeKeyNotExists indicates lazy existence checking is enabled.
-	PresumeKeyNotExists bool
 
 	// EnableParallelApply indicates that thether to use parallel apply.
 	EnableParallelApply bool
@@ -1207,15 +1033,6 @@ type SessionVars struct {
 
 	// ShardAllocateStep indicates the max size of continuous rowid shard in one transaction.
 	ShardAllocateStep int64
-
-	// LastTxnInfo keeps track the info of last committed transaction.
-	LastTxnInfo string
-
-	// LastQueryInfo keeps track the info of last query.
-	LastQueryInfo sessionstates.QueryInfo
-
-	// LastDDLInfo keeps track the info of last DDL.
-	LastDDLInfo sessionstates.LastDDLInfo
 
 	// PartitionPruneMode indicates how and when to prune partitions.
 	PartitionPruneMode atomic2.String
@@ -1267,21 +1084,11 @@ type SessionVars struct {
 	// RegardNULLAsPoint if regard NULL as Point
 	RegardNULLAsPoint bool
 
-	// LocalTemporaryTables is *infoschema.LocalTemporaryTables, use interface to avoid circle dependency.
-	// It's nil if there is no local temporary table.
-	LocalTemporaryTables interface{}
-
-	// TemporaryTableData stores committed kv values for temporary table for current session.
-	TemporaryTableData TemporaryTableData
-
 	// MPPStoreFailTTL indicates the duration that protect TiDB from sending task to a new recovered TiFlash.
 	MPPStoreFailTTL string
 
 	// ReadStaleness indicates the staleness duration for the following query
 	ReadStaleness time.Duration
-
-	// cachedStmtCtx is used to optimze the object allocation.
-	cachedStmtCtx [2]stmtctx.StatementContext
 
 	// Rng stores the rand_seed1 and rand_seed2 for Rand() function
 	Rng *mathutil.MysqlRng
@@ -1413,9 +1220,8 @@ type SessionVars struct {
 	// LastPlanReplayerToken indicates the last plan replayer token
 	LastPlanReplayerToken string
 
-	// InPlanReplayer means we are now executing a statement for a PLAN REPLAYER SQL.
-	// Note that PLAN REPLAYER CAPTURE is not included here.
-	InPlanReplayer bool
+	// MemTracker indicates the memory tracker of current session.
+	MemTracker *memory.Tracker
 
 	// AnalyzePartitionConcurrency indicates concurrency for partitions in Analyze
 	AnalyzePartitionConcurrency int
@@ -1425,20 +1231,10 @@ type SessionVars struct {
 	// EnableExternalTSRead indicates whether to enable read through external ts
 	EnableExternalTSRead bool
 
-	HookContext
-
-	// MemTracker indicates the memory tracker of current session.
-	MemTracker *memory.Tracker
-	// MemDBDBFootprint tracks the memory footprint of memdb, and is attached to `MemTracker`
-	MemDBFootprint *memory.Tracker
-	DiskTracker    *memory.Tracker
-
 	// OptPrefixIndexSingleScan indicates whether to do some optimizations to avoid double scan for prefix index.
 	// When set to true, `col is (not) null`(`col` is index prefix column) is regarded as index filter rather than table filter.
 	OptPrefixIndexSingleScan bool
 
-	// ChunkPool Several chunks and columns are cached
-	ChunkPool ReuseChunkPool
 	// EnableReuseCheck indicates  request chunk whether use chunk alloc
 	EnableReuseCheck bool
 
@@ -1455,18 +1251,8 @@ type SessionVars struct {
 	// EnablePlanReplayedContinuesCapture indicates whether enabled plan replayer continues capture
 	EnablePlanReplayedContinuesCapture bool
 
-	// PlanReplayerFinishedTaskKey used to record the finished plan replayer task key in order not to record the
-	// duplicate task in plan replayer continues capture
-	PlanReplayerFinishedTaskKey map[replayer.PlanReplayerTaskKey]struct{}
-
 	// StoreBatchSize indicates the batch size limit of store batch, set this field to 0 to disable store batch.
 	StoreBatchSize int
-
-	// shardRand is used by TxnCtx, for the GetCurrentShard() method.
-	shardRand *rand.Rand
-
-	// Resource group name
-	ResourceGroupName string
 
 	// PessimisticTransactionFairLocking controls whether fair locking for pessimistic transaction
 	// is enabled.
@@ -1478,9 +1264,6 @@ type SessionVars struct {
 
 	// Enable late materialization: push down some selection condition to tablescan.
 	EnableLateMaterialization bool
-
-	// EnableRowLevelChecksum indicates whether row level checksum is enabled.
-	EnableRowLevelChecksum bool
 
 	// TiFlashComputeDispatchPolicy indicates how to dipatch task to tiflash_compute nodes.
 	// Only for disaggregated-tiflash mode.
@@ -1507,14 +1290,8 @@ type SessionVars struct {
 	// FastCheckTable is used to control whether fast check table is enabled.
 	FastCheckTable bool
 
-	// HypoIndexes are for the Index Advisor.
-	HypoIndexes map[string]map[string]map[string]*model.IndexInfo // dbName -> tblName -> idxName -> idxInfo
-
 	// TiFlashReplicaRead indicates the policy of TiFlash node selection when the query needs the TiFlash engine.
 	TiFlashReplicaRead tiflash.ReplicaRead
-
-	// HypoTiFlashReplicas are for the Index Advisor.
-	HypoTiFlashReplicas map[string]map[string]struct{} // dbName -> tblName -> whether to have replicas
 
 	// Runtime Filter Group
 	// Runtime filter type: only support IN or MIN_MAX now.
@@ -1534,6 +1311,363 @@ type SessionVars struct {
 	// When set to true, skip missing partition stats and continue to merge other partition stats to global stats.
 	// When set to false, give up merging partition stats to global stats.
 	SkipMissingPartitionStats bool
+
+	// txnIsolationLevelOneShot is used to implements "set transaction isolation level ..."
+	txnIsolationLevelOneShot struct {
+		state txnIsolationLevelOneShotState
+		value string
+	}
+
+	// LastTxnInfo keeps track the info of last committed transaction.
+	LastTxnInfo string
+
+	// LastQueryInfo keeps track the info of last query.
+	LastQueryInfo sessionstates.QueryInfo
+
+	// LastDDLInfo keeps track the info of last DDL.
+	LastDDLInfo sessionstates.LastDDLInfo
+}
+
+// SetStatusFlag sets the session server status variable.
+// If on is true sets the flag in session status,
+// otherwise removes the flag.
+func (s *SessionSysVars) SetStatusFlag(flag uint16, on bool) {
+	if on {
+		s.Status |= flag
+		return
+	}
+	s.Status &= ^flag
+}
+
+// SetReplicaRead set SessionVars.replicaRead.
+func (s *SessionSysVars) SetReplicaRead(val kv.ReplicaReadType) {
+	s.replicaRead = val
+}
+
+// Location returns the value of time_zone session variable. If it is nil, then return time.Local.
+func (s *SessionSysVars) Location() *time.Location {
+	loc := s.TimeZone
+	if loc == nil {
+		loc = timeutil.SystemLocation()
+	}
+	return loc
+}
+
+func (s *SessionSysVars) setDDLReorgPriority(val string) {
+	val = strings.ToLower(val)
+	switch val {
+	case "priority_low":
+		s.DDLReorgPriority = kv.PriorityLow
+	case "priority_normal":
+		s.DDLReorgPriority = kv.PriorityNormal
+	case "priority_high":
+		s.DDLReorgPriority = kv.PriorityHigh
+	default:
+		s.DDLReorgPriority = kv.PriorityLow
+	}
+}
+
+// BuildParserConfig generate parser.ParserConfig for initial parser
+func (s *SessionSysVars) BuildParserConfig() parser.ParserConfig {
+	return parser.ParserConfig{
+		EnableWindowFunction:        s.EnableWindowFunction,
+		EnableStrictDoubleTypeCheck: s.EnableStrictDoubleTypeCheck,
+		SkipPositionRecording:       true,
+	}
+}
+
+// IsMPPAllowed returns whether mpp execution is allowed.
+func (s *SessionSysVars) IsMPPAllowed() bool {
+	return s.allowMPPExecution
+}
+
+// IsTiFlashCopBanned returns whether cop execution is allowed.
+func (s *SessionSysVars) IsTiFlashCopBanned() bool {
+	return !s.allowTiFlashCop
+}
+
+// IsMPPEnforced returns whether mpp execution is enforced.
+func (s *SessionSysVars) IsMPPEnforced() bool {
+	return s.allowMPPExecution && s.enforceMPPExecution
+}
+
+// ChooseMppVersion indicates the mpp-version used to build mpp plan, if mpp-version is unspecified, use the latest version.
+func (s *SessionSysVars) ChooseMppVersion() kv.MppVersion {
+	if s.mppVersion == kv.MppVersionUnspecified {
+		return kv.GetNewestMppVersion()
+	}
+	return s.mppVersion
+}
+
+// ChooseMppExchangeCompressionMode indicates the data compression method in mpp exchange operator
+func (s *SessionSysVars) ChooseMppExchangeCompressionMode() kv.ExchangeCompressionMode {
+	if s.mppExchangeCompressionMode == kv.ExchangeCompressionModeUnspecified {
+		// If unspecified, use recommended mode
+		return kv.RecommendedExchangeCompressionMode
+	}
+	return s.mppExchangeCompressionMode
+}
+
+// SetAllowInSubqToJoinAndAgg set SessionVars.allowInSubqToJoinAndAgg.
+func (s *SessionSysVars) SetAllowInSubqToJoinAndAgg(val bool) {
+	s.allowInSubqToJoinAndAgg = val
+}
+
+// GetAllowPreferRangeScan get preferRangeScan from SessionVars.preferRangeScan.
+func (s *SessionSysVars) GetAllowPreferRangeScan() bool {
+	return s.preferRangeScan
+}
+
+// SetAllowPreferRangeScan set SessionVars.preferRangeScan.
+func (s *SessionSysVars) SetAllowPreferRangeScan(val bool) {
+	s.preferRangeScan = val
+}
+
+// SetEnableCascadesPlanner set SessionVars.EnableCascadesPlanner.
+func (s *SessionSysVars) SetEnableCascadesPlanner(val bool) {
+	s.EnableCascadesPlanner = val
+}
+
+// GetEnableIndexMerge get EnableIndexMerge from SessionVars.enableIndexMerge.
+func (s *SessionSysVars) GetEnableIndexMerge() bool {
+	return s.enableIndexMerge
+}
+
+// SetEnableIndexMerge set SessionVars.enableIndexMerge.
+func (s *SessionSysVars) SetEnableIndexMerge(val bool) {
+	s.enableIndexMerge = val
+}
+
+// GetEnablePseudoForOutdatedStats get EnablePseudoForOutdatedStats from SessionVars.EnablePseudoForOutdatedStats.
+func (s *SessionSysVars) GetEnablePseudoForOutdatedStats() bool {
+	return s.EnablePseudoForOutdatedStats
+}
+
+// SetEnablePseudoForOutdatedStats set SessionVars.EnablePseudoForOutdatedStats.
+func (s *SessionSysVars) SetEnablePseudoForOutdatedStats(val bool) {
+	s.EnablePseudoForOutdatedStats = val
+}
+
+// SessionVars is to handle user-defined or global variables in the current session.
+type SessionVars struct {
+	SessionSysVars
+	userVars struct {
+		// lock is for user defined variables. values and types is read/write protected.
+		lock sync.RWMutex
+		// values stores the Datum for user variables
+		values map[string]types.Datum
+		// types stores the FieldType for user variables, it cannot be inferred from values when values have not been set yet.
+		types map[string]*types.FieldType
+	}
+
+	// stmtVars variables are temporarily set by SET_VAR hint
+	// It only take effect for the duration of a single statement
+	stmtVars map[string]string
+	// nonPreparedPlanCacheStmts stores PlanCacheStmts for non-prepared plan cache.
+	nonPreparedPlanCacheStmts *kvcache.SimpleLRUCache
+	// PreparedStmts stores prepared statement.
+	PreparedStmts        map[uint32]interface{}
+	PreparedStmtNameToID map[string]uint32
+	// preparedStmtID is id of prepared statement.
+	preparedStmtID uint32
+	// Parameter values for plan cache.
+	PlanCacheParams   *PlanCacheParamList
+	LastUpdateTime4PC types.Time
+
+	// ActiveRoles stores active roles for current user
+	ActiveRoles []*auth.RoleIdentity
+
+	RetryInfo *RetryInfo
+	//  TxnCtx Should be reset on transaction finished.
+	TxnCtx *TransactionContext
+	// TxnCtxMu is used to protect TxnCtx.
+	TxnCtxMu sync.Mutex
+
+	// TxnManager is used to manage txn context in session
+	TxnManager interface{}
+
+	// ClientCapability is client's capability.
+	ClientCapability uint32
+
+	// TLSConnectionState is the TLS connection state (nil if not using TLS).
+	TLSConnectionState *tls.ConnectionState
+
+	// ConnectionID is the connection id of the current session.
+	ConnectionID uint64
+
+	// PlanID is the unique id of logical and physical plan.
+	PlanID atomic.Int32
+
+	// PlanColumnID is the unique id for column when building plan.
+	PlanColumnID atomic.Int64
+
+	// MapScalarSubQ maps the scalar sub queries from its ID to its struct.
+	MapScalarSubQ []interface{}
+
+	// MapHashCode2UniqueID4ExtendedCol map the expr's hash code to specified unique ID.
+	MapHashCode2UniqueID4ExtendedCol map[string]int
+
+	// User is the user identity with which the session login.
+	User *auth.UserIdentity
+
+	// Port is the port of the connected socket
+	Port string
+
+	// CurrentDB is the default database of this session.
+	CurrentDB string
+
+	// CurrentDBChanged indicates if the CurrentDB has been updated, and if it is we should print it into
+	// the slow log to make it be compatible with MySQL, https://github.com/pingcap/tidb/issues/17846.
+	CurrentDBChanged bool
+
+	// CommonGlobalLoaded indicates if common global variable has been loaded for this session.
+	CommonGlobalLoaded bool
+
+	// InRestrictedSQL indicates if the session is handling restricted SQL execution.
+	InRestrictedSQL bool
+
+	// BinlogClient is used to write binlog.
+	BinlogClient *pumpcli.PumpsClient
+
+	// GlobalVarsAccessor is used to set and get global variables.
+	GlobalVarsAccessor GlobalVarAccessor
+
+	// LastFoundRows is the number of found rows of last query statement
+	LastFoundRows uint64
+
+	// StmtCtx holds variables for current executing statement.
+	StmtCtx *stmtctx.StatementContext
+
+	// RefCountOfStmtCtx indicates the reference count of StmtCtx. When the
+	// StmtCtx is accessed by other sessions, e.g. oom-alarm-handler/expensive-query-handler, add one first.
+	// Note: this variable should be accessed and updated by atomic operations.
+	RefCountOfStmtCtx stmtctx.ReferenceCount
+
+	// InMultiStmts indicates whether the statement is a multi-statement like `update t set a=1; update t set b=2;`.
+	InMultiStmts bool
+
+	// CurrInsertValues is used to record current ValuesExpr's values.
+	// See http://dev.mysql.com/doc/refman/5.7/en/miscellaneous-functions.html#function_values
+	CurrInsertValues chunk.Row
+
+	// In https://github.com/pingcap/tidb/issues/14164, we can see that MySQL can enter the column that is not in the insert's SELECT's output.
+	// We store the extra columns in this variable.
+	CurrInsertBatchExtraCols [][]types.Datum
+
+	// IDAllocator is provided by kvEncoder, if it is provided, we will use it to alloc auto id instead of using
+	// Table.alloc.
+	IDAllocator autoid.Allocator
+
+	writeStmtBufs WriteStmtBufs
+
+	// CommandValue indicates which command current session is doing.
+	CommandValue uint32
+
+	// Killed is a flag to indicate that this query is killed.
+	Killed uint32
+
+	// ConnectionStatus indicates current connection status.
+	ConnectionStatus int32
+
+	// ConnectionInfo indicates current connection info used by current session.
+	ConnectionInfo *ConnectionInfo
+
+	// StartTime is the start time of the last query.
+	StartTime time.Time
+
+	// DurationParse is the duration of parsing SQL string to AST of the last query.
+	DurationParse time.Duration
+
+	// DurationCompile is the duration of compiling AST to execution plan of the last query.
+	DurationCompile time.Duration
+
+	// RewritePhaseInfo records all information about the rewriting phase.
+	RewritePhaseInfo
+
+	// DurationOptimization is the duration of optimizing a query.
+	DurationOptimization time.Duration
+
+	// DurationWaitTS is the duration of waiting for a snapshot TS
+	DurationWaitTS time.Duration
+
+	// PrevStmt is used to store the previous executed statement in the current session.
+	PrevStmt fmt.Stringer
+
+	// prevStmtDigest is used to store the digest of the previous statement in the current session.
+	prevStmtDigest string
+
+	PlannerSelectBlockAsName atomic.Pointer[[]ast.HintTable]
+
+	// Some data of cluster-level memory tables will be retrieved many times in different inspection rules,
+	// and the cost of retrieving some data is expensive. We use the `TableSnapshot` to cache those data
+	// and obtain them lazily, and provide a consistent view of inspection tables for each inspection rules.
+	// All cached snapshots will be released at the end of retrieving
+	InspectionTableCache map[string]TableSnapshot
+
+	// SequenceState cache all sequence's latest value accessed by lastval() builtins. It's a session scoped
+	// variable, and all public methods of SequenceState are currently-safe.
+	SequenceState *SequenceState
+
+	// FoundInPlanCache indicates whether this statement was found in plan cache.
+	FoundInPlanCache bool
+
+	// FoundInBinding indicates whether the execution plan is matched with the hints in the binding.
+	FoundInBinding bool
+
+	// OptimizerUseInvisibleIndexes indicates whether optimizer can use invisible index
+	OptimizerUseInvisibleIndexes bool
+
+	// PresumeKeyNotExists indicates lazy existence checking is enabled.
+	PresumeKeyNotExists bool
+
+	// LocalTemporaryTables is *infoschema.LocalTemporaryTables, use interface to avoid circle dependency.
+	// It's nil if there is no local temporary table.
+	LocalTemporaryTables interface{}
+
+	// TemporaryTableData stores committed kv values for temporary table for current session.
+	TemporaryTableData TemporaryTableData
+
+	// cachedStmtCtx is used to optimze the object allocation.
+	cachedStmtCtx [2]stmtctx.StatementContext
+
+	// InPlanReplayer means we are now executing a statement for a PLAN REPLAYER SQL.
+	// Note that PLAN REPLAYER CAPTURE is not included here.
+	InPlanReplayer bool
+
+	HookContext
+
+	// MemDBDBFootprint tracks the memory footprint of memdb, and is attached to `MemTracker`
+	MemDBFootprint *memory.Tracker
+	DiskTracker    *memory.Tracker
+
+	// ChunkPool Several chunks and columns are cached
+	ChunkPool ReuseChunkPool
+
+	// PlanReplayerFinishedTaskKey used to record the finished plan replayer task key in order not to record the
+	// duplicate task in plan replayer continues capture
+	PlanReplayerFinishedTaskKey map[replayer.PlanReplayerTaskKey]struct{}
+
+	// shardRand is used by TxnCtx, for the GetCurrentShard() method.
+	shardRand *rand.Rand
+
+	// Resource group name
+	ResourceGroupName string
+
+	// EnableRowLevelChecksum indicates whether row level checksum is enabled.
+	EnableRowLevelChecksum bool
+
+	// HypoIndexes are for the Index Advisor.
+	HypoIndexes map[string]map[string]map[string]*model.IndexInfo // dbName -> tblName -> idxName -> idxInfo
+
+	// HypoTiFlashReplicas are for the Index Advisor.
+	HypoTiFlashReplicas map[string]map[string]struct{} // dbName -> tblName -> whether to have replicas
+}
+
+func (s *SessionVars) GetSysVarOpContext() *SysVarOpContext {
+	return &SysVarOpContext{
+		SessionSysVars: &s.SessionSysVars,
+		sessVars:       s,
+	}
 }
 
 // GetOptimizerFixControlMap returns the specified value of the optimizer fix control.
@@ -1664,36 +1798,20 @@ func (s *SessionVars) InitStatementContext() *stmtctx.StatementContext {
 	return sc
 }
 
-// IsMPPAllowed returns whether mpp execution is allowed.
-func (s *SessionVars) IsMPPAllowed() bool {
-	return s.allowMPPExecution
-}
-
-// IsTiFlashCopBanned returns whether cop execution is allowed.
-func (s *SessionVars) IsTiFlashCopBanned() bool {
-	return !s.allowTiFlashCop
-}
-
-// IsMPPEnforced returns whether mpp execution is enforced.
-func (s *SessionVars) IsMPPEnforced() bool {
-	return s.allowMPPExecution && s.enforceMPPExecution
-}
-
-// ChooseMppVersion indicates the mpp-version used to build mpp plan, if mpp-version is unspecified, use the latest version.
-func (s *SessionVars) ChooseMppVersion() kv.MppVersion {
-	if s.mppVersion == kv.MppVersionUnspecified {
-		return kv.GetNewestMppVersion()
+// GetAllowInSubqToJoinAndAgg get AllowInSubqToJoinAndAgg from sql hints and SessionVars.allowInSubqToJoinAndAgg.
+func (s *SessionVars) GetAllowInSubqToJoinAndAgg() bool {
+	if s.StmtCtx.HasAllowInSubqToJoinAndAggHint {
+		return s.StmtCtx.AllowInSubqToJoinAndAgg
 	}
-	return s.mppVersion
+	return s.allowInSubqToJoinAndAgg
 }
 
-// ChooseMppExchangeCompressionMode indicates the data compression method in mpp exchange operator
-func (s *SessionVars) ChooseMppExchangeCompressionMode() kv.ExchangeCompressionMode {
-	if s.mppExchangeCompressionMode == kv.ExchangeCompressionModeUnspecified {
-		// If unspecified, use recommended mode
-		return kv.RecommendedExchangeCompressionMode
+// GetEnableCascadesPlanner get EnableCascadesPlanner from sql hints and SessionVars.EnableCascadesPlanner.
+func (s *SessionVars) GetEnableCascadesPlanner() bool {
+	if s.StmtCtx.HasEnableCascadesPlannerHint {
+		return s.StmtCtx.EnableCascadesPlanner
 	}
-	return s.mppExchangeCompressionMode
+	return s.EnableCascadesPlanner
 }
 
 // RaiseWarningWhenMPPEnforced will raise a warning when mpp mode is enforced and executing explain statement.
@@ -1732,15 +1850,6 @@ func (s *SessionVars) IsDynamicPartitionPruneEnabled() bool {
 // tidb_enable_row_level_checksum is on and tidb_row_format_version is 2 and it's not a internal session.
 func (s *SessionVars) IsRowLevelChecksumEnabled() bool {
 	return s.EnableRowLevelChecksum && s.RowEncoder.Enable && !s.InRestrictedSQL
-}
-
-// BuildParserConfig generate parser.ParserConfig for initial parser
-func (s *SessionVars) BuildParserConfig() parser.ParserConfig {
-	return parser.ParserConfig{
-		EnableWindowFunction:        s.EnableWindowFunction,
-		EnableStrictDoubleTypeCheck: s.EnableStrictDoubleTypeCheck,
-		SkipPositionRecording:       true,
-	}
 }
 
 // AllocNewPlanID alloc new ID
@@ -1889,6 +1998,92 @@ func (connInfo *ConnectionInfo) IsSecureTransport() bool {
 // NewSessionVars creates a session vars object.
 func NewSessionVars(hctx HookContext) *SessionVars {
 	vars := &SessionVars{
+		SessionSysVars: SessionSysVars{
+			systems:                       make(map[string]string),
+			StrictSQLMode:                 true,
+			AutoIncrementIncrement:        DefAutoIncrementIncrement,
+			AutoIncrementOffset:           DefAutoIncrementOffset,
+			Status:                        mysql.ServerStatusAutocommit,
+			AllowAggPushDown:              false,
+			AllowCartesianBCJ:             DefOptCartesianBCJ,
+			MPPOuterJoinFixedBuildSide:    DefOptMPPOuterJoinFixedBuildSide,
+			BroadcastJoinThresholdSize:    DefBroadcastJoinThresholdSize,
+			BroadcastJoinThresholdCount:   DefBroadcastJoinThresholdSize,
+			OptimizerSelectivityLevel:     DefTiDBOptimizerSelectivityLevel,
+			EnableOuterJoinReorder:        DefTiDBEnableOuterJoinReorder,
+			RetryLimit:                    DefTiDBRetryLimit,
+			DisableTxnAutoRetry:           DefTiDBDisableTxnAutoRetry,
+			DDLReorgPriority:              kv.PriorityLow,
+			allowInSubqToJoinAndAgg:       DefOptInSubqToJoinAndAgg,
+			preferRangeScan:               DefOptPreferRangeScan,
+			EnableCorrelationAdjustment:   DefOptEnableCorrelationAdjustment,
+			LimitPushDownThreshold:        DefOptLimitPushDownThreshold,
+			CorrelationThreshold:          DefOptCorrelationThreshold,
+			CorrelationExpFactor:          DefOptCorrelationExpFactor,
+			cpuFactor:                     DefOptCPUFactor,
+			copCPUFactor:                  DefOptCopCPUFactor,
+			CopTiFlashConcurrencyFactor:   DefOptTiFlashConcurrencyFactor,
+			networkFactor:                 DefOptNetworkFactor,
+			scanFactor:                    DefOptScanFactor,
+			descScanFactor:                DefOptDescScanFactor,
+			seekFactor:                    DefOptSeekFactor,
+			memoryFactor:                  DefOptMemoryFactor,
+			diskFactor:                    DefOptDiskFactor,
+			concurrencyFactor:             DefOptConcurrencyFactor,
+			enableForceInlineCTE:          DefOptForceInlineCTE,
+			EnableVectorizedExpression:    DefEnableVectorizedExpression,
+			TiDBOptJoinReorderThreshold:   DefTiDBOptJoinReorderThreshold,
+			SlowQueryFile:                 config.GetGlobalConfig().Log.SlowQueryFile,
+			WaitSplitRegionFinish:         DefTiDBWaitSplitRegionFinish,
+			WaitSplitRegionTimeout:        DefWaitSplitRegionTimeout,
+			enableIndexMerge:              DefTiDBEnableIndexMerge,
+			NoopFuncsMode:                 TiDBOptOnOffWarn(DefTiDBEnableNoopFuncs),
+			replicaRead:                   kv.ReplicaReadLeader,
+			AllowRemoveAutoInc:            DefTiDBAllowRemoveAutoInc,
+			UsePlanBaselines:              DefTiDBUsePlanBaselines,
+			EvolvePlanBaselines:           DefTiDBEvolvePlanBaselines,
+			EnableExtendedStats:           false,
+			IsolationReadEngines:          make(map[kv.StoreType]struct{}),
+			LockWaitTimeout:               DefInnodbLockWaitTimeout * 1000,
+			MetricSchemaStep:              DefTiDBMetricSchemaStep,
+			MetricSchemaRangeDuration:     DefTiDBMetricSchemaRangeDuration,
+			WindowingUseHighPrecision:     true,
+			PrevFoundInPlanCache:          DefTiDBFoundInPlanCache,
+			PrevFoundInBinding:            DefTiDBFoundInBinding,
+			SelectLimit:                   math.MaxUint64,
+			AllowAutoRandExplicitInsert:   DefTiDBAllowAutoRandExplicitInsert,
+			EnableClusteredIndex:          DefTiDBEnableClusteredIndex,
+			EnableParallelApply:           DefTiDBEnableParallelApply,
+			ShardAllocateStep:             DefTiDBShardAllocateStep,
+			PartitionPruneMode:            *atomic2.NewString(DefTiDBPartitionPruneMode),
+			TxnScope:                      kv.NewDefaultTxnScopeVar(),
+			EnabledRateLimitAction:        DefTiDBEnableRateLimitAction,
+			EnableAsyncCommit:             DefTiDBEnableAsyncCommit,
+			Enable1PC:                     DefTiDBEnable1PC,
+			GuaranteeLinearizability:      DefTiDBGuaranteeLinearizability,
+			AnalyzeVersion:                DefTiDBAnalyzeVersion,
+			EnableIndexMergeJoin:          DefTiDBEnableIndexMergeJoin,
+			AllowFallbackToTiKV:           make(map[kv.StoreType]struct{}),
+			CTEMaxRecursionDepth:          DefCTEMaxRecursionDepth,
+			TMPTableSize:                  DefTiDBTmpTableMaxSize,
+			MPPStoreFailTTL:               DefTiDBMPPStoreFailTTL,
+			Rng:                           mathutil.NewWithTime(),
+			StatsLoadSyncWait:             StatsLoadSyncWait.Load(),
+			EnableLegacyInstanceScope:     DefEnableLegacyInstanceScope,
+			RemoveOrderbyInSubquery:       DefTiDBRemoveOrderbyInSubquery,
+			EnableSkewDistinctAgg:         DefTiDBSkewDistinctAgg,
+			Enable3StageDistinctAgg:       DefTiDB3StageDistinctAgg,
+			MaxAllowedPacket:              DefMaxAllowedPacket,
+			TiFlashFastScan:               DefTiFlashFastScan,
+			EnableTiFlashReadForWriteStmt: true,
+			ForeignKeyChecks:              DefTiDBForeignKeyChecks,
+			EnableReuseCheck:              DefTiDBEnableReusechunk,
+			preUseChunkAlloc:              DefTiDBUseAlloc,
+			mppExchangeCompressionMode:    DefaultExchangeCompressionMode,
+			mppVersion:                    kv.MppVersionUnspecified,
+			EnableLateMaterialization:     DefTiDBOptEnableLateMaterialization,
+			TiFlashComputeDispatchPolicy:  tiflashcompute.DispatchPolicyConsistentHash,
+		},
 		userVars: struct {
 			lock   sync.RWMutex
 			values map[string]types.Datum
@@ -1897,105 +2092,21 @@ func NewSessionVars(hctx HookContext) *SessionVars {
 			values: make(map[string]types.Datum),
 			types:  make(map[string]*types.FieldType),
 		},
-		systems:                       make(map[string]string),
-		stmtVars:                      make(map[string]string),
-		PreparedStmts:                 make(map[uint32]interface{}),
-		PreparedStmtNameToID:          make(map[string]uint32),
-		PlanCacheParams:               NewPlanCacheParamList(),
-		TxnCtx:                        &TransactionContext{},
-		RetryInfo:                     &RetryInfo{},
-		ActiveRoles:                   make([]*auth.RoleIdentity, 0, 10),
-		StrictSQLMode:                 true,
-		AutoIncrementIncrement:        DefAutoIncrementIncrement,
-		AutoIncrementOffset:           DefAutoIncrementOffset,
-		Status:                        mysql.ServerStatusAutocommit,
-		StmtCtx:                       new(stmtctx.StatementContext),
-		AllowAggPushDown:              false,
-		AllowCartesianBCJ:             DefOptCartesianBCJ,
-		MPPOuterJoinFixedBuildSide:    DefOptMPPOuterJoinFixedBuildSide,
-		BroadcastJoinThresholdSize:    DefBroadcastJoinThresholdSize,
-		BroadcastJoinThresholdCount:   DefBroadcastJoinThresholdSize,
-		OptimizerSelectivityLevel:     DefTiDBOptimizerSelectivityLevel,
-		EnableOuterJoinReorder:        DefTiDBEnableOuterJoinReorder,
-		RetryLimit:                    DefTiDBRetryLimit,
-		DisableTxnAutoRetry:           DefTiDBDisableTxnAutoRetry,
-		DDLReorgPriority:              kv.PriorityLow,
-		allowInSubqToJoinAndAgg:       DefOptInSubqToJoinAndAgg,
-		preferRangeScan:               DefOptPreferRangeScan,
-		EnableCorrelationAdjustment:   DefOptEnableCorrelationAdjustment,
-		LimitPushDownThreshold:        DefOptLimitPushDownThreshold,
-		CorrelationThreshold:          DefOptCorrelationThreshold,
-		CorrelationExpFactor:          DefOptCorrelationExpFactor,
-		cpuFactor:                     DefOptCPUFactor,
-		copCPUFactor:                  DefOptCopCPUFactor,
-		CopTiFlashConcurrencyFactor:   DefOptTiFlashConcurrencyFactor,
-		networkFactor:                 DefOptNetworkFactor,
-		scanFactor:                    DefOptScanFactor,
-		descScanFactor:                DefOptDescScanFactor,
-		seekFactor:                    DefOptSeekFactor,
-		memoryFactor:                  DefOptMemoryFactor,
-		diskFactor:                    DefOptDiskFactor,
-		concurrencyFactor:             DefOptConcurrencyFactor,
-		enableForceInlineCTE:          DefOptForceInlineCTE,
-		EnableVectorizedExpression:    DefEnableVectorizedExpression,
-		CommandValue:                  uint32(mysql.ComSleep),
-		TiDBOptJoinReorderThreshold:   DefTiDBOptJoinReorderThreshold,
-		SlowQueryFile:                 config.GetGlobalConfig().Log.SlowQueryFile,
-		WaitSplitRegionFinish:         DefTiDBWaitSplitRegionFinish,
-		WaitSplitRegionTimeout:        DefWaitSplitRegionTimeout,
-		enableIndexMerge:              DefTiDBEnableIndexMerge,
-		NoopFuncsMode:                 TiDBOptOnOffWarn(DefTiDBEnableNoopFuncs),
-		replicaRead:                   kv.ReplicaReadLeader,
-		AllowRemoveAutoInc:            DefTiDBAllowRemoveAutoInc,
-		UsePlanBaselines:              DefTiDBUsePlanBaselines,
-		EvolvePlanBaselines:           DefTiDBEvolvePlanBaselines,
-		EnableExtendedStats:           false,
-		IsolationReadEngines:          make(map[kv.StoreType]struct{}),
-		LockWaitTimeout:               DefInnodbLockWaitTimeout * 1000,
-		MetricSchemaStep:              DefTiDBMetricSchemaStep,
-		MetricSchemaRangeDuration:     DefTiDBMetricSchemaRangeDuration,
-		SequenceState:                 NewSequenceState(),
-		WindowingUseHighPrecision:     true,
-		PrevFoundInPlanCache:          DefTiDBFoundInPlanCache,
-		FoundInPlanCache:              DefTiDBFoundInPlanCache,
-		PrevFoundInBinding:            DefTiDBFoundInBinding,
-		FoundInBinding:                DefTiDBFoundInBinding,
-		SelectLimit:                   math.MaxUint64,
-		AllowAutoRandExplicitInsert:   DefTiDBAllowAutoRandExplicitInsert,
-		EnableClusteredIndex:          DefTiDBEnableClusteredIndex,
-		EnableParallelApply:           DefTiDBEnableParallelApply,
-		ShardAllocateStep:             DefTiDBShardAllocateStep,
-		PartitionPruneMode:            *atomic2.NewString(DefTiDBPartitionPruneMode),
-		TxnScope:                      kv.NewDefaultTxnScopeVar(),
-		EnabledRateLimitAction:        DefTiDBEnableRateLimitAction,
-		EnableAsyncCommit:             DefTiDBEnableAsyncCommit,
-		Enable1PC:                     DefTiDBEnable1PC,
-		GuaranteeLinearizability:      DefTiDBGuaranteeLinearizability,
-		AnalyzeVersion:                DefTiDBAnalyzeVersion,
-		EnableIndexMergeJoin:          DefTiDBEnableIndexMergeJoin,
-		AllowFallbackToTiKV:           make(map[kv.StoreType]struct{}),
-		CTEMaxRecursionDepth:          DefCTEMaxRecursionDepth,
-		TMPTableSize:                  DefTiDBTmpTableMaxSize,
-		MPPStoreFailTTL:               DefTiDBMPPStoreFailTTL,
-		Rng:                           mathutil.NewWithTime(),
-		StatsLoadSyncWait:             StatsLoadSyncWait.Load(),
-		EnableLegacyInstanceScope:     DefEnableLegacyInstanceScope,
-		RemoveOrderbyInSubquery:       DefTiDBRemoveOrderbyInSubquery,
-		EnableSkewDistinctAgg:         DefTiDBSkewDistinctAgg,
-		Enable3StageDistinctAgg:       DefTiDB3StageDistinctAgg,
-		MaxAllowedPacket:              DefMaxAllowedPacket,
-		TiFlashFastScan:               DefTiFlashFastScan,
-		EnableTiFlashReadForWriteStmt: true,
-		ForeignKeyChecks:              DefTiDBForeignKeyChecks,
-		HookContext:                   hctx,
-		EnableReuseCheck:              DefTiDBEnableReusechunk,
-		preUseChunkAlloc:              DefTiDBUseAlloc,
-		ChunkPool:                     ReuseChunkPool{Alloc: nil},
-		mppExchangeCompressionMode:    DefaultExchangeCompressionMode,
-		mppVersion:                    kv.MppVersionUnspecified,
-		EnableLateMaterialization:     DefTiDBOptEnableLateMaterialization,
-		TiFlashComputeDispatchPolicy:  tiflashcompute.DispatchPolicyConsistentHash,
-		ResourceGroupName:             resourcegroup.DefaultResourceGroupName,
+		stmtVars:             make(map[string]string),
+		PreparedStmts:        make(map[uint32]interface{}),
+		PreparedStmtNameToID: make(map[string]uint32),
+		PlanCacheParams:      NewPlanCacheParamList(),
+		TxnCtx:               &TransactionContext{},
+		RetryInfo:            &RetryInfo{},
+		ActiveRoles:          make([]*auth.RoleIdentity, 0, 10),
+		StmtCtx:              new(stmtctx.StatementContext),
+		CommandValue:         uint32(mysql.ComSleep),
+		SequenceState:        NewSequenceState(),
+		FoundInPlanCache:     DefTiDBFoundInPlanCache,
+		FoundInBinding:       DefTiDBFoundInBinding,
+		HookContext:          hctx,
+		ChunkPool:            ReuseChunkPool{Alloc: nil},
+		ResourceGroupName:    resourcegroup.DefaultResourceGroupName,
 	}
 	vars.KVVars = tikvstore.NewVariables(&vars.Killed)
 	vars.Concurrency = Concurrency{
@@ -2060,62 +2171,6 @@ func NewSessionVars(hctx HookContext) *SessionVars {
 	return vars
 }
 
-// GetAllowInSubqToJoinAndAgg get AllowInSubqToJoinAndAgg from sql hints and SessionVars.allowInSubqToJoinAndAgg.
-func (s *SessionVars) GetAllowInSubqToJoinAndAgg() bool {
-	if s.StmtCtx.HasAllowInSubqToJoinAndAggHint {
-		return s.StmtCtx.AllowInSubqToJoinAndAgg
-	}
-	return s.allowInSubqToJoinAndAgg
-}
-
-// SetAllowInSubqToJoinAndAgg set SessionVars.allowInSubqToJoinAndAgg.
-func (s *SessionVars) SetAllowInSubqToJoinAndAgg(val bool) {
-	s.allowInSubqToJoinAndAgg = val
-}
-
-// GetAllowPreferRangeScan get preferRangeScan from SessionVars.preferRangeScan.
-func (s *SessionVars) GetAllowPreferRangeScan() bool {
-	return s.preferRangeScan
-}
-
-// SetAllowPreferRangeScan set SessionVars.preferRangeScan.
-func (s *SessionVars) SetAllowPreferRangeScan(val bool) {
-	s.preferRangeScan = val
-}
-
-// GetEnableCascadesPlanner get EnableCascadesPlanner from sql hints and SessionVars.EnableCascadesPlanner.
-func (s *SessionVars) GetEnableCascadesPlanner() bool {
-	if s.StmtCtx.HasEnableCascadesPlannerHint {
-		return s.StmtCtx.EnableCascadesPlanner
-	}
-	return s.EnableCascadesPlanner
-}
-
-// SetEnableCascadesPlanner set SessionVars.EnableCascadesPlanner.
-func (s *SessionVars) SetEnableCascadesPlanner(val bool) {
-	s.EnableCascadesPlanner = val
-}
-
-// GetEnableIndexMerge get EnableIndexMerge from SessionVars.enableIndexMerge.
-func (s *SessionVars) GetEnableIndexMerge() bool {
-	return s.enableIndexMerge
-}
-
-// SetEnableIndexMerge set SessionVars.enableIndexMerge.
-func (s *SessionVars) SetEnableIndexMerge(val bool) {
-	s.enableIndexMerge = val
-}
-
-// GetEnablePseudoForOutdatedStats get EnablePseudoForOutdatedStats from SessionVars.EnablePseudoForOutdatedStats.
-func (s *SessionVars) GetEnablePseudoForOutdatedStats() bool {
-	return s.EnablePseudoForOutdatedStats
-}
-
-// SetEnablePseudoForOutdatedStats set SessionVars.EnablePseudoForOutdatedStats.
-func (s *SessionVars) SetEnablePseudoForOutdatedStats(val bool) {
-	s.EnablePseudoForOutdatedStats = val
-}
-
 // GetReplicaRead get ReplicaRead from sql hints and SessionVars.replicaRead.
 func (s *SessionVars) GetReplicaRead() kv.ReplicaReadType {
 	if s.StmtCtx.HasReplicaReadHint {
@@ -2126,11 +2181,6 @@ func (s *SessionVars) GetReplicaRead() kv.ReplicaReadType {
 		return kv.ReplicaReadLeader
 	}
 	return s.replicaRead
-}
-
-// SetReplicaRead set SessionVars.replicaRead.
-func (s *SessionVars) SetReplicaRead(val kv.ReplicaReadType) {
-	s.replicaRead = val
 }
 
 // IsReplicaReadClosestAdaptive returns whether adaptive closest replica can be enabled.
@@ -2223,17 +2273,6 @@ func (s *SessionVars) SetLastInsertID(insertID uint64) {
 	s.StmtCtx.LastInsertID = insertID
 }
 
-// SetStatusFlag sets the session server status variable.
-// If on is true sets the flag in session status,
-// otherwise removes the flag.
-func (s *SessionVars) SetStatusFlag(flag uint16, on bool) {
-	if on {
-		s.Status |= flag
-		return
-	}
-	s.Status &= ^flag
-}
-
 // GetStatusFlag gets the session server status variable, returns true if it is on.
 func (s *SessionVars) GetStatusFlag(flag uint16) bool {
 	return s.Status&flag > 0
@@ -2320,15 +2359,6 @@ func (s *SessionVars) SetNextPreparedStmtID(preparedStmtID uint32) {
 	s.preparedStmtID = preparedStmtID
 }
 
-// Location returns the value of time_zone session variable. If it is nil, then return time.Local.
-func (s *SessionVars) Location() *time.Location {
-	loc := s.TimeZone
-	if loc == nil {
-		loc = timeutil.SystemLocation()
-	}
-	return loc
-}
-
 // GetSystemVar gets the string value of a system variable.
 func (s *SessionVars) GetSystemVar(name string) (string, bool) {
 	if name == WarningCount {
@@ -2341,20 +2371,6 @@ func (s *SessionVars) GetSystemVar(name string) (string, bool) {
 	}
 	val, ok := s.systems[name]
 	return val, ok
-}
-
-func (s *SessionVars) setDDLReorgPriority(val string) {
-	val = strings.ToLower(val)
-	switch val {
-	case "priority_low":
-		s.DDLReorgPriority = kv.PriorityLow
-	case "priority_normal":
-		s.DDLReorgPriority = kv.PriorityNormal
-	case "priority_high":
-		s.DDLReorgPriority = kv.PriorityHigh
-	default:
-		s.DDLReorgPriority = kv.PriorityLow
-	}
 }
 
 type planCacheStmtKey string
@@ -2469,7 +2485,7 @@ func (s *SessionVars) GetSessionStatesSystemVar(name string) (string, bool, erro
 	}
 	// Call GetStateValue first if it exists. Otherwise, call GetSession.
 	if sv.GetStateValue != nil {
-		return sv.GetStateValue(s)
+		return sv.GetStateValue(s.GetSysVarOpContext())
 	}
 	if sv.GetSession != nil {
 		val, err := sv.GetSessionFromHook(s)

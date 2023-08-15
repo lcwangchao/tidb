@@ -27,19 +27,19 @@ var noopSysVars = []*SysVar{
 	// It is unsafe to pretend that any variation of "read only" is enabled when the server
 	// does not support it. It is possible that these features will be supported in future,
 	// but until then...
-	{Scope: ScopeGlobal | ScopeSession, Name: TxReadOnly, Value: Off, Type: TypeBool, Aliases: []string{TransactionReadOnly}, Validation: func(vars *SessionVars, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
+	{Scope: ScopeGlobal | ScopeSession, Name: TxReadOnly, Value: Off, Type: TypeBool, Aliases: []string{TransactionReadOnly}, Validation: func(vars *SysVarOpContext, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
 		return checkReadOnly(vars, normalizedValue, originalValue, scope, false)
 	}},
-	{Scope: ScopeGlobal | ScopeSession, Name: TransactionReadOnly, Value: Off, Type: TypeBool, Aliases: []string{TxReadOnly}, Validation: func(vars *SessionVars, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
+	{Scope: ScopeGlobal | ScopeSession, Name: TransactionReadOnly, Value: Off, Type: TypeBool, Aliases: []string{TxReadOnly}, Validation: func(vars *SysVarOpContext, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
 		return checkReadOnly(vars, normalizedValue, originalValue, scope, false)
 	}},
-	{Scope: ScopeGlobal, Name: OfflineMode, Value: Off, Type: TypeBool, Validation: func(vars *SessionVars, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
+	{Scope: ScopeGlobal, Name: OfflineMode, Value: Off, Type: TypeBool, Validation: func(vars *SysVarOpContext, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
 		return checkReadOnly(vars, normalizedValue, originalValue, scope, true)
 	}},
-	{Scope: ScopeGlobal, Name: SuperReadOnly, Value: Off, Type: TypeBool, Validation: func(vars *SessionVars, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
+	{Scope: ScopeGlobal, Name: SuperReadOnly, Value: Off, Type: TypeBool, Validation: func(vars *SysVarOpContext, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
 		return checkReadOnly(vars, normalizedValue, originalValue, scope, false)
 	}},
-	{Scope: ScopeGlobal, Name: ReadOnly, Value: Off, Type: TypeBool, Validation: func(vars *SessionVars, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
+	{Scope: ScopeGlobal, Name: ReadOnly, Value: Off, Type: TypeBool, Validation: func(vars *SysVarOpContext, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
 		return checkReadOnly(vars, normalizedValue, originalValue, scope, false)
 	}},
 	{Scope: ScopeGlobal, Name: ConnectTimeout, Value: "10", Type: TypeUnsigned, MinValue: 2, MaxValue: secondsPerYear},
@@ -152,7 +152,7 @@ var noopSysVars = []*SysVar{
 	{Scope: ScopeNone, Name: "innodb_buffer_pool_instances", Value: "8"},
 	{Scope: ScopeGlobal | ScopeSession, Name: "max_length_for_sort_data", Value: "1024", IsHintUpdatable: true},
 	{Scope: ScopeNone, Name: CharacterSetSystem, Value: "utf8"},
-	{Scope: ScopeGlobal | ScopeSession, Name: CharacterSetFilesystem, Value: "binary", Validation: func(vars *SessionVars, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
+	{Scope: ScopeGlobal | ScopeSession, Name: CharacterSetFilesystem, Value: "binary", Validation: func(vars *SysVarOpContext, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
 		return checkCharacterSet(normalizedValue, CharacterSetFilesystem)
 	}},
 	{Scope: ScopeGlobal, Name: InnodbOptimizeFullTextOnly, Value: "0"},
@@ -194,7 +194,7 @@ var noopSysVars = []*SysVar{
 	{Scope: ScopeGlobal | ScopeSession, Name: "div_precision_increment", Value: "4", IsHintUpdatable: true},
 	{Scope: ScopeGlobal, Name: "innodb_lru_scan_depth", Value: "1024"},
 	{Scope: ScopeGlobal, Name: "innodb_purge_rseg_truncate_frequency", Value: ""},
-	{Scope: ScopeGlobal | ScopeSession, Name: SQLAutoIsNull, Value: Off, Type: TypeBool, IsHintUpdatable: true, Validation: func(vars *SessionVars, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
+	{Scope: ScopeGlobal | ScopeSession, Name: SQLAutoIsNull, Value: Off, Type: TypeBool, IsHintUpdatable: true, Validation: func(vars *SysVarOpContext, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
 		// checkSQLAutoIsNull requires TiDBEnableNoopFuncs != OFF for the same scope otherwise an error will be returned.
 		// See also https://github.com/pingcap/tidb/issues/28230
 		errMsg := ErrFunctionsNoopImpl.GenWithStackByArgs("sql_auto_is_null")
@@ -203,10 +203,10 @@ var noopSysVars = []*SysVar{
 				if vars.NoopFuncsMode == OffInt {
 					return Off, errMsg
 				}
-				vars.StmtCtx.AppendWarning(errMsg)
+				vars.AppendWarning(errMsg)
 			}
 			if scope == ScopeGlobal {
-				val, err := vars.GlobalVarsAccessor.GetGlobalSysVar(TiDBEnableNoopFuncs)
+				val, err := vars.GlobalVarsAccessor().GetGlobalSysVar(TiDBEnableNoopFuncs)
 				if err != nil {
 					return originalValue, errUnknownSystemVariable.GenWithStackByArgs(TiDBEnableNoopFuncs)
 				}
@@ -214,7 +214,7 @@ var noopSysVars = []*SysVar{
 					return Off, errMsg
 				}
 				if val == Warn {
-					vars.StmtCtx.AppendWarning(errMsg)
+					vars.AppendWarning(errMsg)
 				}
 			}
 		}
@@ -350,7 +350,7 @@ var noopSysVars = []*SysVar{
 	{Scope: ScopeGlobal, Name: InnodbCommitConcurrency, Value: "0", Type: TypeUnsigned, MinValue: 0, MaxValue: 1000},
 	{Scope: ScopeNone, Name: "ft_min_word_len", Value: "4"},
 	{Scope: ScopeGlobal, Name: EnforceGtidConsistency, Value: Off, Type: TypeEnum, PossibleValues: []string{Off, On, "WARN"}},
-	{Scope: ScopeGlobal, Name: SecureAuth, Value: On, Type: TypeBool, Validation: func(vars *SessionVars, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
+	{Scope: ScopeGlobal, Name: SecureAuth, Value: On, Type: TypeBool, Validation: func(vars *SysVarOpContext, normalizedValue string, originalValue string, scope ScopeFlag) (string, error) {
 		if TiDBOptOn(normalizedValue) {
 			return On, nil
 		}

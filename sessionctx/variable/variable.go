@@ -16,6 +16,7 @@ package variable
 
 import (
 	"context"
+	"crypto/tls"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/parser/mysql"
+	"github.com/pingcap/tidb/sessionctx/stmtctx"
 	"github.com/pingcap/tidb/types"
 )
 
@@ -105,6 +107,60 @@ func (s ScopeFlag) String() string {
 	return strings.Join(scopes, ",")
 }
 
+type SysVarOpContext struct {
+	*SessionSysVars
+	sessVars *SessionVars
+}
+
+func (sc *SysVarOpContext) IsAutocommit() bool {
+	return sc.sessVars.IsAutocommit()
+}
+
+func (sc *SysVarOpContext) SetInTxn(inTxn bool) {
+	sc.sessVars.SetInTxn(inTxn)
+}
+
+// AppendWarning appends a warning with level 'Warning'.
+func (sc *SysVarOpContext) AppendWarning(warn error) {
+	sc.sessVars.StmtCtx.AppendWarning(warn)
+}
+
+func (sc *SysVarOpContext) AppendError(warn error) {
+	sc.sessVars.StmtCtx.AppendError(warn)
+}
+
+func (sc *SysVarOpContext) PreLastInsertID() uint64 {
+	return sc.sessVars.StmtCtx.PrevLastInsertID
+}
+
+func (sc *SysVarOpContext) StmtType() string {
+	return sc.sessVars.StmtCtx.StmtType
+}
+
+func (sc *SysVarOpContext) GlobalVarsAccessor() GlobalVarAccessor {
+	return sc.sessVars.GlobalVarsAccessor
+}
+
+func (sc *SysVarOpContext) ParseTime(str string, tp byte, fsp int, explicitTz *time.Location) (types.Time, error) {
+	return types.ParseTime(sc.sessVars.StmtCtx, str, tp, fsp, explicitTz)
+}
+
+func (sc *SysVarOpContext) GetOrStoreStmtCache(key stmtctx.StmtCacheKey, value interface{}) interface{} {
+	return sc.sessVars.StmtCtx.GetOrStoreStmtCache(key, value)
+}
+
+func (sc *SysVarOpContext) GetStartTS() uint64 {
+	return sc.sessVars.TxnCtx.StartTS
+}
+
+func (sc *SysVarOpContext) GetSystemVar(name string) (string, bool) {
+	return sc.sessVars.GetSystemVar(name)
+}
+
+func (sc *SysVarOpContext) GetTLSConnectionState() *tls.ConnectionState {
+	return sc.sessVars.TLSConnectionState
+}
+
 // SysVar is for system variable.
 // All the fields of SysVar should be READ ONLY after created.
 type SysVar struct {
@@ -133,12 +189,12 @@ type SysVar struct {
 	// AllowAutoValue means that the special value "-1" is permitted, even when outside of range.
 	AllowAutoValue bool
 	// Validation is a callback after the type validation has been performed, but before the Set function
-	Validation func(*SessionVars, string, string, ScopeFlag) (string, error)
+	Validation func(*SysVarOpContext, string, string, ScopeFlag) (string, error)
 	// SetSession is called after validation but before updating systems[]. It also doubles as an Init function
 	// and will be called on all variables in builtinGlobalVariable, regardless of their scope.
-	SetSession func(*SessionVars, string) error
+	SetSession func(*SysVarOpContext, string) error
 	// SetGlobal is called after validation
-	SetGlobal func(context.Context, *SessionVars, string) error
+	SetGlobal func(context.Context, *SysVarOpContext, string) error
 	// IsHintUpdatable indicate whether it's updatable via SET_VAR() hint (optional)
 	IsHintUpdatable bool
 	// Deprecated: Hidden previously meant that the variable still responds to SET but doesn't show up in SHOW VARIABLES
@@ -149,12 +205,12 @@ type SysVar struct {
 	Aliases []string
 	// GetSession is a getter function for session scope.
 	// It can be used by instance-scoped variables to overwrite the previously expected value.
-	GetSession func(*SessionVars) (string, error)
+	GetSession func(*SysVarOpContext) (string, error)
 	// GetGlobal is a getter function for global scope.
-	GetGlobal func(context.Context, *SessionVars) (string, error)
+	GetGlobal func(context.Context, *SysVarOpContext) (string, error)
 	// GetStateValue gets the value for session states, which is used for migrating sessions.
 	// We need a function to override GetSession sometimes, because GetSession may not return the real value.
-	GetStateValue func(*SessionVars) (string, bool, error)
+	GetStateValue func(*SysVarOpContext) (string, bool, error)
 	// skipInit defines if the sysvar should be loaded into the session on init.
 	// This is only important to set for sysvars that include session scope,
 	// since global scoped sysvars are not-applicable.
@@ -173,7 +229,7 @@ type SysVar struct {
 func (sv *SysVar) GetGlobalFromHook(ctx context.Context, s *SessionVars) (string, error) {
 	// Call the Getter if there is one defined.
 	if sv.GetGlobal != nil {
-		val, err := sv.GetGlobal(ctx, s)
+		val, err := sv.GetGlobal(ctx, s.GetSysVarOpContext())
 		if err != nil {
 			return val, err
 		}
@@ -194,7 +250,7 @@ func (sv *SysVar) GetSessionFromHook(s *SessionVars) (string, error) {
 	}
 	// Call the Getter if there is one defined.
 	if sv.GetSession != nil {
-		val, err := sv.GetSession(s)
+		val, err := sv.GetSession(s.GetSysVarOpContext())
 		if err != nil {
 			return val, err
 		}
@@ -218,7 +274,7 @@ func (sv *SysVar) GetSessionFromHook(s *SessionVars) (string, error) {
 // SetSessionFromHook calls the SetSession func if it exists.
 func (sv *SysVar) SetSessionFromHook(s *SessionVars, val string) error {
 	if sv.SetSession != nil {
-		if err := sv.SetSession(s, val); err != nil {
+		if err := sv.SetSession(s.GetSysVarOpContext(), val); err != nil {
 			return err
 		}
 	}
@@ -233,7 +289,7 @@ func (sv *SysVar) SetSessionFromHook(s *SessionVars, val string) error {
 		for _, aliasName := range sv.Aliases {
 			aliasSv := GetSysVar(aliasName)
 			if aliasSv.SetSession != nil {
-				if err := aliasSv.SetSession(s, val); err != nil {
+				if err := aliasSv.SetSession(s.GetSysVarOpContext(), val); err != nil {
 					return err
 				}
 			}
@@ -246,7 +302,7 @@ func (sv *SysVar) SetSessionFromHook(s *SessionVars, val string) error {
 // SetGlobalFromHook calls the SetGlobal func if it exists.
 func (sv *SysVar) SetGlobalFromHook(ctx context.Context, s *SessionVars, val string, skipAliases bool) error {
 	if sv.SetGlobal != nil {
-		return sv.SetGlobal(ctx, s, val)
+		return sv.SetGlobal(ctx, s.GetSysVarOpContext(), val)
 	}
 
 	// Call the SetGlobalSysVarOnly function on all the aliases for this sysVar
@@ -298,7 +354,7 @@ func (sv *SysVar) Validate(vars *SessionVars, value string, scope ScopeFlag) (st
 	}
 	// If type validation was successful, call the (optional) validation function
 	if sv.Validation != nil {
-		return sv.Validation(vars, normalizedValue, value, scope)
+		return sv.Validation(vars.GetSysVarOpContext(), normalizedValue, value, scope)
 	}
 	return normalizedValue, nil
 }
@@ -358,7 +414,7 @@ func (sv *SysVar) ValidateWithRelaxedValidation(vars *SessionVars, value string,
 		return normalizedValue
 	}
 	if sv.Validation != nil {
-		normalizedValue, err = sv.Validation(vars, normalizedValue, value, scope)
+		normalizedValue, err = sv.Validation(vars.GetSysVarOpContext(), normalizedValue, value, scope)
 		if err != nil {
 			return normalizedValue
 		}
