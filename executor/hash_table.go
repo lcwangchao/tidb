@@ -119,7 +119,7 @@ type hashRowContainer struct {
 }
 
 func newHashRowContainer(sCtx sessionctx.Context, hCtx *hashContext, allTypes []*types.FieldType) *hashRowContainer {
-	maxChunkSize := sCtx.GetSessionVars().MaxChunkSize
+	maxChunkSize := sCtx.GetSessionVars().GetMaxChunkSize()
 	rc := chunk.NewRowContainer(allTypes, maxChunkSize)
 	c := &hashRowContainer{
 		sc:           sCtx.GetSessionVars().StmtCtx,

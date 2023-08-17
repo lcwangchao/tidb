@@ -100,6 +100,34 @@ func TestSystemVars(t *testing.T) {
 		expectedValue   string
 	}{
 		{
+			stmts: []string{
+				"set @@global.tidb_allow_mpp=0",
+				"set @@tidb_allow_mpp=1",
+				"set @@tidb_enforce_mpp=1",
+			},
+			inSessionStates: true,
+			varName:         "tidb_enforce_mpp",
+			expectedValue:   "1",
+		},
+		{
+			stmts: []string{
+				"set @@sql_mode='ALLOW_INVALID_DATES'",
+				"set @@tx_read_ts='2020-00-21 12:00:00'",
+			},
+			inSessionStates: true,
+			varName:         "tx_read_ts",
+			expectedValue:   "2020-00-21 12:00:00",
+		},
+		{
+			stmts: []string{
+				"set @@tidb_enable_noop_functions=1",
+				"set @@tx_read_only=1",
+			},
+			inSessionStates: true,
+			varName:         "tx_read_only",
+			expectedValue:   "1",
+		},
+		{
 			// normal variable
 			inSessionStates: true,
 			varName:         variable.TiDBMaxTiFlashThreads,
@@ -177,6 +205,7 @@ func TestSystemVars(t *testing.T) {
 		sem.Enable()
 		defer sem.Disable()
 	}
+
 	for _, tt := range tests {
 		tk1 := testkit.NewTestKit(t, store)
 		for _, stmt := range tt.stmts {

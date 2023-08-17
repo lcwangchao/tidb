@@ -957,7 +957,7 @@ func (s *session) doCommitWithRetry(ctx context.Context) error {
 		// Don't retry in BatchInsert mode. As a counter-example, insert into t1 select * from t2,
 		// BatchInsert already commit the first batch 1000 rows, then it commit 1000-2000 and retry the statement,
 		// Finally t1 will have more data than t2, with no errors return to user!
-		if s.isTxnRetryableError(err) && !s.sessionVars.BatchInsert && commitRetryLimit > 0 && !isPessimistic {
+		if s.isTxnRetryableError(err) && !s.sessionVars.GetBatchInsert() && commitRetryLimit > 0 && !isPessimistic {
 			logutil.Logger(ctx).Warn("sql",
 				zap.String("label", s.GetSQLLabel()),
 				zap.Error(err),
@@ -971,7 +971,7 @@ func (s *session) doCommitWithRetry(ctx context.Context) error {
 			logutil.Logger(ctx).Warn("can not retry txn",
 				zap.String("label", s.GetSQLLabel()),
 				zap.Error(err),
-				zap.Bool("IsBatchInsert", s.sessionVars.BatchInsert),
+				zap.Bool("IsBatchInsert", s.sessionVars.GetBatchInsert()),
 				zap.Bool("IsPessimistic", isPessimistic),
 				zap.Bool("InRestrictedSQL", s.sessionVars.InRestrictedSQL),
 				zap.Int64("tidb_retry_limit", s.sessionVars.RetryLimit),
@@ -1389,7 +1389,7 @@ func drainRecordSet(ctx context.Context, se *session, rs sqlexec.RecordSet, allo
 		for r := iter.Begin(); r != iter.End(); r = iter.Next() {
 			rows = append(rows, r)
 		}
-		req = chunk.Renew(req, se.sessionVars.MaxChunkSize)
+		req = chunk.Renew(req, se.sessionVars.GetMaxChunkSize())
 	}
 }
 
@@ -3058,9 +3058,10 @@ type Opt struct {
 func CreateSession4TestWithOpt(store kv.Storage, opt *Opt) (Session, error) {
 	s, err := CreateSessionWithOpt(store, opt)
 	if err == nil {
+		mutator := s.GetSessionVars().AliasMutator()
 		// initialize session variables for test.
 		s.GetSessionVars().InitChunkSize = 2
-		s.GetSessionVars().MaxChunkSize = 32
+		mutator.SetMaxChunkSize(32)
 		s.GetSessionVars().MinPagingSize = variable.DefMinPagingSize
 		s.GetSessionVars().EnablePaging = variable.DefTiDBEnablePaging
 		err = s.GetSessionVars().SetSystemVarWithoutValidation(variable.CharacterSetConnection, "utf8mb4")

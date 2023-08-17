@@ -350,7 +350,7 @@ func IsRaftKv2(ctx context.Context, sctx sessionctx.Context) (bool, error) {
 	}
 
 	defer terror.Call(rs.Close)
-	rows, err := sqlexec.DrainRecordSet(ctx, rs, sctx.GetSessionVars().MaxChunkSize)
+	rows, err := sqlexec.DrainRecordSet(ctx, rs, sctx.GetSessionVars().GetMaxChunkSize())
 	if err != nil {
 		return false, errors.Trace(err)
 	}

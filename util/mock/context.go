@@ -470,9 +470,10 @@ func NewContext() *Context {
 		cancel: cancel,
 	}
 	vars := variable.NewSessionVars(sctx)
+	mutator := vars.AliasMutator()
 	sctx.sessionVars = vars
 	vars.InitChunkSize = 2
-	vars.MaxChunkSize = 32
+	mutator.SetMaxChunkSize(32)
 	vars.StmtCtx.TimeZone = time.UTC
 	vars.MemTracker.SetBytesLimit(-1)
 	vars.DiskTracker.SetBytesLimit(-1)

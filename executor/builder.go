@@ -788,7 +788,7 @@ func (b *executorBuilder) buildLimit(v *plannercore.PhysicalLimit) exec.Executor
 	if b.err != nil {
 		return nil
 	}
-	n := int(mathutil.Min(v.Count, uint64(b.ctx.GetSessionVars().MaxChunkSize)))
+	n := int(mathutil.Min(v.Count, uint64(b.ctx.GetSessionVars().GetMaxChunkSize())))
 	base := exec.NewBaseExecutor(b.ctx, v.Schema(), v.ID(), childExec)
 	base.SetInitCap(n)
 	e := &LimitExec{
@@ -1878,7 +1878,7 @@ func (b *executorBuilder) buildProjection(v *plannercore.PhysicalProjection) exe
 	// If the calculation row count for this Projection operator is smaller
 	// than a Chunk size, we turn back to the un-parallel Projection
 	// implementation to reduce the goroutine overhead.
-	if int64(v.StatsCount()) < int64(b.ctx.GetSessionVars().MaxChunkSize) {
+	if int64(v.StatsCount()) < int64(b.ctx.GetSessionVars().GetMaxChunkSize()) {
 		e.numWorkers = 0
 	}
 
@@ -4825,7 +4825,7 @@ func (builder *dataReaderBuilder) buildProjectionForIndexJoin(ctx context.Contex
 	// If the calculation row count for this Projection operator is smaller
 	// than a Chunk size, we turn back to the un-parallel Projection
 	// implementation to reduce the goroutine overhead.
-	if int64(v.StatsCount()) < int64(builder.ctx.GetSessionVars().MaxChunkSize) {
+	if int64(v.StatsCount()) < int64(builder.ctx.GetSessionVars().GetMaxChunkSize()) {
 		e.numWorkers = 0
 	}
 	err = e.open(ctx)
@@ -5490,7 +5490,7 @@ func (b *executorBuilder) buildCTE(v *plannercore.PhysicalCTE) exec.Executor {
 		return nil
 	}
 
-	chkSize := b.ctx.GetSessionVars().MaxChunkSize
+	chkSize := b.ctx.GetSessionVars().GetMaxChunkSize()
 	// iterOutTbl will be constructed in CTEExec.Open().
 	var resTbl cteutil.Storage
 	var iterInTbl cteutil.Storage

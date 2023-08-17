@@ -101,7 +101,7 @@ func HandleNonTransactionalDML(ctx context.Context, stmt *ast.NonTransactionalDM
 	}
 
 	if stmt.DryRun == ast.DryRunQuery {
-		return buildDryRunResults(stmt.DryRun, []string{selectSQL}, se.GetSessionVars().BatchSize.MaxChunkSize)
+		return buildDryRunResults(stmt.DryRun, []string{selectSQL}, se.GetSessionVars().GetMaxChunkSize())
 	}
 
 	// TODO: choose an appropriate quota.
@@ -120,9 +120,9 @@ func HandleNonTransactionalDML(ctx context.Context, stmt *ast.NonTransactionalDM
 		return nil, err
 	}
 	if stmt.DryRun == ast.DryRunSplitDml {
-		return buildDryRunResults(stmt.DryRun, splitStmts, se.GetSessionVars().BatchSize.MaxChunkSize)
+		return buildDryRunResults(stmt.DryRun, splitStmts, se.GetSessionVars().GetMaxChunkSize())
 	}
-	return buildExecuteResults(ctx, jobs, se.GetSessionVars().BatchSize.MaxChunkSize, se.GetSessionVars().EnableRedactLog)
+	return buildExecuteResults(ctx, jobs, se.GetSessionVars().GetMaxChunkSize(), se.GetSessionVars().EnableRedactLog)
 }
 
 // we require:
@@ -185,7 +185,7 @@ func checkConstraint(stmt *ast.NonTransactionalDMLStmt, se Session) error {
 		return errors.Errorf("non-transactional DML can only run in auto-commit mode. auto-commit:%v, inTxn:%v",
 			se.GetSessionVars().IsAutocommit(), se.GetSessionVars().InTxn())
 	}
-	if variable.EnableBatchDML.Load() && sessVars.DMLBatchSize > 0 && (sessVars.BatchDelete || sessVars.BatchInsert) {
+	if variable.EnableBatchDML.Load() && sessVars.GetDMLBatchSize() > 0 && (sessVars.BatchDelete || sessVars.GetBatchInsert()) {
 		return errors.Errorf("can't run non-transactional DML with batch-dml")
 	}
 

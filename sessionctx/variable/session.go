@@ -669,12 +669,13 @@ type HookContext interface {
 
 // SessionVars is to handle user-defined or global variables in the current session.
 type SessionVars struct {
+	sysVarAlias SessionSysVarAlias
+	SessionSysVarAliasReader
 	Concurrency
 	MemQuota
 	BatchSize
 	// DMLBatchSize indicates the number of rows batch-committed for a statement.
 	// It will be used when using LOAD DATA or BatchInsert or BatchDelete is on.
-	DMLBatchSize        int
 	RetryLimit          int64
 	DisableTxnAutoRetry bool
 	userVars            struct {
@@ -965,12 +966,6 @@ type SessionVars struct {
 
 	// SkipASCIICheck check on input value.
 	SkipASCIICheck bool
-
-	// SkipUTF8Check check on input value.
-	SkipUTF8Check bool
-
-	// BatchInsert indicates if we should split insert data into multiple batches.
-	BatchInsert bool
 
 	// BatchDelete indicates if we should split delete data into multiple batches.
 	BatchDelete bool
@@ -1273,9 +1268,6 @@ type SessionVars struct {
 
 	// TemporaryTableData stores committed kv values for temporary table for current session.
 	TemporaryTableData TemporaryTableData
-
-	// MPPStoreFailTTL indicates the duration that protect TiDB from sending task to a new recovered TiFlash.
-	MPPStoreFailTTL string
 
 	// ReadStaleness indicates the staleness duration for the following query
 	ReadStaleness time.Duration
@@ -1976,7 +1968,6 @@ func NewSessionVars(hctx HookContext) *SessionVars {
 		AllowFallbackToTiKV:           make(map[kv.StoreType]struct{}),
 		CTEMaxRecursionDepth:          DefCTEMaxRecursionDepth,
 		TMPTableSize:                  DefTiDBTmpTableMaxSize,
-		MPPStoreFailTTL:               DefTiDBMPPStoreFailTTL,
 		Rng:                           mathutil.NewWithTime(),
 		StatsLoadSyncWait:             StatsLoadSyncWait.Load(),
 		EnableLegacyInstanceScope:     DefEnableLegacyInstanceScope,
@@ -1997,6 +1988,7 @@ func NewSessionVars(hctx HookContext) *SessionVars {
 		TiFlashComputeDispatchPolicy:  tiflashcompute.DispatchPolicyConsistentHash,
 		ResourceGroupName:             resourcegroup.DefaultResourceGroupName,
 	}
+	vars.SessionSysVarAliasReader = &vars.sysVarAlias
 	vars.KVVars = tikvstore.NewVariables(&vars.Killed)
 	vars.Concurrency = Concurrency{
 		indexLookupConcurrency:            DefIndexLookupConcurrency,
@@ -2021,11 +2013,9 @@ func NewSessionVars(hctx HookContext) *SessionVars {
 		IndexJoinBatchSize: DefIndexJoinBatchSize,
 		IndexLookupSize:    DefIndexLookupSize,
 		InitChunkSize:      DefInitChunkSize,
-		MaxChunkSize:       DefMaxChunkSize,
 		MinPagingSize:      DefMinPagingSize,
 		MaxPagingSize:      DefMaxPagingSize,
 	}
-	vars.DMLBatchSize = DefDMLBatchSize
 	vars.AllowBatchCop = DefTiDBAllowBatchCop
 	vars.allowMPPExecution = DefTiDBAllowMPPExecution
 	vars.HashExchangeWithNewCollation = DefTiDBHashExchangeWithNewCollation
@@ -2035,7 +2025,6 @@ func NewSessionVars(hctx HookContext) *SessionVars {
 	vars.TiFlashMaxBytesBeforeExternalGroupBy = DefTiFlashMaxBytesBeforeExternalGroupBy
 	vars.TiFlashMaxBytesBeforeExternalSort = DefTiFlashMaxBytesBeforeExternalSort
 	vars.TiFlashEnablePipelineMode = DefTiDBEnableTiFlashPipelineMode
-	vars.MPPStoreFailTTL = DefTiDBMPPStoreFailTTL
 	vars.DiskTracker = disk.NewTracker(memory.LabelForSession, -1)
 	vars.MemTracker = memory.NewTracker(memory.LabelForSession, vars.MemQuotaQuery)
 	vars.MemTracker.IsRootTrackerOfSess = true
@@ -2058,6 +2047,10 @@ func NewSessionVars(hctx HookContext) *SessionVars {
 	}
 	vars.systems[CharacterSetConnection], vars.systems[CollationConnection] = charset.GetDefaultCharsetAndCollate()
 	return vars
+}
+
+func (s *SessionVars) AliasMutator() SessionSysVarAliasMutator {
+	return &s.sysVarAlias
 }
 
 // GetAllowInSubqToJoinAndAgg get AllowInSubqToJoinAndAgg from sql hints and SessionVars.allowInSubqToJoinAndAgg.
@@ -2916,9 +2909,6 @@ type BatchSize struct {
 
 	// InitChunkSize defines init row count of a Chunk during query execution.
 	InitChunkSize int
-
-	// MaxChunkSize defines max row count of a Chunk during query execution.
-	MaxChunkSize int
 
 	// MinPagingSize defines the min size used by the coprocessor paging protocol.
 	MinPagingSize int

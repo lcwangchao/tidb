@@ -92,7 +92,7 @@ func (e *DeleteExec) deleteSingleTableByChunk(ctx context.Context) error {
 		}
 	}
 
-	batchDMLSize := e.Ctx().GetSessionVars().DMLBatchSize
+	batchDMLSize := e.Ctx().GetSessionVars().GetDMLBatchSize()
 	// If tidb_batch_delete is ON and not in a transaction, we could use BatchDelete mode.
 	batchDelete := e.Ctx().GetSessionVars().BatchDelete && !e.Ctx().GetSessionVars().InTxn() &&
 		variable.EnableBatchDML.Load() && batchDMLSize > 0

@@ -2181,7 +2181,7 @@ func ResetContextOfStmt(ctx sessionctx.Context, s ast.StmtNode) (err error) {
 		sc.IgnoreZeroInDate = true
 		sc.AllowInvalidDate = vars.SQLMode.HasAllowInvalidDatesMode()
 	}
-	sc.SkipUTF8Check = vars.SkipUTF8Check
+	sc.SkipUTF8Check = vars.GetSkipUTF8Check()
 	sc.SkipASCIICheck = vars.SkipASCIICheck
 	sc.SkipUTF8MB4Check = !globalConfig.Instance.CheckMb4ValueInUTF8.Load()
 	vars.PlanCacheParams.Reset()

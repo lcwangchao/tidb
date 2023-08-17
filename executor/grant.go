@@ -804,6 +804,6 @@ func getRowFromRecordSet(ctx context.Context, se sessionctx.Context, rs sqlexec.
 		for r := iter.Begin(); r != iter.End(); r = iter.Next() {
 			rows = append(rows, r)
 		}
-		req = chunk.Renew(req, se.GetSessionVars().MaxChunkSize)
+		req = chunk.Renew(req, se.GetSessionVars().GetMaxChunkSize())
 	}
 }

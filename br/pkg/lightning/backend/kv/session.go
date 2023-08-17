@@ -283,7 +283,8 @@ func NewSession(options *encode.SessionOptions, logger log.Logger) *Session {
 	}
 	sqlMode := options.SQLMode
 	vars := variable.NewSessionVars(s)
-	vars.SkipUTF8Check = true
+	mutator := vars.AliasMutator()
+	mutator.SetSkipUTF8Check(true)
 	vars.StmtCtx.InInsertStmt = true
 	vars.StmtCtx.BatchCheck = true
 	vars.StmtCtx.BadNullAsWarning = !sqlMode.HasStrictMode()

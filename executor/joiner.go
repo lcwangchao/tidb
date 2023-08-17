@@ -137,7 +137,7 @@ func newJoiner(ctx sessionctx.Context, joinType plannercore.JoinType,
 		ctx:          ctx,
 		conditions:   filter,
 		outerIsRight: outerIsRight,
-		maxChunkSize: ctx.GetSessionVars().MaxChunkSize,
+		maxChunkSize: ctx.GetSessionVars().GetMaxChunkSize(),
 	}
 	base.selected = make([]bool, 0, chunk.InitialCapacity)
 	base.isNull = make([]bool, 0, chunk.InitialCapacity)
@@ -192,7 +192,7 @@ func newJoiner(ctx sessionctx.Context, joinType plannercore.JoinType,
 		return &antiLeftOuterSemiJoiner{base}
 	case plannercore.LeftOuterJoin, plannercore.RightOuterJoin, plannercore.InnerJoin:
 		if len(base.conditions) > 0 {
-			base.chk = chunk.NewChunkWithCapacity(shallowRowType, ctx.GetSessionVars().MaxChunkSize)
+			base.chk = chunk.NewChunkWithCapacity(shallowRowType, ctx.GetSessionVars().GetMaxChunkSize())
 		}
 		switch joinType {
 		case plannercore.LeftOuterJoin:

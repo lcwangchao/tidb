@@ -456,11 +456,12 @@ func (h *Handle) Clear() {
 	for len(h.ddlEventCh) > 0 {
 		<-h.ddlEventCh
 	}
+	mutator := h.mu.ctx.GetSessionVars().AliasMutator()
 	h.feedback.Lock()
 	h.feedback.data = statistics.NewQueryFeedbackMap()
 	h.feedback.Unlock()
 	h.mu.ctx.GetSessionVars().InitChunkSize = 1
-	h.mu.ctx.GetSessionVars().MaxChunkSize = 1
+	mutator.SetMaxChunkSize(1)
 	h.mu.ctx.GetSessionVars().EnableChunkRPC = false
 	h.mu.ctx.GetSessionVars().SetProjectionConcurrency(0)
 	h.listHead.ClearForTest()
@@ -1412,7 +1413,7 @@ func SaveTableStatsToStorage(sctx sessionctx.Context, results *statistics.Analyz
 		return err
 	}
 	var rows []chunk.Row
-	rows, err = sqlexec.DrainRecordSet(ctx, rs, sctx.GetSessionVars().MaxChunkSize)
+	rows, err = sqlexec.DrainRecordSet(ctx, rs, sctx.GetSessionVars().GetMaxChunkSize())
 	if err != nil {
 		return err
 	}

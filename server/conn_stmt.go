@@ -341,7 +341,7 @@ func (cc *clientConn) executePreparedStmtAndWriteResult(ctx context.Context, stm
 
 		// create the row container to manage spill
 		// this `rowContainer` will be released when the statement (or the connection) is closed.
-		rowContainer := chunk.NewRowContainer(crs.FieldTypes(), vars.MaxChunkSize)
+		rowContainer := chunk.NewRowContainer(crs.FieldTypes(), vars.GetMaxChunkSize())
 		rowContainer.GetMemTracker().AttachTo(vars.MemTracker)
 		rowContainer.GetMemTracker().SetLabel(memory.LabelForCursorFetch)
 		rowContainer.GetDiskTracker().AttachTo(vars.DiskTracker)

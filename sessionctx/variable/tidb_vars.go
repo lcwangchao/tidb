@@ -118,10 +118,6 @@ const (
 	// TiDBConfig is a read-only variable that shows the config of the current server.
 	TiDBConfig = "tidb_config"
 
-	// TiDBBatchInsert is used to enable/disable auto-split insert data. If set this option on, insert executor will automatically
-	// insert data into multiple batches and use a single txn for each batch. This will be helpful when inserting large data.
-	TiDBBatchInsert = "tidb_batch_insert"
-
 	// TiDBBatchDelete is used to enable/disable auto-split delete data. If set this option on, delete executor will automatically
 	// split data into multiple batches and use a single txn for each batch. This will be helpful when deleting large data.
 	TiDBBatchDelete = "tidb_batch_delete"
@@ -129,12 +125,6 @@ const (
 	// TiDBBatchCommit is used to enable/disable auto-split the transaction.
 	// If set this option on, the transaction will be committed when it reaches stmt-count-limit and starts a new transaction.
 	TiDBBatchCommit = "tidb_batch_commit"
-
-	// TiDBDMLBatchSize is used to split the insert/delete data into small batches.
-	// It only takes effort when tidb_batch_insert/tidb_batch_delete is on.
-	// Its default value is 20000. When the row size is large, 20k rows could be larger than 100MB.
-	// User could change it to a smaller one to avoid breaking the transaction size limitation.
-	TiDBDMLBatchSize = "tidb_dml_batch_size"
 
 	// The following session variables controls the memory quota during query execution.
 
@@ -367,9 +357,6 @@ const (
 	// when we need to keep the data output order the same as the order of index data.
 	TiDBIndexSerialScanConcurrency = "tidb_index_serial_scan_concurrency"
 
-	// TiDBMaxChunkSize is used to control the max chunk size during query execution.
-	TiDBMaxChunkSize = "tidb_max_chunk_size"
-
 	// TiDBAllowBatchCop means if we should send batch coprocessor to TiFlash. It can be set to 0, 1 and 2.
 	// 0 means never use batch cop, 1 means use batch cop in case of aggregation and join, 2, means to force sending batch cop for any query.
 	// The default value is 0
@@ -430,10 +417,6 @@ const (
 
 	// TiDBEnableCascadesPlanner is used to control whether to enable the cascades planner.
 	TiDBEnableCascadesPlanner = "tidb_enable_cascades_planner"
-
-	// TiDBSkipUTF8Check skips the UTF8 validate process, validate UTF8 has performance cost, if we can make sure
-	// the input string values are valid, we can skip the check.
-	TiDBSkipUTF8Check = "tidb_skip_utf8_check"
 
 	// TiDBSkipASCIICheck skips the ASCII validate process
 	// old tidb may already have fields with invalid ASCII bytes
@@ -1110,7 +1093,6 @@ const (
 	DefAutoIncrementIncrement                      = 1
 	DefAutoIncrementOffset                         = 1
 	DefChecksumTableConcurrency                    = 4
-	DefSkipUTF8Check                               = false
 	DefSkipASCIICheck                              = false
 	DefOptAggPushDown                              = false
 	DefOptDeriveTopN                               = false
@@ -1134,15 +1116,12 @@ const (
 	DefOptForceInlineCTE                           = false
 	DefOptInSubqToJoinAndAgg                       = true
 	DefOptPreferRangeScan                          = false
-	DefBatchInsert                                 = false
 	DefBatchDelete                                 = false
 	DefBatchCommit                                 = false
 	DefCurretTS                                    = 0
 	DefInitChunkSize                               = 32
 	DefMinPagingSize                               = int(paging.MinPagingSize)
 	DefMaxPagingSize                               = int(paging.MaxPagingSize)
-	DefMaxChunkSize                                = 1024
-	DefDMLBatchSize                                = 0
 	DefMaxPreparedStmtCount                        = -1
 	DefWaitTimeout                                 = 28800
 	DefTiDBMemQuotaApplyCache                      = 32 << 20 // 32MB.

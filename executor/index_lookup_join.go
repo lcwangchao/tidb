@@ -435,7 +435,7 @@ func (ow *outerWorker) buildTask(ctx context.Context) (*lookUpJoinTask, error) {
 			requiredRows = parentRequired
 		}
 	}
-	maxChunkSize := ow.ctx.GetSessionVars().MaxChunkSize
+	maxChunkSize := ow.ctx.GetSessionVars().GetMaxChunkSize()
 	for requiredRows > task.outerResult.Len() {
 		chk := ow.ctx.GetSessionVars().GetNewChunkWithCapacity(ow.outerCtx.rowTypes, maxChunkSize, maxChunkSize, ow.executor.Base().AllocPool)
 		chk = chk.SetRequiredRows(requiredRows, maxChunkSize)
@@ -702,7 +702,7 @@ func (iw *innerWorker) fetchInnerResults(ctx context.Context, task *lookUpJoinTa
 		return err
 	}
 
-	innerResult := chunk.NewList(retTypes(innerExec), iw.ctx.GetSessionVars().MaxChunkSize, iw.ctx.GetSessionVars().MaxChunkSize)
+	innerResult := chunk.NewList(retTypes(innerExec), iw.ctx.GetSessionVars().GetMaxChunkSize(), iw.ctx.GetSessionVars().GetMaxChunkSize())
 	innerResult.GetMemTracker().SetLabel(memory.LabelForBuildSideResult)
 	innerResult.GetMemTracker().AttachTo(task.memTracker)
 	for {
