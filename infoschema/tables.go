@@ -2225,22 +2225,22 @@ func (it *infoschemaTable) IndexPrefix() kv.Key {
 }
 
 // AddRecord implements table.Table AddRecord interface.
-func (it *infoschemaTable) AddRecord(ctx table.RecordContext, r []types.Datum, opts ...table.AddRecordOption) (recordID kv.Handle, err error) {
+func (it *infoschemaTable) AddRecord(ctx table.TblContext, r []types.Datum, opts ...table.AddRecordOption) (recordID kv.Handle, err error) {
 	return nil, table.ErrUnsupportedOp
 }
 
 // RemoveRecord implements table.Table RemoveRecord interface.
-func (it *infoschemaTable) RemoveRecord(sctx table.RecordContext, h kv.Handle, r []types.Datum) error {
+func (it *infoschemaTable) RemoveRecord(sctx table.TblContext, h kv.Handle, r []types.Datum) error {
 	return table.ErrUnsupportedOp
 }
 
 // UpdateRecord implements table.Table UpdateRecord interface.
-func (it *infoschemaTable) UpdateRecord(ctx context.Context, sctx table.RecordContext, h kv.Handle, currData, newData []types.Datum, touched []bool) error {
+func (it *infoschemaTable) UpdateRecord(ctx context.Context, sctx table.TblContext, h kv.Handle, currData, newData []types.Datum, touched []bool) error {
 	return table.ErrUnsupportedOp
 }
 
 // Allocators implements table.Table Allocators interface.
-func (it *infoschemaTable) Allocators(sctx table.RecordContext) autoid.Allocators {
+func (it *infoschemaTable) Allocators(sctx table.TblContext) autoid.Allocators {
 	return autoid.Allocators{}
 }
 
@@ -2313,22 +2313,22 @@ func (vt *VirtualTable) IndexPrefix() kv.Key {
 }
 
 // AddRecord implements table.Table AddRecord interface.
-func (vt *VirtualTable) AddRecord(ctx table.RecordContext, r []types.Datum, opts ...table.AddRecordOption) (recordID kv.Handle, err error) {
+func (vt *VirtualTable) AddRecord(ctx table.TblContext, r []types.Datum, opts ...table.AddRecordOption) (recordID kv.Handle, err error) {
 	return nil, table.ErrUnsupportedOp
 }
 
 // RemoveRecord implements table.Table RemoveRecord interface.
-func (vt *VirtualTable) RemoveRecord(sctx table.RecordContext, h kv.Handle, r []types.Datum) error {
+func (vt *VirtualTable) RemoveRecord(sctx table.TblContext, h kv.Handle, r []types.Datum) error {
 	return table.ErrUnsupportedOp
 }
 
 // UpdateRecord implements table.Table UpdateRecord interface.
-func (vt *VirtualTable) UpdateRecord(ctx context.Context, sctx table.RecordContext, h kv.Handle, currData, newData []types.Datum, touched []bool) error {
+func (vt *VirtualTable) UpdateRecord(ctx context.Context, sctx table.TblContext, h kv.Handle, currData, newData []types.Datum, touched []bool) error {
 	return table.ErrUnsupportedOp
 }
 
 // Allocators implements table.Table Allocators interface.
-func (vt *VirtualTable) Allocators(sctx table.RecordContext) autoid.Allocators {
+func (vt *VirtualTable) Allocators(sctx table.TblContext) autoid.Allocators {
 	return autoid.Allocators{}
 }
 

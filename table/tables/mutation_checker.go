@@ -77,7 +77,7 @@ type columnMaps struct {
 // The time complexity is O(M * C + I)
 // The space complexity is O(M + C + I)
 func CheckDataConsistency(
-	txn kv.Transaction, sessVars *variable.SessionVars, t *TableCommon,
+	txn kv.Transaction, sessVars *table.SessionVars, t *TableCommon,
 	rowToInsert, rowToRemove []types.Datum, memBuffer kv.MemBuffer, sh kv.StagingHandle,
 ) error {
 	if t.Meta().GetPartitionInfo() != nil {
@@ -202,7 +202,7 @@ func checkHandleConsistency(rowInsertion mutation, indexMutations []mutation, in
 // (a) {added indices} is a subset of {needed indices} => each index mutation is consistent with the input/row key/value
 // (b) {needed indices} is a subset of {added indices}. The check process would be exactly the same with how we generate the mutations, thus ignored.
 func checkIndexKeys(
-	sessVars *variable.SessionVars, t *TableCommon, rowToInsert, rowToRemove []types.Datum,
+	sessVars *table.SessionVars, t *TableCommon, rowToInsert, rowToRemove []types.Datum,
 	indexMutations []mutation, indexIDToInfo map[int64]*model.IndexInfo,
 	indexIDToRowColInfos map[int64][]rowcodec.ColInfo,
 ) error {

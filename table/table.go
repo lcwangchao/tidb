@@ -20,6 +20,13 @@ package table
 
 import (
 	"context"
+	"fmt"
+	"github.com/pingcap/tidb/sessionctx/stmtctx"
+	"github.com/pingcap/tidb/sessionctx/variable"
+	pumpcli "github.com/pingcap/tidb/tidb-binlog/pump_client"
+	"github.com/pingcap/tidb/util/rowcodec"
+	"github.com/pingcap/tidb/util/tableutil"
+	"github.com/pingcap/tipb/go-binlog"
 	"time"
 
 	mysql "github.com/pingcap/tidb/errno"
@@ -171,16 +178,83 @@ type columnAPI interface {
 	FullHiddenColsAndVisibleCols() []*Column
 }
 
-type RecordContext struct {
-	sessionctx.Context
+type SessionVars struct {
+	AutoIncrementIncrement            int
+	AutoIncrementOffset               int
+	IDAllocator                       autoid.Allocator
+	GetTemporaryTable                 func(tblInfo *model.TableInfo) tableutil.TempTable
+	TxnCtx                            *variable.TransactionContext
+	StmtCtx                           *stmtctx.StatementContext
+	GetWriteStmtBufs                  func() *variable.WriteStmtBufs
+	LazyCheckKeyNotExists             func() bool
+	ConstraintCheckInPlacePessimistic bool
+	InTxn                             func() bool
+	InRestrictedSQL                   bool
+	ConnectionID                      uint64
+	RowEncoder                        rowcodec.Encoder
+	PresumeKeyNotExists               bool
+	ConstraintCheckInPlace            bool
+	EnableMutationChecker             bool
+	AssertionLevel                    variable.AssertionLevel
+	TemporaryTableData                variable.TemporaryTableData
+	TMPTableSize                      int64
+	GetCurrentShard                   func(count int) int64
+	BinlogClient                      *pumpcli.PumpsClient
+	IsRowLevelChecksumEnabled         func() bool
+	Location                          func() *time.Location
 }
 
-func (ctx RecordContext) GetSessionContext() sessionctx.Context {
+type TblContext struct {
+	sctx sessionctx.Context
+}
+
+func (ctx TblContext) GetSessionVars() *SessionVars {
+	vars := ctx.sctx.GetSessionVars()
+	return &SessionVars{
+		AutoIncrementIncrement:            vars.AutoIncrementIncrement,
+		AutoIncrementOffset:               vars.AutoIncrementOffset,
+		IDAllocator:                       vars.IDAllocator,
+		GetTemporaryTable:                 vars.GetTemporaryTable,
+		StmtCtx:                           vars.StmtCtx,
+		TxnCtx:                            vars.TxnCtx,
+		GetWriteStmtBufs:                  vars.GetWriteStmtBufs,
+		LazyCheckKeyNotExists:             vars.LazyCheckKeyNotExists,
+		ConstraintCheckInPlacePessimistic: vars.ConstraintCheckInPlacePessimistic,
+		InTxn:                             vars.InTxn,
+		InRestrictedSQL:                   vars.InRestrictedSQL,
+		ConnectionID:                      vars.ConnectionID,
+		RowEncoder:                        vars.RowEncoder,
+		PresumeKeyNotExists:               vars.PresumeKeyNotExists,
+		ConstraintCheckInPlace:            vars.ConstraintCheckInPlace,
+		EnableMutationChecker:             vars.EnableMutationChecker,
+		AssertionLevel:                    vars.AssertionLevel,
+		TemporaryTableData:                vars.TemporaryTableData,
+		TMPTableSize:                      vars.TMPTableSize,
+		GetCurrentShard:                   vars.GetCurrentShard,
+		BinlogClient:                      vars.BinlogClient,
+		IsRowLevelChecksumEnabled:         vars.IsRowLevelChecksumEnabled,
+		Location:                          vars.Location,
+	}
+}
+
+func (ctx TblContext) Txn(active bool) (kv.Transaction, error) {
+	return ctx.sctx.Txn(active)
+}
+
+func (ctx TblContext) Value(key fmt.Stringer) interface{} {
+	return ctx.sctx.Value(key)
+}
+
+func (ctx TblContext) StmtGetMutation(tableID int64) *binlog.TableMutation {
+	return ctx.sctx.StmtGetMutation(tableID)
+}
+
+func (ctx TblContext) GetSessionContext() sessionctx.Context {
 	return ctx.GetSessionContext()
 }
 
-func GetRecordCtx(sctx sessionctx.Context) RecordContext {
-	return RecordContext{sctx}
+func GetRecordCtx(sctx sessionctx.Context) TblContext {
+	return TblContext{sctx: sctx}
 }
 
 // Table is used to retrieve and modify rows in table.
@@ -197,16 +271,16 @@ type Table interface {
 	IndexPrefix() kv.Key
 
 	// AddRecord inserts a row which should contain only public columns
-	AddRecord(sctx RecordContext, r []types.Datum, opts ...AddRecordOption) (recordID kv.Handle, err error)
+	AddRecord(sctx TblContext, r []types.Datum, opts ...AddRecordOption) (recordID kv.Handle, err error)
 
 	// UpdateRecord updates a row which should contain only writable columns.
-	UpdateRecord(ctx context.Context, sctx RecordContext, h kv.Handle, oldData, newData []types.Datum, touched []bool) error
+	UpdateRecord(ctx context.Context, sctx TblContext, h kv.Handle, oldData, newData []types.Datum, touched []bool) error
 
 	// RemoveRecord removes a row in the table.
-	RemoveRecord(sctx RecordContext, h kv.Handle, r []types.Datum) error
+	RemoveRecord(sctx TblContext, h kv.Handle, r []types.Datum) error
 
 	// Allocators returns all allocators.
-	Allocators(ctx RecordContext) autoid.Allocators
+	Allocators(ctx TblContext) autoid.Allocators
 
 	// Meta returns TableInfo.
 	Meta() *model.TableInfo
@@ -219,7 +293,7 @@ type Table interface {
 }
 
 // AllocAutoIncrementValue allocates an auto_increment value for a new row.
-func AllocAutoIncrementValue(ctx context.Context, t Table, sctx RecordContext) (int64, error) {
+func AllocAutoIncrementValue(ctx context.Context, t Table, sctx TblContext) (int64, error) {
 	r, ctx := tracing.StartRegionEx(ctx, "table.AllocAutoIncrementValue")
 	defer r.End()
 	increment := sctx.GetSessionVars().AutoIncrementIncrement
@@ -234,7 +308,7 @@ func AllocAutoIncrementValue(ctx context.Context, t Table, sctx RecordContext) (
 
 // AllocBatchAutoIncrementValue allocates batch auto_increment value for rows, returning firstID, increment and err.
 // The caller can derive the autoID by adding increment to firstID for N-1 times.
-func AllocBatchAutoIncrementValue(ctx context.Context, t Table, sctx RecordContext, N int) (firstID int64, increment int64, err error) {
+func AllocBatchAutoIncrementValue(ctx context.Context, t Table, sctx TblContext, N int) (firstID int64, increment int64, err error) {
 	increment = int64(sctx.GetSessionVars().AutoIncrementIncrement)
 	offset := int64(sctx.GetSessionVars().AutoIncrementOffset)
 	alloc := t.Allocators(sctx).Get(autoid.AutoIncrementType)
@@ -261,11 +335,11 @@ type PhysicalTable interface {
 type PartitionedTable interface {
 	Table
 	GetPartition(physicalID int64) PhysicalTable
-	GetPartitionByRow(RecordContext, []types.Datum) (PhysicalTable, error)
+	GetPartitionByRow(TblContext, []types.Datum) (PhysicalTable, error)
 	GetAllPartitionIDs() []int64
 	GetPartitionColumnIDs() []int64
 	GetPartitionColumnNames() []model.CIStr
-	CheckForExchangePartition(ctx RecordContext, pi *model.PartitionInfo, r []types.Datum, pid int64) error
+	CheckForExchangePartition(ctx TblContext, pi *model.PartitionInfo, r []types.Datum, pid int64) error
 }
 
 // TableFromMeta builds a table.Table from *model.TableInfo.

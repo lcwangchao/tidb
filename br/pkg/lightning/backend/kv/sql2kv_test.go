@@ -71,7 +71,7 @@ type mockTable struct {
 	table.Table
 }
 
-func (mockTable) AddRecord(ctx table.RecordContext, r []types.Datum, opts ...table.AddRecordOption) (recordID kv.Handle, err error) {
+func (mockTable) AddRecord(ctx table.TblContext, r []types.Datum, opts ...table.AddRecordOption) (recordID kv.Handle, err error) {
 	return kv.IntHandle(-1), errors.New("mock error")
 }
 

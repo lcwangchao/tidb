@@ -892,7 +892,7 @@ func onRebaseAutoID(d *ddlCtx, store kv.Storage, t *meta.Meta, job *model.Job, t
 		tblInfo.AutoRandID = newBase
 	}
 
-	if alloc := tbl.Allocators(table.RecordContext{}).Get(tp); alloc != nil {
+	if alloc := tbl.Allocators(table.TblContext{}).Get(tp); alloc != nil {
 		// The next value to allocate is `newBase`.
 		newEnd := newBase - 1
 		if force {

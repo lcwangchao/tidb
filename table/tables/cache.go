@@ -240,7 +240,7 @@ func (c *cachedTable) updateLockForRead(ctx context.Context, handle StateRemote,
 const cachedTableSizeLimit = 64 * (1 << 20)
 
 // AddRecord implements the AddRecord method for the table.Table interface.
-func (c *cachedTable) AddRecord(sctx table.RecordContext, r []types.Datum, opts ...table.AddRecordOption) (recordID kv.Handle, err error) {
+func (c *cachedTable) AddRecord(sctx table.TblContext, r []types.Datum, opts ...table.AddRecordOption) (recordID kv.Handle, err error) {
 	if atomic.LoadInt64(&c.totalSize) > cachedTableSizeLimit {
 		return nil, table.ErrOptOnCacheTable.GenWithStackByArgs("table too large")
 	}
@@ -248,7 +248,7 @@ func (c *cachedTable) AddRecord(sctx table.RecordContext, r []types.Datum, opts 
 	return c.TableCommon.AddRecord(sctx, r, opts...)
 }
 
-func txnCtxAddCachedTable(sctx table.RecordContext, tid int64, handle *cachedTable) {
+func txnCtxAddCachedTable(sctx table.TblContext, tid int64, handle *cachedTable) {
 	txnCtx := sctx.GetSessionVars().TxnCtx
 	if txnCtx.CachedTables == nil {
 		txnCtx.CachedTables = make(map[int64]interface{})
@@ -259,7 +259,7 @@ func txnCtxAddCachedTable(sctx table.RecordContext, tid int64, handle *cachedTab
 }
 
 // UpdateRecord implements table.Table
-func (c *cachedTable) UpdateRecord(ctx context.Context, sctx table.RecordContext, h kv.Handle, oldData, newData []types.Datum, touched []bool) error {
+func (c *cachedTable) UpdateRecord(ctx context.Context, sctx table.TblContext, h kv.Handle, oldData, newData []types.Datum, touched []bool) error {
 	// Prevent furthur writing when the table is already too large.
 	if atomic.LoadInt64(&c.totalSize) > cachedTableSizeLimit {
 		return table.ErrOptOnCacheTable.GenWithStackByArgs("table too large")
@@ -269,7 +269,7 @@ func (c *cachedTable) UpdateRecord(ctx context.Context, sctx table.RecordContext
 }
 
 // RemoveRecord implements table.Table RemoveRecord interface.
-func (c *cachedTable) RemoveRecord(sctx table.RecordContext, h kv.Handle, r []types.Datum) error {
+func (c *cachedTable) RemoveRecord(sctx table.TblContext, h kv.Handle, r []types.Datum) error {
 	txnCtxAddCachedTable(sctx, c.Meta().ID, c)
 	return c.TableCommon.RemoveRecord(sctx, h, r)
 }

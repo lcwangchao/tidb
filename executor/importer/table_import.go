@@ -483,7 +483,7 @@ func (ti *TableImporter) Close() error {
 
 // Allocators returns allocators used to record max used ID, i.e. PanickingAllocators.
 func (ti *TableImporter) Allocators() autoid.Allocators {
-	return ti.encTable.Allocators(table.RecordContext{})
+	return ti.encTable.Allocators(table.TblContext{})
 }
 
 // CheckDiskQuota checks disk quota.
