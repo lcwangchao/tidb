@@ -293,7 +293,7 @@ func (is *infoSchema) AllocByID(id int64) (autoid.Allocators, bool) {
 	if !ok {
 		return autoid.Allocators{}, false
 	}
-	return tbl.Allocators(nil), true
+	return tbl.Allocators(table.RecordContext{}), true
 }
 
 func (is *infoSchema) AllSchemaNames() (names []string) {

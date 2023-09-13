@@ -3755,7 +3755,7 @@ func (builder *dataReaderBuilder) prunePartitionForInnerExecutor(tbl table.Table
 		for i, data := range content.keys {
 			locateKey[keyColOffsets[i]] = data
 		}
-		p, err := partitionTbl.GetPartitionByRow(builder.ctx, locateKey)
+		p, err := partitionTbl.GetPartitionByRow(table.GetRecordCtx(builder.ctx), locateKey)
 		if table.ErrNoPartitionForGivenValue.Equal(err) {
 			continue
 		}
@@ -4372,7 +4372,7 @@ func (builder *dataReaderBuilder) buildTableReaderForIndexJoin(ctx context.Conte
 				for i, data := range content.keys {
 					locateKey[keyColOffsets[i]] = data
 				}
-				p, err := pt.GetPartitionByRow(e.Ctx(), locateKey)
+				p, err := pt.GetPartitionByRow(table.GetRecordCtx(e.Ctx()), locateKey)
 				if table.ErrNoPartitionForGivenValue.Equal(err) {
 					continue
 				}
@@ -4419,7 +4419,7 @@ func (builder *dataReaderBuilder) buildTableReaderForIndexJoin(ctx context.Conte
 			for i, data := range content.keys {
 				locateKey[keyColOffsets[i]] = data
 			}
-			p, err := pt.GetPartitionByRow(e.Ctx(), locateKey)
+			p, err := pt.GetPartitionByRow(table.GetRecordCtx(e.Ctx()), locateKey)
 			if table.ErrNoPartitionForGivenValue.Equal(err) {
 				continue
 			}

@@ -524,7 +524,7 @@ func (e *RecoverIndexExec) backfillIndexInTxn(ctx context.Context, txn kv.Transa
 			return result, err
 		}
 
-		_, err = e.index.Create(e.Ctx(), txn, row.idxVals, row.handle, row.rsData, table.WithIgnoreAssertion)
+		_, err = e.index.Create(table.GetRecordCtx(e.Ctx()), txn, row.idxVals, row.handle, row.rsData, table.WithIgnoreAssertion)
 		if err != nil {
 			return result, err
 		}

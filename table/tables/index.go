@@ -22,7 +22,6 @@ import (
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/parser/mysql"
-	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/sessionctx/stmtctx"
 	"github.com/pingcap/tidb/table"
 	"github.com/pingcap/tidb/tablecodec"
@@ -159,7 +158,7 @@ out:
 // Create creates a new entry in the kvIndex data.
 // If the index is unique and there is an existing entry with the same key,
 // Create will return the existing entry's handle as the first return value, ErrKeyExists as the second return value.
-func (c *index) Create(sctx sessionctx.Context, txn kv.Transaction, indexedValue []types.Datum, h kv.Handle, handleRestoreData []types.Datum, opts ...table.CreateIdxOptFunc) (kv.Handle, error) {
+func (c *index) Create(sctx table.RecordContext, txn kv.Transaction, indexedValue []types.Datum, h kv.Handle, handleRestoreData []types.Datum, opts ...table.CreateIdxOptFunc) (kv.Handle, error) {
 	if c.Meta().Unique {
 		txn.CacheTableInfo(c.phyTblID, c.tblInfo)
 	}

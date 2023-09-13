@@ -90,7 +90,7 @@ func updateRecord(
 			return false, errors.Errorf("exchange partition process assert table partition failed")
 		}
 		err := p.CheckForExchangePartition(
-			sctx,
+			table.GetRecordCtx(sctx),
 			pt.Meta().Partition,
 			newData,
 			tbl.ExchangePartitionInfo.ExchangePartitionDefID,
@@ -116,7 +116,7 @@ func updateRecord(
 				if err != nil {
 					return false, err
 				}
-				if err = t.Allocators(sctx).Get(autoid.AutoIncrementType).Rebase(ctx, recordID, true); err != nil {
+				if err = t.Allocators(table.GetRecordCtx(sctx)).Get(autoid.AutoIncrementType).Rebase(ctx, recordID, true); err != nil {
 					return false, err
 				}
 			}
@@ -188,11 +188,11 @@ func updateRecord(
 			sh := memBuffer.Staging()
 			defer memBuffer.Cleanup(sh)
 
-			if err = t.RemoveRecord(sctx, h, oldData); err != nil {
+			if err = t.RemoveRecord(table.GetRecordCtx(sctx), h, oldData); err != nil {
 				return false, err
 			}
 
-			_, err = t.AddRecord(sctx, newData, table.IsUpdate, table.WithCtx(ctx))
+			_, err = t.AddRecord(table.GetRecordCtx(sctx), newData, table.IsUpdate, table.WithCtx(ctx))
 			if err != nil {
 				return false, err
 			}
@@ -206,7 +206,7 @@ func updateRecord(
 		}
 	} else {
 		// Update record to new value and update index.
-		if err := t.UpdateRecord(ctx, sctx, h, oldData, newData, modified); err != nil {
+		if err := t.UpdateRecord(ctx, table.GetRecordCtx(sctx), h, oldData, newData, modified); err != nil {
 			if terr, ok := errors.Cause(err).(*terror.Error); sctx.GetSessionVars().StmtCtx.IgnoreNoPartition && ok && terr.Code() == errno.ErrNoPartitionForGivenValue {
 				return false, nil
 			}
@@ -257,7 +257,7 @@ func addUnchangedKeysForLockByRow(
 	count := 0
 	physicalID := t.Meta().ID
 	if pt, ok := t.(table.PartitionedTable); ok {
-		p, err := pt.GetPartitionByRow(sctx, row)
+		p, err := pt.GetPartitionByRow(table.GetRecordCtx(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -316,7 +316,7 @@ func rebaseAutoRandomValue(
 	shardFmt := autoid.NewShardIDFormat(&col.FieldType, tableInfo.AutoRandomBits, tableInfo.AutoRandomRangeBits)
 	// Set bits except incremental_bits to zero.
 	recordID = recordID & shardFmt.IncrementalMask()
-	return t.Allocators(sctx).Get(autoid.AutoRandomType).Rebase(ctx, recordID, true)
+	return t.Allocators(table.GetRecordCtx(sctx)).Get(autoid.AutoRandomType).Rebase(ctx, recordID, true)
 }
 
 // resetErrDataTooLong reset ErrDataTooLong error msg.

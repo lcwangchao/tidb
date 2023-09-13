@@ -1447,7 +1447,7 @@ func (e *ShowExec) fetchShowCreateTable() error {
 	tableInfo := tb.Meta()
 	var buf bytes.Buffer
 	// TODO: let the result more like MySQL.
-	if err = constructResultOfShowCreateTable(e.Ctx(), &e.DBName, tableInfo, tb.Allocators(e.Ctx()), &buf); err != nil {
+	if err = constructResultOfShowCreateTable(e.Ctx(), &e.DBName, tableInfo, tb.Allocators(table.GetRecordCtx(e.Ctx())), &buf); err != nil {
 		return err
 	}
 	if tableInfo.IsView() {

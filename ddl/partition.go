@@ -3182,7 +3182,7 @@ func (w *reorgPartitionWorker) fetchRowColVals(txn kv.Transaction, taskRange reo
 				}
 				tmpRow[offset] = d
 			}
-			p, err := w.reorgedTbl.GetPartitionByRow(w.sessCtx, tmpRow)
+			p, err := w.reorgedTbl.GetPartitionByRow(table.GetRecordCtx(w.sessCtx), tmpRow)
 			if err != nil {
 				return false, errors.Trace(err)
 			}

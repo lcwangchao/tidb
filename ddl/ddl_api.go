@@ -3931,7 +3931,7 @@ func (d *ddl) RebaseAutoID(ctx sessionctx.Context, ident ast.Ident, newBase int6
 }
 
 func adjustNewBaseToNextGlobalID(ctx sessionctx.Context, t table.Table, tp autoid.AllocatorType, newBase int64) (int64, error) {
-	alloc := t.Allocators(ctx).Get(tp)
+	alloc := t.Allocators(table.GetRecordCtx(ctx)).Get(tp)
 	if alloc == nil {
 		return newBase, nil
 	}

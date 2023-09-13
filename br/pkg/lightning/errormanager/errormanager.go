@@ -604,7 +604,7 @@ func (em *ErrorManager) ReplaceConflictKeys(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			_, err = encoder.Table.AddRecord(encoder.SessionCtx, decodedData)
+			_, err = encoder.Table.AddRecord(tidbtbl.GetRecordCtx(encoder.SessionCtx), decodedData)
 			if err != nil {
 				return errors.Trace(err)
 			}

@@ -1786,7 +1786,7 @@ func (w *addIndexTxnWorker) BackfillData(handleRange reorgBackfillTask) (taskCtx
 				return errors.Trace(err)
 			}
 
-			handle, err := w.index.Create(w.sessCtx, txn, idxRecord.vals, idxRecord.handle, idxRecord.rsData, table.WithIgnoreAssertion, table.FromBackfill)
+			handle, err := w.index.Create(table.GetRecordCtx(w.sessCtx), txn, idxRecord.vals, idxRecord.handle, idxRecord.rsData, table.WithIgnoreAssertion, table.FromBackfill)
 			if err != nil {
 				if kv.ErrKeyExists.Equal(err) && idxRecord.handle.Equal(handle) {
 					// Index already exists, skip it.

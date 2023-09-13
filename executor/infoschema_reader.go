@@ -224,7 +224,7 @@ func getAutoIncrementID(ctx sessionctx.Context, schema *model.DBInfo, tblInfo *m
 	if err != nil {
 		return 0, err
 	}
-	return tbl.Allocators(ctx).Get(autoid.AutoIncrementType).Base() + 1, nil
+	return tbl.Allocators(table.GetRecordCtx(ctx)).Get(autoid.AutoIncrementType).Base() + 1, nil
 }
 
 func hasPriv(ctx sessionctx.Context, priv mysql.PrivilegeType) bool {

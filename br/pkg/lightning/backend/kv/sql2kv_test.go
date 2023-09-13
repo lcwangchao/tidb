@@ -33,7 +33,6 @@ import (
 	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/parser/mysql"
 	_ "github.com/pingcap/tidb/planner/core" // to setup expression.EvalAstExpr. Otherwise we cannot parse the default value
-	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/table"
 	"github.com/pingcap/tidb/table/tables"
 	"github.com/pingcap/tidb/tablecodec"
@@ -72,7 +71,7 @@ type mockTable struct {
 	table.Table
 }
 
-func (mockTable) AddRecord(ctx sessionctx.Context, r []types.Datum, opts ...table.AddRecordOption) (recordID kv.Handle, err error) {
+func (mockTable) AddRecord(ctx table.RecordContext, r []types.Datum, opts ...table.AddRecordOption) (recordID kv.Handle, err error) {
 	return kv.IntHandle(-1), errors.New("mock error")
 }
 
