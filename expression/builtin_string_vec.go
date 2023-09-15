@@ -27,7 +27,6 @@ import (
 	"github.com/pingcap/tidb/parser/ast"
 	"github.com/pingcap/tidb/parser/charset"
 	"github.com/pingcap/tidb/parser/mysql"
-	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/chunk"
 	"github.com/pingcap/tidb/util/collate"
@@ -36,7 +35,7 @@ import (
 //revive:disable:defer
 func (b *builtinLowerSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
 	// if error is not nil return error, or builtinLowerSig is for binary strings (do nothing)
-	return b.args[0].VecEvalString(b.ctx, input, result)
+	return b.args[0].VecEvalString(input, result)
 }
 
 func (b *builtinLowerSig) vectorized() bool {
@@ -50,7 +49,7 @@ func (b *builtinLowerUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.Co
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	result.ReserveString(n)
@@ -76,7 +75,7 @@ func (b *builtinRepeatSig) vecEvalString(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -85,7 +84,7 @@ func (b *builtinRepeatSig) vecEvalString(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[1].VecEvalInt(b.ctx, input, buf2); err != nil {
+	if err := b.args[1].VecEvalInt(input, buf2); err != nil {
 		return err
 	}
 
@@ -135,7 +134,7 @@ func (b *builtinStringIsNullSig) vecEvalInt(input *chunk.Chunk, result *chunk.Co
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -162,7 +161,7 @@ func (b *builtinUpperUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.Co
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	result.ReserveString(n)
@@ -182,7 +181,7 @@ func (b *builtinUpperUTF8Sig) vectorized() bool {
 }
 
 func (b *builtinUpperSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
-	return b.args[0].VecEvalString(b.ctx, input, result)
+	return b.args[0].VecEvalString(input, result)
 }
 
 func (b *builtinUpperSig) vectorized() bool {
@@ -196,7 +195,7 @@ func (b *builtinLeftUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.Col
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -205,7 +204,7 @@ func (b *builtinLeftUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.Col
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[1].VecEvalInt(b.ctx, input, buf2); err != nil {
+	if err := b.args[1].VecEvalInt(input, buf2); err != nil {
 		return err
 	}
 
@@ -241,7 +240,7 @@ func (b *builtinRightUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.Co
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -250,7 +249,7 @@ func (b *builtinRightUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.Co
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[1].VecEvalInt(b.ctx, input, buf2); err != nil {
+	if err := b.args[1].VecEvalInt(input, buf2); err != nil {
 		return err
 	}
 
@@ -289,7 +288,7 @@ func (b *builtinSpaceSig) vecEvalString(input *chunk.Chunk, result *chunk.Column
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalInt(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalInt(input, buf); err != nil {
 		return err
 	}
 
@@ -328,7 +327,7 @@ func (b *builtinSpaceSig) vectorized() bool {
 // vecEvalString evals a REVERSE(str).
 // See https://dev.mysql.com/doc/refman/5.7/en/string-functions.html#function_reverse
 func (b *builtinReverseUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
-	if err := b.args[0].VecEvalString(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalString(input, result); err != nil {
 		return err
 	}
 	for i := 0; i < input.NumRows(); i++ {
@@ -365,7 +364,7 @@ func (b *builtinConcatSig) vecEvalString(input *chunk.Chunk, result *chunk.Colum
 	result.ReserveString(n)
 	var byteBuf []byte
 	for j := 0; j < len(b.args); j++ {
-		if err := b.args[j].VecEvalString(b.ctx, input, buf); err != nil {
+		if err := b.args[j].VecEvalString(input, buf); err != nil {
 			return err
 		}
 		for i := 0; i < n; i++ {
@@ -411,7 +410,7 @@ func (b *builtinLocate3ArgsUTF8Sig) vecEvalInt(input *chunk.Chunk, result *chunk
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -419,11 +418,11 @@ func (b *builtinLocate3ArgsUTF8Sig) vecEvalInt(input *chunk.Chunk, result *chunk
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(input, buf1); err != nil {
 		return err
 	}
 	// store positions in result
-	if err := b.args[2].VecEvalInt(b.ctx, input, result); err != nil {
+	if err := b.args[2].VecEvalInt(input, result); err != nil {
 		return err
 	}
 
@@ -477,7 +476,7 @@ func (b *builtinHexStrArgSig) vecEvalString(input *chunk.Chunk, result *chunk.Co
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(input, buf0); err != nil {
 		return err
 	}
 	result.ReserveString(n)
@@ -504,7 +503,7 @@ func (b *builtinLTrimSig) vecEvalString(input *chunk.Chunk, result *chunk.Column
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -533,7 +532,7 @@ func (b *builtinQuoteSig) vecEvalString(input *chunk.Chunk, result *chunk.Column
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -560,7 +559,7 @@ func (b *builtinInsertSig) vecEvalString(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(str)
-	if err := b.args[0].VecEvalString(b.ctx, input, str); err != nil {
+	if err := b.args[0].VecEvalString(input, str); err != nil {
 		return err
 	}
 	pos, err := b.bufAllocator.get()
@@ -568,7 +567,7 @@ func (b *builtinInsertSig) vecEvalString(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(pos)
-	if err := b.args[1].VecEvalInt(b.ctx, input, pos); err != nil {
+	if err := b.args[1].VecEvalInt(input, pos); err != nil {
 		return err
 	}
 	length, err := b.bufAllocator.get()
@@ -576,7 +575,7 @@ func (b *builtinInsertSig) vecEvalString(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(length)
-	if err := b.args[2].VecEvalInt(b.ctx, input, length); err != nil {
+	if err := b.args[2].VecEvalInt(input, length); err != nil {
 		return err
 	}
 	newstr, err := b.bufAllocator.get()
@@ -584,7 +583,7 @@ func (b *builtinInsertSig) vecEvalString(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(newstr)
-	if err := b.args[3].VecEvalString(b.ctx, input, newstr); err != nil {
+	if err := b.args[3].VecEvalString(input, newstr); err != nil {
 		return err
 	}
 	posIs := pos.Int64s()
@@ -638,7 +637,7 @@ func (b *builtinConcatWSSig) vecEvalString(input *chunk.Chunk, result *chunk.Col
 			return err
 		}
 		defer b.bufAllocator.put(bufs[i])
-		if err := b.args[i].VecEvalString(b.ctx, input, bufs[i]); err != nil {
+		if err := b.args[i].VecEvalString(input, bufs[i]); err != nil {
 			return err
 		}
 	}
@@ -710,7 +709,7 @@ func (b *builtinConvertSig) vecEvalString(input *chunk.Chunk, result *chunk.Colu
 		return err
 	}
 	defer b.bufAllocator.put(expr)
-	if err := b.args[0].VecEvalString(b.ctx, input, expr); err != nil {
+	if err := b.args[0].VecEvalString(input, expr); err != nil {
 		return err
 	}
 	argTp, resultTp := b.args[0].GetType(), b.tp
@@ -781,7 +780,7 @@ func (b *builtinSubstringIndexSig) vecEvalString(input *chunk.Chunk, result *chu
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -790,7 +789,7 @@ func (b *builtinSubstringIndexSig) vecEvalString(input *chunk.Chunk, result *chu
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(input, buf1); err != nil {
 		return err
 	}
 
@@ -799,7 +798,7 @@ func (b *builtinSubstringIndexSig) vecEvalString(input *chunk.Chunk, result *chu
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[2].VecEvalInt(b.ctx, input, buf2); err != nil {
+	if err := b.args[2].VecEvalInt(input, buf2); err != nil {
 		return err
 	}
 
@@ -864,7 +863,7 @@ func (b *builtinUnHexSig) vecEvalString(input *chunk.Chunk, result *chunk.Column
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -901,7 +900,7 @@ func (b *builtinExportSet3ArgSig) vecEvalString(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(bits)
-	if err := b.args[0].VecEvalInt(b.ctx, input, bits); err != nil {
+	if err := b.args[0].VecEvalInt(input, bits); err != nil {
 		return err
 	}
 	on, err := b.bufAllocator.get()
@@ -909,7 +908,7 @@ func (b *builtinExportSet3ArgSig) vecEvalString(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(on)
-	if err := b.args[1].VecEvalString(b.ctx, input, on); err != nil {
+	if err := b.args[1].VecEvalString(input, on); err != nil {
 		return err
 	}
 	off, err := b.bufAllocator.get()
@@ -917,7 +916,7 @@ func (b *builtinExportSet3ArgSig) vecEvalString(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(off)
-	if err := b.args[2].VecEvalString(b.ctx, input, off); err != nil {
+	if err := b.args[2].VecEvalString(input, off); err != nil {
 		return err
 	}
 	result.ReserveString(n)
@@ -946,7 +945,7 @@ func (b *builtinASCIISig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) e
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err = b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err = b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	result.ResizeInt64(n, false)
@@ -979,7 +978,7 @@ func (b *builtinLpadSig) vecEvalString(input *chunk.Chunk, result *chunk.Column)
 		return err
 	}
 	defer b.bufAllocator.put(strBuf)
-	if err := b.args[0].VecEvalString(b.ctx, input, strBuf); err != nil {
+	if err := b.args[0].VecEvalString(input, strBuf); err != nil {
 		return err
 	}
 	lenBuf, err := b.bufAllocator.get()
@@ -987,7 +986,7 @@ func (b *builtinLpadSig) vecEvalString(input *chunk.Chunk, result *chunk.Column)
 		return err
 	}
 	defer b.bufAllocator.put(lenBuf)
-	if err := b.args[1].VecEvalInt(b.ctx, input, lenBuf); err != nil {
+	if err := b.args[1].VecEvalInt(input, lenBuf); err != nil {
 		return err
 	}
 	padBuf, err := b.bufAllocator.get()
@@ -995,7 +994,7 @@ func (b *builtinLpadSig) vecEvalString(input *chunk.Chunk, result *chunk.Column)
 		return err
 	}
 	defer b.bufAllocator.put(padBuf)
-	if err := b.args[2].VecEvalString(b.ctx, input, padBuf); err != nil {
+	if err := b.args[2].VecEvalString(input, padBuf); err != nil {
 		return err
 	}
 
@@ -1051,7 +1050,7 @@ func (b *builtinLpadUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.Col
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -1059,7 +1058,7 @@ func (b *builtinLpadUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.Col
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalInt(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalInt(input, buf1); err != nil {
 		return err
 	}
 	buf2, err := b.bufAllocator.get()
@@ -1067,7 +1066,7 @@ func (b *builtinLpadUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.Col
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[2].VecEvalString(b.ctx, input, buf2); err != nil {
+	if err := b.args[2].VecEvalString(input, buf2); err != nil {
 		return err
 	}
 
@@ -1120,7 +1119,7 @@ func (b *builtinFindInSetSig) vecEvalInt(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(str)
-	if err := b.args[0].VecEvalString(b.ctx, input, str); err != nil {
+	if err := b.args[0].VecEvalString(input, str); err != nil {
 		return err
 	}
 	strlist, err := b.bufAllocator.get()
@@ -1128,7 +1127,7 @@ func (b *builtinFindInSetSig) vecEvalInt(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(strlist)
-	if err := b.args[1].VecEvalString(b.ctx, input, strlist); err != nil {
+	if err := b.args[1].VecEvalString(input, strlist); err != nil {
 		return err
 	}
 	result.ResizeInt64(n, false)
@@ -1163,7 +1162,7 @@ func (b *builtinLeftSig) vecEvalString(input *chunk.Chunk, result *chunk.Column)
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	buf2, err := b.bufAllocator.get()
@@ -1171,7 +1170,7 @@ func (b *builtinLeftSig) vecEvalString(input *chunk.Chunk, result *chunk.Column)
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[1].VecEvalInt(b.ctx, input, buf2); err != nil {
+	if err := b.args[1].VecEvalInt(input, buf2); err != nil {
 		return err
 	}
 	left := buf2.Int64s()
@@ -1197,7 +1196,7 @@ func (b *builtinReverseSig) vectorized() bool {
 }
 
 func (b *builtinReverseSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
-	if err := b.args[0].VecEvalString(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalString(input, result); err != nil {
 		return err
 	}
 	for i := 0; i < input.NumRows(); i++ {
@@ -1223,7 +1222,7 @@ func (b *builtinRTrimSig) vecEvalString(input *chunk.Chunk, result *chunk.Column
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -1252,7 +1251,7 @@ func (b *builtinStrcmpSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) 
 		return err
 	}
 	defer b.bufAllocator.put(leftBuf)
-	if err := b.args[0].VecEvalString(b.ctx, input, leftBuf); err != nil {
+	if err := b.args[0].VecEvalString(input, leftBuf); err != nil {
 		return err
 	}
 	rightBuf, err := b.bufAllocator.get()
@@ -1260,7 +1259,7 @@ func (b *builtinStrcmpSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) 
 		return err
 	}
 	defer b.bufAllocator.put(rightBuf)
-	if err := b.args[1].VecEvalString(b.ctx, input, rightBuf); err != nil {
+	if err := b.args[1].VecEvalString(input, rightBuf); err != nil {
 		return err
 	}
 	result.ResizeInt64(n, false)
@@ -1292,10 +1291,10 @@ func (b *builtinLocate2ArgsSig) vecEvalInt(input *chunk.Chunk, result *chunk.Col
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(input, buf0); err != nil {
 		return err
 	}
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(input, buf1); err != nil {
 		return err
 	}
 	result.ResizeInt64(n, false)
@@ -1328,7 +1327,7 @@ func (b *builtinLocate3ArgsSig) vecEvalInt(input *chunk.Chunk, result *chunk.Col
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(input, buf0); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -1336,11 +1335,11 @@ func (b *builtinLocate3ArgsSig) vecEvalInt(input *chunk.Chunk, result *chunk.Col
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(input, buf1); err != nil {
 		return err
 	}
 	// store positions in result
-	if err := b.args[2].VecEvalInt(b.ctx, input, result); err != nil {
+	if err := b.args[2].VecEvalInt(input, result); err != nil {
 		return err
 	}
 
@@ -1387,7 +1386,7 @@ func (b *builtinExportSet4ArgSig) vecEvalString(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(bits)
-	if err := b.args[0].VecEvalInt(b.ctx, input, bits); err != nil {
+	if err := b.args[0].VecEvalInt(input, bits); err != nil {
 		return err
 	}
 	on, err := b.bufAllocator.get()
@@ -1395,7 +1394,7 @@ func (b *builtinExportSet4ArgSig) vecEvalString(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(on)
-	if err := b.args[1].VecEvalString(b.ctx, input, on); err != nil {
+	if err := b.args[1].VecEvalString(input, on); err != nil {
 		return err
 	}
 	off, err := b.bufAllocator.get()
@@ -1403,7 +1402,7 @@ func (b *builtinExportSet4ArgSig) vecEvalString(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(off)
-	if err := b.args[2].VecEvalString(b.ctx, input, off); err != nil {
+	if err := b.args[2].VecEvalString(input, off); err != nil {
 		return err
 	}
 	separator, err := b.bufAllocator.get()
@@ -1411,7 +1410,7 @@ func (b *builtinExportSet4ArgSig) vecEvalString(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(separator)
-	if err := b.args[3].VecEvalString(b.ctx, input, separator); err != nil {
+	if err := b.args[3].VecEvalString(input, separator); err != nil {
 		return err
 	}
 	result.ReserveString(n)
@@ -1440,7 +1439,7 @@ func (b *builtinRpadSig) vecEvalString(input *chunk.Chunk, result *chunk.Column)
 		return err
 	}
 	defer b.bufAllocator.put(strBuf)
-	if err := b.args[0].VecEvalString(b.ctx, input, strBuf); err != nil {
+	if err := b.args[0].VecEvalString(input, strBuf); err != nil {
 		return err
 	}
 	lenBuf, err := b.bufAllocator.get()
@@ -1448,7 +1447,7 @@ func (b *builtinRpadSig) vecEvalString(input *chunk.Chunk, result *chunk.Column)
 		return err
 	}
 	defer b.bufAllocator.put(lenBuf)
-	if err := b.args[1].VecEvalInt(b.ctx, input, lenBuf); err != nil {
+	if err := b.args[1].VecEvalInt(input, lenBuf); err != nil {
 		return err
 	}
 	padBuf, err := b.bufAllocator.get()
@@ -1456,7 +1455,7 @@ func (b *builtinRpadSig) vecEvalString(input *chunk.Chunk, result *chunk.Column)
 		return err
 	}
 	defer b.bufAllocator.put(padBuf)
-	if err := b.args[2].VecEvalString(b.ctx, input, padBuf); err != nil {
+	if err := b.args[2].VecEvalString(input, padBuf); err != nil {
 		return err
 	}
 
@@ -1511,7 +1510,7 @@ func (b *builtinFormatWithLocaleSig) vecEvalString(input *chunk.Chunk, result *c
 		return err
 	}
 	defer b.bufAllocator.put(dBuf)
-	if err := b.args[1].VecEvalInt(b.ctx, input, dBuf); err != nil {
+	if err := b.args[1].VecEvalInt(input, dBuf); err != nil {
 		return err
 	}
 	dInt64s := dBuf.Int64s()
@@ -1521,7 +1520,7 @@ func (b *builtinFormatWithLocaleSig) vecEvalString(input *chunk.Chunk, result *c
 		return err
 	}
 	defer b.bufAllocator.put(localeBuf)
-	if err := b.args[2].VecEvalString(b.ctx, input, localeBuf); err != nil {
+	if err := b.args[2].VecEvalString(input, localeBuf); err != nil {
 		return err
 	}
 
@@ -1532,7 +1531,7 @@ func (b *builtinFormatWithLocaleSig) vecEvalString(input *chunk.Chunk, result *c
 			return err
 		}
 		defer b.bufAllocator.put(xBuf)
-		if err := b.args[0].VecEvalDecimal(b.ctx, input, xBuf); err != nil {
+		if err := b.args[0].VecEvalDecimal(input, xBuf); err != nil {
 			return err
 		}
 
@@ -1547,7 +1546,7 @@ func (b *builtinFormatWithLocaleSig) vecEvalString(input *chunk.Chunk, result *c
 		return err
 	}
 	defer b.bufAllocator.put(xBuf)
-	if err := b.args[0].VecEvalReal(b.ctx, input, xBuf); err != nil {
+	if err := b.args[0].VecEvalReal(input, xBuf); err != nil {
 		return err
 	}
 
@@ -1567,7 +1566,7 @@ func (b *builtinSubstring2ArgsSig) vecEvalString(input *chunk.Chunk, result *chu
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	buf2, err := b.bufAllocator.get()
@@ -1575,7 +1574,7 @@ func (b *builtinSubstring2ArgsSig) vecEvalString(input *chunk.Chunk, result *chu
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[1].VecEvalInt(b.ctx, input, buf2); err != nil {
+	if err := b.args[1].VecEvalInt(input, buf2); err != nil {
 		return err
 	}
 
@@ -1616,7 +1615,7 @@ func (b *builtinSubstring2ArgsUTF8Sig) vecEvalString(input *chunk.Chunk, result 
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -1625,7 +1624,7 @@ func (b *builtinSubstring2ArgsUTF8Sig) vecEvalString(input *chunk.Chunk, result 
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[1].VecEvalInt(b.ctx, input, buf2); err != nil {
+	if err := b.args[1].VecEvalInt(input, buf2); err != nil {
 		return err
 	}
 
@@ -1669,7 +1668,7 @@ func (b *builtinTrim2ArgsSig) vecEvalString(input *chunk.Chunk, result *chunk.Co
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -1677,7 +1676,7 @@ func (b *builtinTrim2ArgsSig) vecEvalString(input *chunk.Chunk, result *chunk.Co
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(input, buf1); err != nil {
 		return err
 	}
 
@@ -1707,7 +1706,7 @@ func (b *builtinInstrUTF8Sig) vecEvalInt(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(str)
-	if err := b.args[0].VecEvalString(b.ctx, input, str); err != nil {
+	if err := b.args[0].VecEvalString(input, str); err != nil {
 		return err
 	}
 	substr, err := b.bufAllocator.get()
@@ -1715,7 +1714,7 @@ func (b *builtinInstrUTF8Sig) vecEvalInt(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(substr)
-	if err := b.args[1].VecEvalString(b.ctx, input, substr); err != nil {
+	if err := b.args[1].VecEvalString(input, substr); err != nil {
 		return err
 	}
 	result.ResizeInt64(n, false)
@@ -1756,7 +1755,7 @@ func (b *builtinOctStringSig) vecEvalString(input *chunk.Chunk, result *chunk.Co
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -1805,7 +1804,7 @@ func (b *builtinEltSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) 
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalInt(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalInt(input, buf0); err != nil {
 		return err
 	}
 
@@ -1829,7 +1828,7 @@ func (b *builtinEltSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) 
 				return err
 			}
 			defer b.bufAllocator.put(bufs[j])
-			if err := b.args[j].VecEvalString(b.ctx, input, bufs[j]); err != nil {
+			if err := b.args[j].VecEvalString(input, bufs[j]); err != nil {
 				return err
 			}
 		}
@@ -1855,7 +1854,7 @@ func (b *builtinInsertUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.C
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -1863,7 +1862,7 @@ func (b *builtinInsertUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.C
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalInt(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalInt(input, buf1); err != nil {
 		return err
 	}
 	buf2, err := b.bufAllocator.get()
@@ -1871,7 +1870,7 @@ func (b *builtinInsertUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.C
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[2].VecEvalInt(b.ctx, input, buf2); err != nil {
+	if err := b.args[2].VecEvalInt(input, buf2); err != nil {
 		return err
 	}
 	buf3, err := b.bufAllocator.get()
@@ -1879,7 +1878,7 @@ func (b *builtinInsertUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.C
 		return err
 	}
 	defer b.bufAllocator.put(buf3)
-	if err := b.args[3].VecEvalString(b.ctx, input, buf3); err != nil {
+	if err := b.args[3].VecEvalString(input, buf3); err != nil {
 		return err
 	}
 
@@ -1935,7 +1934,7 @@ func (b *builtinExportSet5ArgSig) vecEvalString(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(bits)
-	if err := b.args[0].VecEvalInt(b.ctx, input, bits); err != nil {
+	if err := b.args[0].VecEvalInt(input, bits); err != nil {
 		return err
 	}
 	on, err := b.bufAllocator.get()
@@ -1943,7 +1942,7 @@ func (b *builtinExportSet5ArgSig) vecEvalString(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(on)
-	if err := b.args[1].VecEvalString(b.ctx, input, on); err != nil {
+	if err := b.args[1].VecEvalString(input, on); err != nil {
 		return err
 	}
 	off, err := b.bufAllocator.get()
@@ -1951,7 +1950,7 @@ func (b *builtinExportSet5ArgSig) vecEvalString(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(off)
-	if err := b.args[2].VecEvalString(b.ctx, input, off); err != nil {
+	if err := b.args[2].VecEvalString(input, off); err != nil {
 		return err
 	}
 	separator, err := b.bufAllocator.get()
@@ -1959,7 +1958,7 @@ func (b *builtinExportSet5ArgSig) vecEvalString(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(separator)
-	if err := b.args[3].VecEvalString(b.ctx, input, separator); err != nil {
+	if err := b.args[3].VecEvalString(input, separator); err != nil {
 		return err
 	}
 	numberOfBits, err := b.bufAllocator.get()
@@ -1967,7 +1966,7 @@ func (b *builtinExportSet5ArgSig) vecEvalString(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(numberOfBits)
-	if err := b.args[4].VecEvalInt(b.ctx, input, numberOfBits); err != nil {
+	if err := b.args[4].VecEvalInt(input, numberOfBits); err != nil {
 		return err
 	}
 	result.ReserveString(n)
@@ -2001,7 +2000,7 @@ func (b *builtinSubstring3ArgsUTF8Sig) vecEvalString(input *chunk.Chunk, result 
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -2010,7 +2009,7 @@ func (b *builtinSubstring3ArgsUTF8Sig) vecEvalString(input *chunk.Chunk, result 
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalInt(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalInt(input, buf1); err != nil {
 		return err
 	}
 
@@ -2019,7 +2018,7 @@ func (b *builtinSubstring3ArgsUTF8Sig) vecEvalString(input *chunk.Chunk, result 
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[2].VecEvalInt(b.ctx, input, buf2); err != nil {
+	if err := b.args[2].VecEvalInt(input, buf2); err != nil {
 		return err
 	}
 
@@ -2080,13 +2079,13 @@ func (b *builtinTrim3ArgsSig) vecEvalString(input *chunk.Chunk, result *chunk.Co
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(input, buf0); err != nil {
 		return err
 	}
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(input, buf1); err != nil {
 		return err
 	}
-	if err := b.args[2].VecEvalInt(b.ctx, input, buf2); err != nil {
+	if err := b.args[2].VecEvalInt(input, buf2); err != nil {
 		return err
 	}
 	result.ReserveString(n)
@@ -2122,7 +2121,7 @@ func (b *builtinOrdSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) err
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -2160,7 +2159,7 @@ func (b *builtinInstrSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) e
 		return err
 	}
 	defer b.bufAllocator.put(str)
-	if err := b.args[0].VecEvalString(b.ctx, input, str); err != nil {
+	if err := b.args[0].VecEvalString(input, str); err != nil {
 		return err
 	}
 	substr, err := b.bufAllocator.get()
@@ -2168,7 +2167,7 @@ func (b *builtinInstrSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) e
 		return err
 	}
 	defer b.bufAllocator.put(substr)
-	if err := b.args[1].VecEvalString(b.ctx, input, substr); err != nil {
+	if err := b.args[1].VecEvalString(input, substr); err != nil {
 		return err
 	}
 	result.ResizeInt64(n, false)
@@ -2199,7 +2198,7 @@ func (b *builtinLengthSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) 
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -2229,7 +2228,7 @@ func (b *builtinLocate2ArgsUTF8Sig) vecEvalInt(input *chunk.Chunk, result *chunk
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -2237,7 +2236,7 @@ func (b *builtinLocate2ArgsUTF8Sig) vecEvalInt(input *chunk.Chunk, result *chunk
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(input, buf1); err != nil {
 		return err
 	}
 
@@ -2282,7 +2281,7 @@ func (b *builtinBitLengthSig) vecEvalInt(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -2314,7 +2313,7 @@ func (b *builtinCharSig) vecEvalString(input *chunk.Chunk, result *chunk.Column)
 		}
 		buf[i] = te
 		defer b.bufAllocator.put(buf[i])
-		if err := b.args[i].VecEvalInt(b.ctx, input, buf[i]); err != nil {
+		if err := b.args[i].VecEvalInt(input, buf[i]); err != nil {
 			return err
 		}
 	}
@@ -2331,7 +2330,7 @@ func (b *builtinCharSig) vecEvalString(input *chunk.Chunk, result *chunk.Column)
 	}
 	encBuf := &bytes.Buffer{}
 	enc := charset.FindEncoding(b.tp.GetCharset())
-	hasStrictMode := b.ctx.GetSessionVars().StrictSQLMode
+	hasStrictMode := b.ctx.StrictSQLMode
 	for i := 0; i < n; i++ {
 		bigints = bigints[0:0]
 		for j := 0; j < l-1; j++ {
@@ -2343,7 +2342,7 @@ func (b *builtinCharSig) vecEvalString(input *chunk.Chunk, result *chunk.Column)
 		dBytes := b.convertToBytes(bigints)
 		resultBytes, err := enc.Transform(encBuf, dBytes, charset.OpDecode)
 		if err != nil {
-			b.ctx.GetSessionVars().StmtCtx.AppendWarning(err)
+			b.ctx.StmtCtx.AppendWarning(err)
 			if hasStrictMode {
 				result.AppendNull()
 				continue
@@ -2367,7 +2366,7 @@ func (b *builtinReplaceSig) vecEvalString(input *chunk.Chunk, result *chunk.Colu
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -2375,7 +2374,7 @@ func (b *builtinReplaceSig) vecEvalString(input *chunk.Chunk, result *chunk.Colu
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(input, buf1); err != nil {
 		return err
 	}
 	buf2, err := b.bufAllocator.get()
@@ -2383,7 +2382,7 @@ func (b *builtinReplaceSig) vecEvalString(input *chunk.Chunk, result *chunk.Colu
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[2].VecEvalString(b.ctx, input, buf2); err != nil {
+	if err := b.args[2].VecEvalString(input, buf2); err != nil {
 		return err
 	}
 
@@ -2419,7 +2418,7 @@ func (b *builtinMakeSetSig) vecEvalString(input *chunk.Chunk, result *chunk.Colu
 		return err
 	}
 	defer b.bufAllocator.put(bitsBuf)
-	if err := b.args[0].VecEvalInt(b.ctx, input, bitsBuf); err != nil {
+	if err := b.args[0].VecEvalInt(input, bitsBuf); err != nil {
 		return err
 	}
 
@@ -2430,7 +2429,7 @@ func (b *builtinMakeSetSig) vecEvalString(input *chunk.Chunk, result *chunk.Colu
 			return err
 		}
 		defer b.bufAllocator.put(strBuf[i-1])
-		if err := b.args[i].VecEvalString(b.ctx, input, strBuf[i-1]); err != nil {
+		if err := b.args[i].VecEvalString(input, strBuf[i-1]); err != nil {
 			return err
 		}
 	}
@@ -2467,7 +2466,7 @@ func (b *builtinOctIntSig) vecEvalString(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalInt(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalInt(input, buf); err != nil {
 		return err
 	}
 
@@ -2496,7 +2495,7 @@ func (b *builtinToBase64Sig) vecEvalString(input *chunk.Chunk, result *chunk.Col
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	result.ReserveString(n)
@@ -2543,7 +2542,7 @@ func (b *builtinTrim1ArgSig) vecEvalString(input *chunk.Chunk, result *chunk.Col
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -2574,7 +2573,7 @@ func (b *builtinRpadUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.Col
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -2582,7 +2581,7 @@ func (b *builtinRpadUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.Col
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalInt(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalInt(input, buf1); err != nil {
 		return err
 	}
 	buf2, err := b.bufAllocator.get()
@@ -2590,7 +2589,7 @@ func (b *builtinRpadUTF8Sig) vecEvalString(input *chunk.Chunk, result *chunk.Col
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[2].VecEvalString(b.ctx, input, buf2); err != nil {
+	if err := b.args[2].VecEvalString(input, buf2); err != nil {
 		return err
 	}
 
@@ -2643,7 +2642,7 @@ func (b *builtinCharLengthBinarySig) vecEvalInt(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	result.ResizeInt64(n, false)
@@ -2670,7 +2669,7 @@ func (b *builtinBinSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) 
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalInt(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalInt(input, buf); err != nil {
 		return err
 	}
 
@@ -2700,7 +2699,7 @@ func (b *builtinFormatSig) vecEvalString(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(dBuf)
-	if err := b.args[1].VecEvalInt(b.ctx, input, dBuf); err != nil {
+	if err := b.args[1].VecEvalInt(input, dBuf); err != nil {
 		return err
 	}
 	dInt64s := dBuf.Int64s()
@@ -2712,7 +2711,7 @@ func (b *builtinFormatSig) vecEvalString(input *chunk.Chunk, result *chunk.Colum
 			return err
 		}
 		defer b.bufAllocator.put(xBuf)
-		if err := b.args[0].VecEvalDecimal(b.ctx, input, xBuf); err != nil {
+		if err := b.args[0].VecEvalDecimal(input, xBuf); err != nil {
 			return err
 		}
 
@@ -2727,7 +2726,7 @@ func (b *builtinFormatSig) vecEvalString(input *chunk.Chunk, result *chunk.Colum
 		return err
 	}
 	defer b.bufAllocator.put(xBuf)
-	if err := b.args[0].VecEvalReal(b.ctx, input, xBuf); err != nil {
+	if err := b.args[0].VecEvalReal(input, xBuf); err != nil {
 		return err
 	}
 
@@ -2747,7 +2746,7 @@ func (b *builtinRightSig) vecEvalString(input *chunk.Chunk, result *chunk.Column
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	buf2, err := b.bufAllocator.get()
@@ -2755,7 +2754,7 @@ func (b *builtinRightSig) vecEvalString(input *chunk.Chunk, result *chunk.Column
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[1].VecEvalInt(b.ctx, input, buf2); err != nil {
+	if err := b.args[1].VecEvalInt(input, buf2); err != nil {
 		return err
 	}
 	right := buf2.Int64s()
@@ -2790,7 +2789,7 @@ func (b *builtinSubstring3ArgsSig) vecEvalString(input *chunk.Chunk, result *chu
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -2799,7 +2798,7 @@ func (b *builtinSubstring3ArgsSig) vecEvalString(input *chunk.Chunk, result *chu
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalInt(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalInt(input, buf1); err != nil {
 		return err
 	}
 
@@ -2808,7 +2807,7 @@ func (b *builtinSubstring3ArgsSig) vecEvalString(input *chunk.Chunk, result *chu
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[2].VecEvalInt(b.ctx, input, buf2); err != nil {
+	if err := b.args[2].VecEvalInt(input, buf2); err != nil {
 		return err
 	}
 
@@ -2859,7 +2858,7 @@ func (b *builtinHexIntArgSig) vecEvalString(input *chunk.Chunk, result *chunk.Co
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalInt(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalInt(input, buf); err != nil {
 		return err
 	}
 	result.ReserveString(n)
@@ -2887,7 +2886,7 @@ func (b *builtinFromBase64Sig) vecEvalString(input *chunk.Chunk, result *chunk.C
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -2935,7 +2934,7 @@ func (b *builtinCharLengthUTF8Sig) vecEvalInt(input *chunk.Chunk, result *chunk.
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -2952,7 +2951,7 @@ func (b *builtinCharLengthUTF8Sig) vecEvalInt(input *chunk.Chunk, result *chunk.
 	return nil
 }
 
-func formatDecimal(sctx sessionctx.Context, xBuf *chunk.Column, dInt64s []int64, result *chunk.Column, localeBuf *chunk.Column) error {
+func formatDecimal(sctx *ExprContext, xBuf *chunk.Column, dInt64s []int64, result *chunk.Column, localeBuf *chunk.Column) error {
 	xDecimals := xBuf.Decimals()
 	for i := range xDecimals {
 		if xBuf.IsNull(i) {
@@ -2973,10 +2972,10 @@ func formatDecimal(sctx sessionctx.Context, xBuf *chunk.Column, dInt64s []int64,
 			// FORMAT(x, d)
 		} else if localeBuf.IsNull(i) {
 			// FORMAT(x, d, NULL)
-			sctx.GetSessionVars().StmtCtx.AppendWarning(errUnknownLocale.GenWithStackByArgs("NULL"))
+			sctx.StmtCtx.AppendWarning(errUnknownLocale.GenWithStackByArgs("NULL"))
 		} else if !strings.EqualFold(localeBuf.GetString(i), "en_US") {
 			// TODO: support other locales.
-			sctx.GetSessionVars().StmtCtx.AppendWarning(errUnknownLocale.GenWithStackByArgs(localeBuf.GetString(i)))
+			sctx.StmtCtx.AppendWarning(errUnknownLocale.GenWithStackByArgs(localeBuf.GetString(i)))
 		}
 
 		xStr := roundFormatArgs(x.String(), int(d))
@@ -2992,7 +2991,7 @@ func formatDecimal(sctx sessionctx.Context, xBuf *chunk.Column, dInt64s []int64,
 	return nil
 }
 
-func formatReal(sctx sessionctx.Context, xBuf *chunk.Column, dInt64s []int64, result *chunk.Column, localeBuf *chunk.Column) error {
+func formatReal(sctx *ExprContext, xBuf *chunk.Column, dInt64s []int64, result *chunk.Column, localeBuf *chunk.Column) error {
 	xFloat64s := xBuf.Float64s()
 	for i := range xFloat64s {
 		if xBuf.IsNull(i) {
@@ -3013,10 +3012,10 @@ func formatReal(sctx sessionctx.Context, xBuf *chunk.Column, dInt64s []int64, re
 			// FORMAT(x, d)
 		} else if localeBuf.IsNull(i) {
 			// FORMAT(x, d, NULL)
-			sctx.GetSessionVars().StmtCtx.AppendWarning(errUnknownLocale.GenWithStackByArgs("NULL"))
+			sctx.StmtCtx.AppendWarning(errUnknownLocale.GenWithStackByArgs("NULL"))
 		} else if !strings.EqualFold(localeBuf.GetString(i), "en_US") {
 			// TODO: support other locales.
-			sctx.GetSessionVars().StmtCtx.AppendWarning(errUnknownLocale.GenWithStackByArgs(localeBuf.GetString(i)))
+			sctx.StmtCtx.AppendWarning(errUnknownLocale.GenWithStackByArgs(localeBuf.GetString(i)))
 		}
 
 		xStr := roundFormatArgs(strconv.FormatFloat(x, 'f', -1, 64), int(d))
@@ -3049,13 +3048,13 @@ func (b *builtinTranslateBinarySig) vecEvalString(input *chunk.Chunk, result *ch
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(input, buf0); err != nil {
 		return err
 	}
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(input, buf1); err != nil {
 		return err
 	}
-	if err := b.args[2].VecEvalString(b.ctx, input, buf2); err != nil {
+	if err := b.args[2].VecEvalString(input, buf2); err != nil {
 		return err
 	}
 	result.ReserveString(n)
@@ -3122,13 +3121,13 @@ func (b *builtinTranslateUTF8Sig) vecEvalString(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(buf2)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(input, buf0); err != nil {
 		return err
 	}
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(input, buf1); err != nil {
 		return err
 	}
-	if err := b.args[2].VecEvalString(b.ctx, input, buf2); err != nil {
+	if err := b.args[2].VecEvalString(input, buf2); err != nil {
 		return err
 	}
 	result.ReserveString(n)

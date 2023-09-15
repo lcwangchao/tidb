@@ -80,7 +80,7 @@ func (e *countOriginalWithDistinct4Int) UpdatePartialResult(sctx sessionctx.Cont
 	p := (*partialResult4CountDistinctInt)(pr)
 
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalInt(sctx, row)
+		input, isNull, err := e.args[0].EvalInt(row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -126,7 +126,7 @@ func (e *countOriginalWithDistinct4Real) UpdatePartialResult(sctx sessionctx.Con
 	p := (*partialResult4CountDistinctReal)(pr)
 
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalReal(sctx, row)
+		input, isNull, err := e.args[0].EvalReal(row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -172,7 +172,7 @@ func (e *countOriginalWithDistinct4Decimal) UpdatePartialResult(sctx sessionctx.
 	p := (*partialResult4CountDistinctDecimal)(pr)
 
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalDecimal(sctx, row)
+		input, isNull, err := e.args[0].EvalDecimal(row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -224,7 +224,7 @@ func (e *countOriginalWithDistinct4Duration) UpdatePartialResult(sctx sessionctx
 	p := (*partialResult4CountDistinctDuration)(pr)
 
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalDuration(sctx, row)
+		input, isNull, err := e.args[0].EvalDuration(row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -272,7 +272,7 @@ func (e *countOriginalWithDistinct4String) UpdatePartialResult(sctx sessionctx.C
 	collator := collate.GetCollator(e.args[0].GetType().GetCollate())
 
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalString(sctx, row)
+		input, isNull, err := e.args[0].EvalString(row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -363,49 +363,49 @@ func evalAndEncode(
 	switch tp := arg.GetType().EvalType(); tp {
 	case types.ETInt:
 		var val int64
-		val, isNull, err = arg.EvalInt(sctx, row)
+		val, isNull, err = arg.EvalInt(row)
 		if err != nil || isNull {
 			break
 		}
 		encodedBytes = appendInt64(encodedBytes, buf, val)
 	case types.ETReal:
 		var val float64
-		val, isNull, err = arg.EvalReal(sctx, row)
+		val, isNull, err = arg.EvalReal(row)
 		if err != nil || isNull {
 			break
 		}
 		encodedBytes = appendFloat64(encodedBytes, buf, val)
 	case types.ETDecimal:
 		var val *types.MyDecimal
-		val, isNull, err = arg.EvalDecimal(sctx, row)
+		val, isNull, err = arg.EvalDecimal(row)
 		if err != nil || isNull {
 			break
 		}
 		encodedBytes, err = appendDecimal(encodedBytes, val)
 	case types.ETTimestamp, types.ETDatetime:
 		var val types.Time
-		val, isNull, err = arg.EvalTime(sctx, row)
+		val, isNull, err = arg.EvalTime(row)
 		if err != nil || isNull {
 			break
 		}
 		encodedBytes = appendTime(encodedBytes, buf, val)
 	case types.ETDuration:
 		var val types.Duration
-		val, isNull, err = arg.EvalDuration(sctx, row)
+		val, isNull, err = arg.EvalDuration(row)
 		if err != nil || isNull {
 			break
 		}
 		encodedBytes = appendDuration(encodedBytes, buf, val)
 	case types.ETJson:
 		var val types.BinaryJSON
-		val, isNull, err = arg.EvalJSON(sctx, row)
+		val, isNull, err = arg.EvalJSON(row)
 		if err != nil || isNull {
 			break
 		}
 		encodedBytes = val.HashValue(encodedBytes)
 	case types.ETString:
 		var val string
-		val, isNull, err = arg.EvalString(sctx, row)
+		val, isNull, err = arg.EvalString(row)
 		if err != nil || isNull {
 			break
 		}
@@ -828,7 +828,7 @@ type approxCountDistinctPartial2 struct {
 func (e *approxCountDistinctPartial2) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4ApproxCountDistinct)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalString(sctx, row)
+		input, isNull, err := e.args[0].EvalString(row)
 		if err != nil {
 			return memDelta, err
 		}

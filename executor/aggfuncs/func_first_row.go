@@ -136,7 +136,7 @@ func (e *firstRow4Int) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup 
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalInt(sctx, rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalInt(rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -182,7 +182,7 @@ func (e *firstRow4Float32) UpdatePartialResult(sctx sessionctx.Context, rowsInGr
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalReal(sctx, rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalReal(rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -228,7 +228,7 @@ func (e *firstRow4Float64) UpdatePartialResult(sctx sessionctx.Context, rowsInGr
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalReal(sctx, rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalReal(rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -274,7 +274,7 @@ func (e *firstRow4String) UpdatePartialResult(sctx sessionctx.Context, rowsInGro
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalString(sctx, rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalString(rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -321,7 +321,7 @@ func (e *firstRow4Time) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalTime(sctx, rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalTime(rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -367,7 +367,7 @@ func (e *firstRow4Duration) UpdatePartialResult(sctx sessionctx.Context, rowsInG
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalDuration(sctx, rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalDuration(rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -413,7 +413,7 @@ func (e *firstRow4JSON) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalJSON(sctx, rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalJSON(rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -459,7 +459,7 @@ func (e *firstRow4Decimal) UpdatePartialResult(sctx sessionctx.Context, rowsInGr
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalDecimal(sctx, rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalDecimal(rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}

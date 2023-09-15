@@ -150,7 +150,7 @@ func buildApproxPercentile(sctx sessionctx.Context, aggFuncDesc *aggregation.Agg
 	}
 
 	// Checked while building descriptor
-	percent, _, err := aggFuncDesc.Args[1].EvalInt(sctx, chunk.Row{})
+	percent, _, err := aggFuncDesc.Args[1].EvalInt(chunk.Row{})
 	if err != nil {
 		// Should not reach here
 		logutil.BgLogger().Error("Error happened when buildApproxPercentile", zap.Error(err))
@@ -457,7 +457,7 @@ func buildGroupConcat(ctx sessionctx.Context, aggFuncDesc *aggregation.AggFuncDe
 	default:
 		// The last arg is promised to be a not-null string constant, so the error can be ignored.
 		c, _ := aggFuncDesc.Args[len(aggFuncDesc.Args)-1].(*expression.Constant)
-		sep, _, err := c.EvalString(nil, chunk.Row{})
+		sep, _, err := c.EvalString(chunk.Row{})
 		// This err should never happen.
 		if err != nil {
 			panic(fmt.Sprintf("Error happened when buildGroupConcat: %s", err.Error()))

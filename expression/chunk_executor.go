@@ -119,7 +119,7 @@ func evalOneVec(ctx sessionctx.Context, expr Expression, input *chunk.Chunk, out
 	result := output.Column(colIdx)
 	switch ft.EvalType() {
 	case types.ETInt:
-		if err := expr.VecEvalInt(ctx, input, result); err != nil {
+		if err := expr.VecEvalInt(input, result); err != nil {
 			return err
 		}
 		if ft.GetType() == mysql.TypeBit {
@@ -141,7 +141,7 @@ func evalOneVec(ctx sessionctx.Context, expr Expression, input *chunk.Chunk, out
 		// so we can do a no-op here.
 		// }
 	case types.ETReal:
-		if err := expr.VecEvalReal(ctx, input, result); err != nil {
+		if err := expr.VecEvalReal(input, result); err != nil {
 			return err
 		}
 		if ft.GetType() == mysql.TypeFloat {
@@ -160,15 +160,15 @@ func evalOneVec(ctx sessionctx.Context, expr Expression, input *chunk.Chunk, out
 			output.SetCol(colIdx, buf)
 		}
 	case types.ETDecimal:
-		return expr.VecEvalDecimal(ctx, input, result)
+		return expr.VecEvalDecimal(input, result)
 	case types.ETDatetime, types.ETTimestamp:
-		return expr.VecEvalTime(ctx, input, result)
+		return expr.VecEvalTime(input, result)
 	case types.ETDuration:
-		return expr.VecEvalDuration(ctx, input, result)
+		return expr.VecEvalDuration(input, result)
 	case types.ETJson:
-		return expr.VecEvalJSON(ctx, input, result)
+		return expr.VecEvalJSON(input, result)
 	case types.ETString:
-		if err := expr.VecEvalString(ctx, input, result); err != nil {
+		if err := expr.VecEvalString(input, result); err != nil {
 			return err
 		}
 		if ft.GetType() == mysql.TypeEnum {
@@ -255,7 +255,7 @@ func evalOneCell(ctx sessionctx.Context, expr Expression, row chunk.Row, output 
 }
 
 func executeToInt(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalInt(ctx, row)
+	res, isNull, err := expr.EvalInt(row)
 	if err != nil {
 		return err
 	}
@@ -285,7 +285,7 @@ func executeToInt(ctx sessionctx.Context, expr Expression, fieldType *types.Fiel
 }
 
 func executeToReal(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalReal(ctx, row)
+	res, isNull, err := expr.EvalReal(row)
 	if err != nil {
 		return err
 	}
@@ -302,7 +302,7 @@ func executeToReal(ctx sessionctx.Context, expr Expression, fieldType *types.Fie
 }
 
 func executeToDecimal(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalDecimal(ctx, row)
+	res, isNull, err := expr.EvalDecimal(row)
 	if err != nil {
 		return err
 	}
@@ -315,7 +315,7 @@ func executeToDecimal(ctx sessionctx.Context, expr Expression, fieldType *types.
 }
 
 func executeToDatetime(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalTime(ctx, row)
+	res, isNull, err := expr.EvalTime(row)
 	if err != nil {
 		return err
 	}
@@ -328,7 +328,7 @@ func executeToDatetime(ctx sessionctx.Context, expr Expression, fieldType *types
 }
 
 func executeToDuration(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalDuration(ctx, row)
+	res, isNull, err := expr.EvalDuration(row)
 	if err != nil {
 		return err
 	}
@@ -341,7 +341,7 @@ func executeToDuration(ctx sessionctx.Context, expr Expression, fieldType *types
 }
 
 func executeToJSON(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalJSON(ctx, row)
+	res, isNull, err := expr.EvalJSON(row)
 	if err != nil {
 		return err
 	}
@@ -354,7 +354,7 @@ func executeToJSON(ctx sessionctx.Context, expr Expression, fieldType *types.Fie
 }
 
 func executeToString(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalString(ctx, row)
+	res, isNull, err := expr.EvalString(row)
 	if err != nil {
 		return err
 	}
@@ -463,7 +463,7 @@ func rowBasedFilter(ctx sessionctx.Context, filters []Expression, iterator *chun
 				continue
 			}
 			if isIntType {
-				filterResult, isNullResult, err = filter.EvalInt(ctx, row)
+				filterResult, isNullResult, err = filter.EvalInt(row)
 				if err != nil {
 					return nil, nil, err
 				}

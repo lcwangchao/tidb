@@ -118,7 +118,7 @@ func (b *builtinDatabaseSig) Clone() builtinFunc {
 // evalString evals a builtinDatabaseSig.
 // See https://dev.mysql.com/doc/refman/5.7/en/information-functions.html
 func (b *builtinDatabaseSig) evalString(row chunk.Row) (string, bool, error) {
-	currentDB := b.ctx.GetSessionVars().CurrentDB
+	currentDB := b.ctx.CurrentDB
 	return currentDB, currentDB == "", nil
 }
 
@@ -153,11 +153,7 @@ func (b *builtinFoundRowsSig) Clone() builtinFunc {
 // See https://dev.mysql.com/doc/refman/5.7/en/information-functions.html#function_found-rows
 // TODO: SQL_CALC_FOUND_ROWS and LIMIT not support for now, We will finish in another PR.
 func (b *builtinFoundRowsSig) evalInt(row chunk.Row) (int64, bool, error) {
-	data := b.ctx.GetSessionVars()
-	if data == nil {
-		return 0, true, errors.Errorf("Missing session variable when eval builtin")
-	}
-	return int64(data.LastFoundRows), false, nil
+	return int64(b.ctx.LastFoundRows), false, nil
 }
 
 type currentUserFunctionClass struct {
@@ -190,11 +186,10 @@ func (b *builtinCurrentUserSig) Clone() builtinFunc {
 // evalString evals a builtinCurrentUserSig.
 // See https://dev.mysql.com/doc/refman/5.7/en/information-functions.html#function_current-user
 func (b *builtinCurrentUserSig) evalString(row chunk.Row) (string, bool, error) {
-	data := b.ctx.GetSessionVars()
-	if data == nil || data.User == nil {
+	if b.ctx.CurrentUser == nil {
 		return "", true, errors.Errorf("Missing session variable when eval builtin")
 	}
-	return data.User.String(), false, nil
+	return b.ctx.CurrentUser.String(), false, nil
 }
 
 type currentRoleFunctionClass struct {
@@ -227,21 +222,20 @@ func (b *builtinCurrentRoleSig) Clone() builtinFunc {
 // evalString evals a builtinCurrentUserSig.
 // See https://dev.mysql.com/doc/refman/8.0/en/information-functions.html#function_current-role
 func (b *builtinCurrentRoleSig) evalString(row chunk.Row) (res string, isNull bool, err error) {
-	data := b.ctx.GetSessionVars()
-	if data == nil || data.ActiveRoles == nil {
+	if b.ctx.ActiveRoles == nil {
 		return "", true, errors.Errorf("Missing session variable when eval builtin")
 	}
-	if len(data.ActiveRoles) == 0 {
+	if len(b.ctx.ActiveRoles) == 0 {
 		return "NONE", false, nil
 	}
 	sortedRes := make([]string, 0, 10)
-	for _, r := range data.ActiveRoles {
+	for _, r := range b.ctx.ActiveRoles {
 		sortedRes = append(sortedRes, r.String())
 	}
 	slices.Sort(sortedRes)
 	for i, r := range sortedRes {
 		res += r
-		if i != len(data.ActiveRoles)-1 {
+		if i != len(b.ctx.ActiveRoles)-1 {
 			res += ","
 		}
 	}
@@ -276,11 +270,7 @@ func (b *builtinCurrentResourceGroupSig) Clone() builtinFunc {
 }
 
 func (b *builtinCurrentResourceGroupSig) evalString(row chunk.Row) (res string, isNull bool, err error) {
-	data := b.ctx.GetSessionVars()
-	if data == nil {
-		return "", true, errors.Errorf("Missing session variable when eval builtin")
-	}
-	return data.ResourceGroupName, false, nil
+	return b.ctx.ResourceGroupName, false, nil
 }
 
 type userFunctionClass struct {
@@ -313,11 +303,10 @@ func (b *builtinUserSig) Clone() builtinFunc {
 // evalString evals a builtinUserSig.
 // See https://dev.mysql.com/doc/refman/5.7/en/information-functions.html#function_user
 func (b *builtinUserSig) evalString(row chunk.Row) (string, bool, error) {
-	data := b.ctx.GetSessionVars()
-	if data == nil || data.User == nil {
+	if b.ctx.CurrentUser == nil {
 		return "", true, errors.Errorf("Missing session variable when eval builtin")
 	}
-	return data.User.LoginString(), false, nil
+	return b.ctx.CurrentUser.LoginString(), false, nil
 }
 
 type connectionIDFunctionClass struct {
@@ -348,11 +337,7 @@ func (b *builtinConnectionIDSig) Clone() builtinFunc {
 }
 
 func (b *builtinConnectionIDSig) evalInt(_ chunk.Row) (int64, bool, error) {
-	data := b.ctx.GetSessionVars()
-	if data == nil {
-		return 0, true, errors.Errorf("Missing session variable `builtinConnectionIDSig.evalInt`")
-	}
-	return int64(data.ConnectionID), false, nil
+	return int64(b.ctx.ConnectionID), false, nil
 }
 
 type lastInsertIDFunctionClass struct {
@@ -397,7 +382,7 @@ func (b *builtinLastInsertIDSig) Clone() builtinFunc {
 // evalInt evals LAST_INSERT_ID().
 // See https://dev.mysql.com/doc/refman/5.7/en/information-functions.html#function_last-insert-id.
 func (b *builtinLastInsertIDSig) evalInt(row chunk.Row) (res int64, isNull bool, err error) {
-	res = int64(b.ctx.GetSessionVars().StmtCtx.PrevLastInsertID)
+	res = int64(b.ctx.StmtCtx.PrevLastInsertID)
 	return res, false, nil
 }
 
@@ -414,12 +399,12 @@ func (b *builtinLastInsertIDWithIDSig) Clone() builtinFunc {
 // evalInt evals LAST_INSERT_ID(expr).
 // See https://dev.mysql.com/doc/refman/5.7/en/information-functions.html#function_last-insert-id.
 func (b *builtinLastInsertIDWithIDSig) evalInt(row chunk.Row) (res int64, isNull bool, err error) {
-	res, isNull, err = b.args[0].EvalInt(b.ctx, row)
+	res, isNull, err = b.args[0].EvalInt(row)
 	if isNull || err != nil {
 		return res, isNull, err
 	}
 
-	b.ctx.GetSessionVars().SetLastInsertID(uint64(res))
+	b.ctx.SetLastInsertID(uint64(res))
 	return res, false, nil
 }
 
@@ -541,7 +526,7 @@ func (c *benchmarkFunctionClass) getFunction(ctx sessionctx.Context, args []Expr
 	var constLoopCount int64
 	con, ok := args[0].(*Constant)
 	if ok && con.Value.Kind() == types.KindInt64 {
-		if lc, isNull, err := con.EvalInt(ctx, chunk.Row{}); err == nil && !isNull {
+		if lc, isNull, err := con.EvalInt(chunk.Row{}); err == nil && !isNull {
 			constLoopCount = lc
 		}
 	}
@@ -574,7 +559,7 @@ func (b *builtinBenchmarkSig) evalInt(row chunk.Row) (int64, bool, error) {
 	if b.constLoopCount > 0 {
 		loopCount = b.constLoopCount
 	} else {
-		loopCount, isNull, err = b.args[0].EvalInt(b.ctx, row)
+		loopCount, isNull, err = b.args[0].EvalInt(row)
 		if isNull || err != nil {
 			return 0, isNull, err
 		}
@@ -590,53 +575,53 @@ func (b *builtinBenchmarkSig) evalInt(row chunk.Row) (int64, bool, error) {
 	// BENCHMARK() will pass-through the eval error,
 	// behavior observed on MySQL 5.7.24.
 	var i int64
-	arg, ctx := b.args[1], b.ctx
+	arg := b.args[1]
 	switch evalType := arg.GetType().EvalType(); evalType {
 	case types.ETInt:
 		for ; i < loopCount; i++ {
-			_, isNull, err = arg.EvalInt(ctx, row)
+			_, isNull, err = arg.EvalInt(row)
 			if err != nil {
 				return 0, isNull, err
 			}
 		}
 	case types.ETReal:
 		for ; i < loopCount; i++ {
-			_, isNull, err = arg.EvalReal(ctx, row)
+			_, isNull, err = arg.EvalReal(row)
 			if err != nil {
 				return 0, isNull, err
 			}
 		}
 	case types.ETDecimal:
 		for ; i < loopCount; i++ {
-			_, isNull, err = arg.EvalDecimal(ctx, row)
+			_, isNull, err = arg.EvalDecimal(row)
 			if err != nil {
 				return 0, isNull, err
 			}
 		}
 	case types.ETString:
 		for ; i < loopCount; i++ {
-			_, isNull, err = arg.EvalString(ctx, row)
+			_, isNull, err = arg.EvalString(row)
 			if err != nil {
 				return 0, isNull, err
 			}
 		}
 	case types.ETDatetime, types.ETTimestamp:
 		for ; i < loopCount; i++ {
-			_, isNull, err = arg.EvalTime(ctx, row)
+			_, isNull, err = arg.EvalTime(row)
 			if err != nil {
 				return 0, isNull, err
 			}
 		}
 	case types.ETDuration:
 		for ; i < loopCount; i++ {
-			_, isNull, err = arg.EvalDuration(ctx, row)
+			_, isNull, err = arg.EvalDuration(row)
 			if err != nil {
 				return 0, isNull, err
 			}
 		}
 	case types.ETJson:
 		for ; i < loopCount; i++ {
-			_, isNull, err = arg.EvalJSON(ctx, row)
+			_, isNull, err = arg.EvalJSON(row)
 			if err != nil {
 				return 0, isNull, err
 			}
@@ -786,7 +771,7 @@ func (b *builtinRowCountSig) Clone() builtinFunc {
 // evalInt evals ROW_COUNT().
 // See https://dev.mysql.com/doc/refman/5.7/en/information-functions.html#function_row-count.
 func (b *builtinRowCountSig) evalInt(_ chunk.Row) (res int64, isNull bool, err error) {
-	res = b.ctx.GetSessionVars().StmtCtx.PrevAffectedRows
+	res = b.ctx.StmtCtx.PrevAffectedRows
 	return res, false, nil
 }
 
@@ -818,13 +803,13 @@ func (b *builtinTiDBDecodeKeySig) Clone() builtinFunc {
 
 // evalInt evals a builtinTiDBDecodeKeySig.
 func (b *builtinTiDBDecodeKeySig) evalString(row chunk.Row) (string, bool, error) {
-	s, isNull, err := b.args[0].EvalString(b.ctx, row)
+	s, isNull, err := b.args[0].EvalString(row)
 	if isNull || err != nil {
 		return "", isNull, err
 	}
-	decode := func(ctx sessionctx.Context, s string) string { return s }
+	decode := func(ctx *ExprContext, s string) string { return s }
 	if fn := b.ctx.Value(TiDBDecodeKeyFunctionKey); fn != nil {
-		decode = fn.(func(ctx sessionctx.Context, s string) string)
+		decode = fn.(func(ctx *ExprContext, s string) string)
 	}
 	return decode(b.ctx, s), false, nil
 }
@@ -880,7 +865,7 @@ func (b *builtinTiDBDecodeSQLDigestsSig) Clone() builtinFunc {
 
 func (b *builtinTiDBDecodeSQLDigestsSig) evalString(row chunk.Row) (string, bool, error) {
 	args := b.getArgs()
-	digestsStr, isNull, err := args[0].EvalString(b.ctx, row)
+	digestsStr, isNull, err := args[0].EvalString(row)
 	if err != nil {
 		return "", true, err
 	}
@@ -890,7 +875,7 @@ func (b *builtinTiDBDecodeSQLDigestsSig) evalString(row chunk.Row) (string, bool
 
 	stmtTruncateLength := int64(0)
 	if len(args) > 1 {
-		stmtTruncateLength, isNull, err = args[1].EvalInt(b.ctx, row)
+		stmtTruncateLength, isNull, err = args[1].EvalInt(row)
 		if err != nil {
 			return "", true, err
 		}
@@ -906,7 +891,7 @@ func (b *builtinTiDBDecodeSQLDigestsSig) evalString(row chunk.Row) (string, bool
 		if len(digestsStr) > errMsgMaxLength {
 			digestsStr = digestsStr[:errMsgMaxLength] + "..."
 		}
-		b.ctx.GetSessionVars().StmtCtx.AppendWarning(errIncorrectArgs.GenWithStack("The argument can't be unmarshalled as JSON array: '%s'", digestsStr))
+		b.ctx.StmtCtx.AppendWarning(errIncorrectArgs.GenWithStack("The argument can't be unmarshalled as JSON array: '%s'", digestsStr))
 		return "", true, nil
 	}
 
@@ -923,19 +908,19 @@ func (b *builtinTiDBDecodeSQLDigestsSig) evalString(row chunk.Row) (string, bool
 
 	// Querying may take some time and it takes a context.Context as argument, which is not available here.
 	// We simply create a context with a timeout here.
-	timeout := time.Duration(b.ctx.GetSessionVars().MaxExecutionTime) * time.Millisecond
+	timeout := time.Duration(b.ctx.MaxExecutionTime) * time.Millisecond
 	if timeout == 0 || timeout > 20*time.Second {
 		timeout = 20 * time.Second
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	err = retriever.RetrieveGlobal(ctx, b.ctx)
+	err = retriever.RetrieveGlobal(ctx, b.ctx.GetSessionCtx())
 	if err != nil {
 		if errors.Cause(err) == context.DeadlineExceeded || errors.Cause(err) == context.Canceled {
 			return "", true, errUnknown.GenWithStack("Retrieving cancelled internally with error: %v", err)
 		}
 
-		b.ctx.GetSessionVars().StmtCtx.AppendWarning(errUnknown.GenWithStack("Retrieving statements information failed with error: %v", err))
+		b.ctx.StmtCtx.AppendWarning(errUnknown.GenWithStack("Retrieving statements information failed with error: %v", err))
 		return "", true, nil
 	}
 
@@ -958,7 +943,7 @@ func (b *builtinTiDBDecodeSQLDigestsSig) evalString(row chunk.Row) (string, bool
 
 	resultStr, err := json.Marshal(result)
 	if err != nil {
-		b.ctx.GetSessionVars().StmtCtx.AppendWarning(errUnknown.GenWithStack("Marshalling result as JSON failed with error: %v", err))
+		b.ctx.StmtCtx.AppendWarning(errUnknown.GenWithStack("Marshalling result as JSON failed with error: %v", err))
 		return "", true, nil
 	}
 
@@ -994,7 +979,7 @@ func (b *builtinTiDBEncodeSQLDigestSig) Clone() builtinFunc {
 }
 
 func (b *builtinTiDBEncodeSQLDigestSig) evalString(row chunk.Row) (string, bool, error) {
-	orgSQLStr, isNull, err := b.getArgs()[0].EvalString(b.ctx, row)
+	orgSQLStr, isNull, err := b.getArgs()[0].EvalString(row)
 	if err != nil {
 		return "", true, err
 	}
@@ -1035,7 +1020,7 @@ func (b *builtinTiDBDecodePlanSig) Clone() builtinFunc {
 }
 
 func (b *builtinTiDBDecodePlanSig) evalString(row chunk.Row) (string, bool, error) {
-	planString, isNull, err := b.args[0].EvalString(b.ctx, row)
+	planString, isNull, err := b.args[0].EvalString(row)
 	if isNull || err != nil {
 		return "", isNull, err
 	}
@@ -1057,13 +1042,13 @@ func (b *builtinTiDBDecodeBinaryPlanSig) Clone() builtinFunc {
 }
 
 func (b *builtinTiDBDecodeBinaryPlanSig) evalString(row chunk.Row) (string, bool, error) {
-	planString, isNull, err := b.args[0].EvalString(b.ctx, row)
+	planString, isNull, err := b.args[0].EvalString(row)
 	if isNull || err != nil {
 		return "", isNull, err
 	}
 	planTree, err := plancodec.DecodeBinaryPlan(planString)
 	if err != nil {
-		b.ctx.GetSessionVars().StmtCtx.AppendWarning(err)
+		b.ctx.StmtCtx.AppendWarning(err)
 		return "", false, nil
 	}
 	return planTree, false, nil
@@ -1097,23 +1082,23 @@ func (b *builtinNextValSig) Clone() builtinFunc {
 }
 
 func (b *builtinNextValSig) evalInt(row chunk.Row) (int64, bool, error) {
-	sequenceName, isNull, err := b.args[0].EvalString(b.ctx, row)
+	sequenceName, isNull, err := b.args[0].EvalString(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 	db, seq := getSchemaAndSequence(sequenceName)
 	if len(db) == 0 {
-		db = b.ctx.GetSessionVars().CurrentDB
+		db = b.ctx.CurrentDB
 	}
 	// Check the tableName valid.
-	sequence, err := util.GetSequenceByName(b.ctx.GetInfoSchema(), model.NewCIStr(db), model.NewCIStr(seq))
+	sequence, err := util.GetSequenceByName(b.ctx.InfoSchema, model.NewCIStr(db), model.NewCIStr(seq))
 	if err != nil {
 		return 0, false, err
 	}
 	// Do the privilege check.
-	checker := privilege.GetPrivilegeManager(b.ctx)
-	user := b.ctx.GetSessionVars().User
-	if checker != nil && !checker.RequestVerification(b.ctx.GetSessionVars().ActiveRoles, db, seq, "", mysql.InsertPriv) {
+	checker := privilege.GetPrivilegeManager(b.ctx.GetSessionCtx())
+	user := b.ctx.CurrentUser
+	if checker != nil && !checker.RequestVerification(b.ctx.ActiveRoles, db, seq, "", mysql.InsertPriv) {
 		return 0, false, errSequenceAccessDenied.GenWithStackByArgs("INSERT", user.AuthUsername, user.AuthHostname, seq)
 	}
 	nextVal, err := sequence.GetSequenceNextVal(b.ctx, db, seq)
@@ -1121,7 +1106,7 @@ func (b *builtinNextValSig) evalInt(row chunk.Row) (int64, bool, error) {
 		return 0, false, err
 	}
 	// update the sequenceState.
-	b.ctx.GetSessionVars().SequenceState.UpdateState(sequence.GetSequenceID(), nextVal)
+	b.ctx.SequenceState.UpdateState(sequence.GetSequenceID(), nextVal)
 	return nextVal, false, nil
 }
 
@@ -1153,26 +1138,26 @@ func (b *builtinLastValSig) Clone() builtinFunc {
 }
 
 func (b *builtinLastValSig) evalInt(row chunk.Row) (int64, bool, error) {
-	sequenceName, isNull, err := b.args[0].EvalString(b.ctx, row)
+	sequenceName, isNull, err := b.args[0].EvalString(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 	db, seq := getSchemaAndSequence(sequenceName)
 	if len(db) == 0 {
-		db = b.ctx.GetSessionVars().CurrentDB
+		db = b.ctx.CurrentDB
 	}
 	// Check the tableName valid.
-	sequence, err := util.GetSequenceByName(b.ctx.GetInfoSchema(), model.NewCIStr(db), model.NewCIStr(seq))
+	sequence, err := util.GetSequenceByName(b.ctx.InfoSchema, model.NewCIStr(db), model.NewCIStr(seq))
 	if err != nil {
 		return 0, false, err
 	}
 	// Do the privilege check.
-	checker := privilege.GetPrivilegeManager(b.ctx)
-	user := b.ctx.GetSessionVars().User
-	if checker != nil && !checker.RequestVerification(b.ctx.GetSessionVars().ActiveRoles, db, seq, "", mysql.SelectPriv) {
+	checker := privilege.GetPrivilegeManager(b.ctx.GetSessionCtx())
+	user := b.ctx.CurrentUser
+	if checker != nil && !checker.RequestVerification(b.ctx.ActiveRoles, db, seq, "", mysql.SelectPriv) {
 		return 0, false, errSequenceAccessDenied.GenWithStackByArgs("SELECT", user.AuthUsername, user.AuthHostname, seq)
 	}
-	return b.ctx.GetSessionVars().SequenceState.GetLastValue(sequence.GetSequenceID())
+	return b.ctx.SequenceState.GetLastValue(sequence.GetSequenceID())
 }
 
 type setValFunctionClass struct {
@@ -1203,26 +1188,26 @@ func (b *builtinSetValSig) Clone() builtinFunc {
 }
 
 func (b *builtinSetValSig) evalInt(row chunk.Row) (int64, bool, error) {
-	sequenceName, isNull, err := b.args[0].EvalString(b.ctx, row)
+	sequenceName, isNull, err := b.args[0].EvalString(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 	db, seq := getSchemaAndSequence(sequenceName)
 	if len(db) == 0 {
-		db = b.ctx.GetSessionVars().CurrentDB
+		db = b.ctx.CurrentDB
 	}
 	// Check the tableName valid.
-	sequence, err := util.GetSequenceByName(b.ctx.GetInfoSchema(), model.NewCIStr(db), model.NewCIStr(seq))
+	sequence, err := util.GetSequenceByName(b.ctx.InfoSchema, model.NewCIStr(db), model.NewCIStr(seq))
 	if err != nil {
 		return 0, false, err
 	}
 	// Do the privilege check.
-	checker := privilege.GetPrivilegeManager(b.ctx)
-	user := b.ctx.GetSessionVars().User
-	if checker != nil && !checker.RequestVerification(b.ctx.GetSessionVars().ActiveRoles, db, seq, "", mysql.InsertPriv) {
+	checker := privilege.GetPrivilegeManager(b.ctx.GetSessionCtx())
+	user := b.ctx.CurrentUser
+	if checker != nil && !checker.RequestVerification(b.ctx.ActiveRoles, db, seq, "", mysql.InsertPriv) {
 		return 0, false, errSequenceAccessDenied.GenWithStackByArgs("INSERT", user.AuthUsername, user.AuthHostname, seq)
 	}
-	setValue, isNull, err := b.args[1].EvalInt(b.ctx, row)
+	setValue, isNull, err := b.args[1].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -1269,7 +1254,7 @@ func (b *builtinFormatBytesSig) Clone() builtinFunc {
 // formatBytes evals a builtinFormatBytesSig.
 // See https://dev.mysql.com/doc/refman/8.0/en/performance-schema-functions.html#function_format-bytes
 func (b *builtinFormatBytesSig) evalString(row chunk.Row) (string, bool, error) {
-	val, isNull, err := b.args[0].EvalReal(b.ctx, row)
+	val, isNull, err := b.args[0].EvalReal(row)
 	if isNull || err != nil {
 		return "", isNull, err
 	}
@@ -1308,7 +1293,7 @@ func (b *builtinFormatNanoTimeSig) Clone() builtinFunc {
 // formatNanoTime evals a builtinFormatNanoTimeSig, as time unit in TiDB is always nanosecond, not picosecond.
 // See https://dev.mysql.com/doc/refman/8.0/en/performance-schema-functions.html#function_format-pico-time
 func (b *builtinFormatNanoTimeSig) evalString(row chunk.Row) (string, bool, error) {
-	val, isNull, err := b.args[0].EvalReal(b.ctx, row)
+	val, isNull, err := b.args[0].EvalReal(row)
 	if isNull || err != nil {
 		return "", isNull, err
 	}

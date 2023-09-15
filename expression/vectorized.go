@@ -16,12 +16,11 @@ package expression
 
 import (
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/chunk"
 )
 
-func genVecFromConstExpr(ctx sessionctx.Context, expr Expression, targetType types.EvalType, input *chunk.Chunk, result *chunk.Column) error {
+func genVecFromConstExpr(expr Expression, targetType types.EvalType, input *chunk.Chunk, result *chunk.Column) error {
 	n := 1
 	if input != nil {
 		n = input.NumRows()
@@ -32,7 +31,7 @@ func genVecFromConstExpr(ctx sessionctx.Context, expr Expression, targetType typ
 	}
 	switch targetType {
 	case types.ETInt:
-		v, isNull, err := expr.EvalInt(ctx, chunk.Row{})
+		v, isNull, err := expr.EvalInt(chunk.Row{})
 		if err != nil {
 			return err
 		}
@@ -46,7 +45,7 @@ func genVecFromConstExpr(ctx sessionctx.Context, expr Expression, targetType typ
 			i64s[i] = v
 		}
 	case types.ETReal:
-		v, isNull, err := expr.EvalReal(ctx, chunk.Row{})
+		v, isNull, err := expr.EvalReal(chunk.Row{})
 		if err != nil {
 			return err
 		}
@@ -60,7 +59,7 @@ func genVecFromConstExpr(ctx sessionctx.Context, expr Expression, targetType typ
 			f64s[i] = v
 		}
 	case types.ETDecimal:
-		v, isNull, err := expr.EvalDecimal(ctx, chunk.Row{})
+		v, isNull, err := expr.EvalDecimal(chunk.Row{})
 		if err != nil {
 			return err
 		}
@@ -74,7 +73,7 @@ func genVecFromConstExpr(ctx sessionctx.Context, expr Expression, targetType typ
 			ds[i] = *v
 		}
 	case types.ETDatetime, types.ETTimestamp:
-		v, isNull, err := expr.EvalTime(ctx, chunk.Row{})
+		v, isNull, err := expr.EvalTime(chunk.Row{})
 		if err != nil {
 			return err
 		}
@@ -88,7 +87,7 @@ func genVecFromConstExpr(ctx sessionctx.Context, expr Expression, targetType typ
 			ts[i] = v
 		}
 	case types.ETDuration:
-		v, isNull, err := expr.EvalDuration(ctx, chunk.Row{})
+		v, isNull, err := expr.EvalDuration(chunk.Row{})
 		if err != nil {
 			return err
 		}
@@ -103,7 +102,7 @@ func genVecFromConstExpr(ctx sessionctx.Context, expr Expression, targetType typ
 		}
 	case types.ETJson:
 		result.ReserveJSON(n)
-		v, isNull, err := expr.EvalJSON(ctx, chunk.Row{})
+		v, isNull, err := expr.EvalJSON(chunk.Row{})
 		if err != nil {
 			return err
 		}
@@ -118,7 +117,7 @@ func genVecFromConstExpr(ctx sessionctx.Context, expr Expression, targetType typ
 		}
 	case types.ETString:
 		result.ReserveString(n)
-		v, isNull, err := expr.EvalString(ctx, chunk.Row{})
+		v, isNull, err := expr.EvalString(chunk.Row{})
 		if err != nil {
 			return err
 		}

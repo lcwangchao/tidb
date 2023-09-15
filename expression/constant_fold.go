@@ -75,7 +75,7 @@ func ifFoldHandler(expr *ScalarFunction) (Expression, bool) {
 	args := expr.GetArgs()
 	foldedArg0, _ := foldConstant(args[0])
 	if constArg, isConst := foldedArg0.(*Constant); isConst {
-		arg0, isNull0, err := constArg.EvalInt(expr.Function.getCtx(), chunk.Row{})
+		arg0, isNull0, err := constArg.EvalInt(chunk.Row{})
 		if err != nil {
 			// Failed to fold this expr to a constant, print the DEBUG log and
 			// return the original expression to let the error to be evaluated
@@ -121,7 +121,7 @@ func caseWhenHandler(expr *ScalarFunction) (Expression, bool) {
 		// If the condition is const and true, and the previous conditions
 		// has no expr, then the folded execution body is returned, otherwise
 		// the arguments of the casewhen are folded and replaced.
-		val, isNull, err := args[i].EvalInt(expr.GetCtx(), chunk.Row{})
+		val, isNull, err := args[i].EvalInt(chunk.Row{})
 		if err != nil {
 			return expr, false
 		}

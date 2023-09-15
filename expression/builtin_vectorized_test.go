@@ -59,10 +59,10 @@ func (p *mockVecPlusIntBuiltinFunc) vecEvalInt(input *chunk.Chunk, result *chunk
 		return err
 	}
 	defer p.releaseBuf(buf)
-	if err := p.args[0].VecEvalInt(p.ctx, input, result); err != nil {
+	if err := p.args[0].VecEvalInt(input, result); err != nil {
 		return err
 	}
-	if err := p.args[1].VecEvalInt(p.ctx, input, buf); err != nil {
+	if err := p.args[1].VecEvalInt(input, buf); err != nil {
 		return err
 	}
 	dst64s := result.Int64s()
@@ -215,7 +215,7 @@ func (p *mockBuiltinDouble) vectorized() bool {
 }
 
 func (p *mockBuiltinDouble) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
-	if err := p.args[0].VecEvalInt(p.ctx, input, result); err != nil {
+	if err := p.args[0].VecEvalInt(input, result); err != nil {
 		return err
 	}
 	i64s := result.Int64s()
@@ -226,7 +226,7 @@ func (p *mockBuiltinDouble) vecEvalInt(input *chunk.Chunk, result *chunk.Column)
 }
 
 func (p *mockBuiltinDouble) vecEvalReal(input *chunk.Chunk, result *chunk.Column) error {
-	if err := p.args[0].VecEvalReal(p.ctx, input, result); err != nil {
+	if err := p.args[0].VecEvalReal(input, result); err != nil {
 		return err
 	}
 	f64s := result.Float64s()
@@ -242,7 +242,7 @@ func (p *mockBuiltinDouble) vecEvalString(input *chunk.Chunk, result *chunk.Colu
 	if buf, err = p.baseBuiltinFunc.bufAllocator.get(); err != nil {
 		return err
 	}
-	if err := p.args[0].VecEvalString(p.ctx, input, buf); err != nil {
+	if err := p.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	result.ReserveString(input.NumRows())
@@ -255,7 +255,7 @@ func (p *mockBuiltinDouble) vecEvalString(input *chunk.Chunk, result *chunk.Colu
 }
 
 func (p *mockBuiltinDouble) vecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error {
-	if err := p.args[0].VecEvalDecimal(p.ctx, input, result); err != nil {
+	if err := p.args[0].VecEvalDecimal(input, result); err != nil {
 		return err
 	}
 	ds := result.Decimals()
@@ -270,7 +270,7 @@ func (p *mockBuiltinDouble) vecEvalDecimal(input *chunk.Chunk, result *chunk.Col
 }
 
 func (p *mockBuiltinDouble) vecEvalTime(input *chunk.Chunk, result *chunk.Column) error {
-	if err := p.args[0].VecEvalTime(p.ctx, input, result); err != nil {
+	if err := p.args[0].VecEvalTime(input, result); err != nil {
 		return err
 	}
 	ts := result.Times()
@@ -287,7 +287,7 @@ func (p *mockBuiltinDouble) vecEvalTime(input *chunk.Chunk, result *chunk.Column
 }
 
 func (p *mockBuiltinDouble) vecEvalDuration(input *chunk.Chunk, result *chunk.Column) error {
-	if err := p.args[0].VecEvalDuration(p.ctx, input, result); err != nil {
+	if err := p.args[0].VecEvalDuration(input, result); err != nil {
 		return err
 	}
 	ds := result.GoDurations()
@@ -303,7 +303,7 @@ func (p *mockBuiltinDouble) vecEvalJSON(input *chunk.Chunk, result *chunk.Column
 	if buf, err = p.baseBuiltinFunc.bufAllocator.get(); err != nil {
 		return err
 	}
-	if err := p.args[0].VecEvalJSON(p.ctx, input, buf); err != nil {
+	if err := p.args[0].VecEvalJSON(input, buf); err != nil {
 		return err
 	}
 	result.ReserveString(input.NumRows())
@@ -327,7 +327,7 @@ func (p *mockBuiltinDouble) vecEvalJSON(input *chunk.Chunk, result *chunk.Column
 }
 
 func (p *mockBuiltinDouble) evalInt(row chunk.Row) (int64, bool, error) {
-	v, isNull, err := p.args[0].EvalInt(p.ctx, row)
+	v, isNull, err := p.args[0].EvalInt(row)
 	if err != nil {
 		return 0, false, err
 	}
@@ -335,7 +335,7 @@ func (p *mockBuiltinDouble) evalInt(row chunk.Row) (int64, bool, error) {
 }
 
 func (p *mockBuiltinDouble) evalReal(row chunk.Row) (float64, bool, error) {
-	v, isNull, err := p.args[0].EvalReal(p.ctx, row)
+	v, isNull, err := p.args[0].EvalReal(row)
 	if err != nil {
 		return 0, false, err
 	}
@@ -343,7 +343,7 @@ func (p *mockBuiltinDouble) evalReal(row chunk.Row) (float64, bool, error) {
 }
 
 func (p *mockBuiltinDouble) evalString(row chunk.Row) (string, bool, error) {
-	v, isNull, err := p.args[0].EvalString(p.ctx, row)
+	v, isNull, err := p.args[0].EvalString(row)
 	if err != nil {
 		return "", false, err
 	}
@@ -351,7 +351,7 @@ func (p *mockBuiltinDouble) evalString(row chunk.Row) (string, bool, error) {
 }
 
 func (p *mockBuiltinDouble) evalDecimal(row chunk.Row) (*types.MyDecimal, bool, error) {
-	v, isNull, err := p.args[0].EvalDecimal(p.ctx, row)
+	v, isNull, err := p.args[0].EvalDecimal(row)
 	if err != nil {
 		return nil, false, err
 	}
@@ -363,7 +363,7 @@ func (p *mockBuiltinDouble) evalDecimal(row chunk.Row) (*types.MyDecimal, bool, 
 }
 
 func (p *mockBuiltinDouble) evalTime(row chunk.Row) (types.Time, bool, error) {
-	v, isNull, err := p.args[0].EvalTime(p.ctx, row)
+	v, isNull, err := p.args[0].EvalTime(row)
 	if err != nil {
 		return types.ZeroTime, false, err
 	}
@@ -376,7 +376,7 @@ func (p *mockBuiltinDouble) evalTime(row chunk.Row) (types.Time, bool, error) {
 }
 
 func (p *mockBuiltinDouble) evalDuration(row chunk.Row) (types.Duration, bool, error) {
-	v, isNull, err := p.args[0].EvalDuration(p.ctx, row)
+	v, isNull, err := p.args[0].EvalDuration(row)
 	if err != nil {
 		return types.Duration{}, false, err
 	}
@@ -385,7 +385,7 @@ func (p *mockBuiltinDouble) evalDuration(row chunk.Row) (types.Duration, bool, e
 }
 
 func (p *mockBuiltinDouble) evalJSON(row chunk.Row) (types.BinaryJSON, bool, error) {
-	j, isNull, err := p.args[0].EvalJSON(p.ctx, row)
+	j, isNull, err := p.args[0].EvalJSON(row)
 	if err != nil {
 		return types.BinaryJSON{}, false, err
 	}
@@ -788,11 +788,11 @@ func genFloat32Col() (*Column, *chunk.Chunk, *chunk.Column) {
 func TestFloat32ColVec(t *testing.T) {
 	col, chk, result := genFloat32Col()
 	ctx := mock.NewContext()
-	require.NoError(t, col.VecEvalReal(ctx, chk, result))
+	require.NoError(t, col.VecEvalReal(chk, result))
 	it := chunk.NewIterator4Chunk(chk)
 	i := 0
 	for row := it.Begin(); row != it.End(); row = it.Next() {
-		v, _, err := col.EvalReal(ctx, row)
+		v, _, err := col.EvalReal(row)
 		require.NoError(t, err)
 		require.Equal(t, result.GetFloat64(i), v)
 		i++
@@ -805,16 +805,16 @@ func TestFloat32ColVec(t *testing.T) {
 		sel = append(sel, i)
 	}
 	chk.SetSel(sel)
-	require.NoError(t, col.VecEvalReal(ctx, chk, result))
+	require.NoError(t, col.VecEvalReal(chk, result))
 	i = 0
 	for row := it.Begin(); row != it.End(); row = it.Next() {
-		v, _, err := col.EvalReal(ctx, row)
+		v, _, err := col.EvalReal(row)
 		require.NoError(t, err)
 		require.Equal(t, result.GetFloat64(i), v)
 		i++
 	}
 
-	require.NoError(t, col.VecEvalReal(ctx, chk, result))
+	require.NoError(t, col.VecEvalReal(chk, result))
 }
 
 func TestVecEvalBool(t *testing.T) {
@@ -924,7 +924,7 @@ func BenchmarkFloat32ColRow(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for row := it.Begin(); row != it.End(); row = it.Next() {
-			if _, _, err := col.EvalReal(ctx, row); err != nil {
+			if _, _, err := col.EvalReal(row); err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -936,7 +936,7 @@ func BenchmarkFloat32ColVec(b *testing.B) {
 	ctx := mock.NewContext()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := col.VecEvalReal(ctx, chk, result); err != nil {
+		if err := col.VecEvalReal(chk, result); err != nil {
 			b.Fatal(err)
 		}
 	}

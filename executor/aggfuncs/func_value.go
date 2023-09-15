@@ -65,7 +65,7 @@ type value4Int struct {
 }
 
 func (v *value4Int) evaluateRow(ctx sessionctx.Context, expr expression.Expression, row chunk.Row) (memDelta int64, err error) {
-	v.val, v.isNull, err = expr.EvalInt(ctx, row)
+	v.val, v.isNull, err = expr.EvalInt(row)
 	return 0, err
 }
 
@@ -84,7 +84,7 @@ type value4Float32 struct {
 
 func (v *value4Float32) evaluateRow(ctx sessionctx.Context, expr expression.Expression, row chunk.Row) (memDelta int64, err error) {
 	var val float64
-	val, v.isNull, err = expr.EvalReal(ctx, row)
+	val, v.isNull, err = expr.EvalReal(row)
 	v.val = float32(val)
 	return 0, err
 }
@@ -103,7 +103,7 @@ type value4Decimal struct {
 }
 
 func (v *value4Decimal) evaluateRow(ctx sessionctx.Context, expr expression.Expression, row chunk.Row) (memDelta int64, err error) {
-	v.val, v.isNull, err = expr.EvalDecimal(ctx, row)
+	v.val, v.isNull, err = expr.EvalDecimal(row)
 	return 0, err
 }
 
@@ -121,7 +121,7 @@ type value4Float64 struct {
 }
 
 func (v *value4Float64) evaluateRow(ctx sessionctx.Context, expr expression.Expression, row chunk.Row) (memDelta int64, err error) {
-	v.val, v.isNull, err = expr.EvalReal(ctx, row)
+	v.val, v.isNull, err = expr.EvalReal(row)
 	return 0, err
 }
 
@@ -140,7 +140,7 @@ type value4String struct {
 
 func (v *value4String) evaluateRow(ctx sessionctx.Context, expr expression.Expression, row chunk.Row) (memDelta int64, err error) {
 	originalLength := len(v.val)
-	v.val, v.isNull, err = expr.EvalString(ctx, row)
+	v.val, v.isNull, err = expr.EvalString(row)
 	return int64(len(v.val) - originalLength), err
 }
 
@@ -158,7 +158,7 @@ type value4Time struct {
 }
 
 func (v *value4Time) evaluateRow(ctx sessionctx.Context, expr expression.Expression, row chunk.Row) (memDelta int64, err error) {
-	v.val, v.isNull, err = expr.EvalTime(ctx, row)
+	v.val, v.isNull, err = expr.EvalTime(row)
 	return 0, err
 }
 
@@ -176,7 +176,7 @@ type value4Duration struct {
 }
 
 func (v *value4Duration) evaluateRow(ctx sessionctx.Context, expr expression.Expression, row chunk.Row) (memDelta int64, err error) {
-	v.val, v.isNull, err = expr.EvalDuration(ctx, row)
+	v.val, v.isNull, err = expr.EvalDuration(row)
 	return 0, err
 }
 
@@ -195,7 +195,7 @@ type value4JSON struct {
 
 func (v *value4JSON) evaluateRow(ctx sessionctx.Context, expr expression.Expression, row chunk.Row) (memDelta int64, err error) {
 	originalLength := len(v.val.Value)
-	v.val, v.isNull, err = expr.EvalJSON(ctx, row)
+	v.val, v.isNull, err = expr.EvalJSON(row)
 	v.val = v.val.Copy() // deep copy to avoid content change.
 	return int64(len(v.val.Value) - originalLength), err
 }

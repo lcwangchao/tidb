@@ -131,7 +131,7 @@ func (e *groupConcat) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup [
 	for _, row := range rowsInGroup {
 		p.valsBuf.Reset()
 		for _, arg := range e.args {
-			v, isNull, err = arg.EvalString(sctx, row)
+			v, isNull, err = arg.EvalString(row)
 			if err != nil {
 				return memDelta, err
 			}
@@ -230,7 +230,7 @@ func (e *groupConcatDistinct) UpdatePartialResult(sctx sessionctx.Context, rowsI
 		p.valsBuf.Reset()
 		p.encodeBytesBuffer = p.encodeBytesBuffer[:0]
 		for i, arg := range e.args {
-			v, isNull, err = arg.EvalString(sctx, row)
+			v, isNull, err = arg.EvalString(row)
 			if err != nil {
 				return memDelta, err
 			}
@@ -444,7 +444,7 @@ func (e *groupConcatOrder) UpdatePartialResult(sctx sessionctx.Context, rowsInGr
 	for _, row := range rowsInGroup {
 		buffer := new(bytes.Buffer)
 		for _, arg := range e.args {
-			v, isNull, err = arg.EvalString(sctx, row)
+			v, isNull, err = arg.EvalString(row)
 			if err != nil {
 				return memDelta, err
 			}
@@ -561,7 +561,7 @@ func (e *groupConcatDistinctOrder) UpdatePartialResult(sctx sessionctx.Context, 
 		buffer := new(bytes.Buffer)
 		p.encodeBytesBuffer = p.encodeBytesBuffer[:0]
 		for i, arg := range e.args {
-			v, isNull, err = arg.EvalString(sctx, row)
+			v, isNull, err = arg.EvalString(row)
 			if err != nil {
 				return memDelta, err
 			}

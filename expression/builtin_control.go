@@ -99,7 +99,7 @@ func InferType4ControlFuncs(ctx sessionctx.Context, funcName string, lexp, rexp 
 		}
 
 		if types.IsNonBinaryStr(lhs) && !types.IsBinaryStr(rhs) {
-			ec, err := CheckAndDeriveCollationFromExprs(ctx, funcName, evalType, lexp, rexp)
+			ec, err := CheckAndDeriveCollationFromExprs(NewExprContext(ctx), funcName, evalType, lexp, rexp)
 			if err != nil {
 				return nil, err
 			}
@@ -110,7 +110,7 @@ func InferType4ControlFuncs(ctx sessionctx.Context, funcName string, lexp, rexp 
 				resultFieldType.AddFlag(mysql.BinaryFlag)
 			}
 		} else if types.IsNonBinaryStr(rhs) && !types.IsBinaryStr(lhs) {
-			ec, err := CheckAndDeriveCollationFromExprs(ctx, funcName, evalType, lexp, rexp)
+			ec, err := CheckAndDeriveCollationFromExprs(NewExprContext(ctx), funcName, evalType, lexp, rexp)
 			if err != nil {
 				return nil, err
 			}
@@ -301,21 +301,21 @@ func (b *builtinCaseWhenIntSig) evalInt(row chunk.Row) (ret int64, isNull bool, 
 	var condition int64
 	args, l := b.getArgs(), len(b.getArgs())
 	for i := 0; i < l-1; i += 2 {
-		condition, isNull, err = args[i].EvalInt(b.ctx, row)
+		condition, isNull, err = args[i].EvalInt(row)
 		if err != nil {
 			return 0, isNull, err
 		}
 		if isNull || condition == 0 {
 			continue
 		}
-		ret, isNull, err = args[i+1].EvalInt(b.ctx, row)
+		ret, isNull, err = args[i+1].EvalInt(row)
 		return ret, isNull, err
 	}
 	// when clause(condition, result) -> args[i], args[i+1]; (i >= 0 && i+1 < l-1)
 	// else clause -> args[l-1]
 	// If case clause has else clause, l%2 == 1.
 	if l%2 == 1 {
-		ret, isNull, err = args[l-1].EvalInt(b.ctx, row)
+		ret, isNull, err = args[l-1].EvalInt(row)
 		return ret, isNull, err
 	}
 	return ret, true, nil
@@ -337,21 +337,21 @@ func (b *builtinCaseWhenRealSig) evalReal(row chunk.Row) (ret float64, isNull bo
 	var condition int64
 	args, l := b.getArgs(), len(b.getArgs())
 	for i := 0; i < l-1; i += 2 {
-		condition, isNull, err = args[i].EvalInt(b.ctx, row)
+		condition, isNull, err = args[i].EvalInt(row)
 		if err != nil {
 			return 0, isNull, err
 		}
 		if isNull || condition == 0 {
 			continue
 		}
-		ret, isNull, err = args[i+1].EvalReal(b.ctx, row)
+		ret, isNull, err = args[i+1].EvalReal(row)
 		return ret, isNull, err
 	}
 	// when clause(condition, result) -> args[i], args[i+1]; (i >= 0 && i+1 < l-1)
 	// else clause -> args[l-1]
 	// If case clause has else clause, l%2 == 1.
 	if l%2 == 1 {
-		ret, isNull, err = args[l-1].EvalReal(b.ctx, row)
+		ret, isNull, err = args[l-1].EvalReal(row)
 		return ret, isNull, err
 	}
 	return ret, true, nil
@@ -373,21 +373,21 @@ func (b *builtinCaseWhenDecimalSig) evalDecimal(row chunk.Row) (ret *types.MyDec
 	var condition int64
 	args, l := b.getArgs(), len(b.getArgs())
 	for i := 0; i < l-1; i += 2 {
-		condition, isNull, err = args[i].EvalInt(b.ctx, row)
+		condition, isNull, err = args[i].EvalInt(row)
 		if err != nil {
 			return nil, isNull, err
 		}
 		if isNull || condition == 0 {
 			continue
 		}
-		ret, isNull, err = args[i+1].EvalDecimal(b.ctx, row)
+		ret, isNull, err = args[i+1].EvalDecimal(row)
 		return ret, isNull, err
 	}
 	// when clause(condition, result) -> args[i], args[i+1]; (i >= 0 && i+1 < l-1)
 	// else clause -> args[l-1]
 	// If case clause has else clause, l%2 == 1.
 	if l%2 == 1 {
-		ret, isNull, err = args[l-1].EvalDecimal(b.ctx, row)
+		ret, isNull, err = args[l-1].EvalDecimal(row)
 		return ret, isNull, err
 	}
 	return ret, true, nil
@@ -409,21 +409,21 @@ func (b *builtinCaseWhenStringSig) evalString(row chunk.Row) (ret string, isNull
 	var condition int64
 	args, l := b.getArgs(), len(b.getArgs())
 	for i := 0; i < l-1; i += 2 {
-		condition, isNull, err = args[i].EvalInt(b.ctx, row)
+		condition, isNull, err = args[i].EvalInt(row)
 		if err != nil {
 			return "", isNull, err
 		}
 		if isNull || condition == 0 {
 			continue
 		}
-		ret, isNull, err = args[i+1].EvalString(b.ctx, row)
+		ret, isNull, err = args[i+1].EvalString(row)
 		return ret, isNull, err
 	}
 	// when clause(condition, result) -> args[i], args[i+1]; (i >= 0 && i+1 < l-1)
 	// else clause -> args[l-1]
 	// If case clause has else clause, l%2 == 1.
 	if l%2 == 1 {
-		ret, isNull, err = args[l-1].EvalString(b.ctx, row)
+		ret, isNull, err = args[l-1].EvalString(row)
 		return ret, isNull, err
 	}
 	return ret, true, nil
@@ -445,21 +445,21 @@ func (b *builtinCaseWhenTimeSig) evalTime(row chunk.Row) (ret types.Time, isNull
 	var condition int64
 	args, l := b.getArgs(), len(b.getArgs())
 	for i := 0; i < l-1; i += 2 {
-		condition, isNull, err = args[i].EvalInt(b.ctx, row)
+		condition, isNull, err = args[i].EvalInt(row)
 		if err != nil {
 			return ret, isNull, err
 		}
 		if isNull || condition == 0 {
 			continue
 		}
-		ret, isNull, err = args[i+1].EvalTime(b.ctx, row)
+		ret, isNull, err = args[i+1].EvalTime(row)
 		return ret, isNull, err
 	}
 	// when clause(condition, result) -> args[i], args[i+1]; (i >= 0 && i+1 < l-1)
 	// else clause -> args[l-1]
 	// If case clause has else clause, l%2 == 1.
 	if l%2 == 1 {
-		ret, isNull, err = args[l-1].EvalTime(b.ctx, row)
+		ret, isNull, err = args[l-1].EvalTime(row)
 		return ret, isNull, err
 	}
 	return ret, true, nil
@@ -481,21 +481,21 @@ func (b *builtinCaseWhenDurationSig) evalDuration(row chunk.Row) (ret types.Dura
 	var condition int64
 	args, l := b.getArgs(), len(b.getArgs())
 	for i := 0; i < l-1; i += 2 {
-		condition, isNull, err = args[i].EvalInt(b.ctx, row)
+		condition, isNull, err = args[i].EvalInt(row)
 		if err != nil {
 			return ret, true, err
 		}
 		if isNull || condition == 0 {
 			continue
 		}
-		ret, isNull, err = args[i+1].EvalDuration(b.ctx, row)
+		ret, isNull, err = args[i+1].EvalDuration(row)
 		return ret, isNull, err
 	}
 	// when clause(condition, result) -> args[i], args[i+1]; (i >= 0 && i+1 < l-1)
 	// else clause -> args[l-1]
 	// If case clause has else clause, l%2 == 1.
 	if l%2 == 1 {
-		ret, isNull, err = args[l-1].EvalDuration(b.ctx, row)
+		ret, isNull, err = args[l-1].EvalDuration(row)
 		return ret, isNull, err
 	}
 	return ret, true, nil
@@ -517,20 +517,20 @@ func (b *builtinCaseWhenJSONSig) evalJSON(row chunk.Row) (ret types.BinaryJSON, 
 	var condition int64
 	args, l := b.getArgs(), len(b.getArgs())
 	for i := 0; i < l-1; i += 2 {
-		condition, isNull, err = args[i].EvalInt(b.ctx, row)
+		condition, isNull, err = args[i].EvalInt(row)
 		if err != nil {
 			return
 		}
 		if isNull || condition == 0 {
 			continue
 		}
-		return args[i+1].EvalJSON(b.ctx, row)
+		return args[i+1].EvalJSON(row)
 	}
 	// when clause(condition, result) -> args[i], args[i+1]; (i >= 0 && i+1 < l-1)
 	// else clause -> args[l-1]
 	// If case clause has else clause, l%2 == 1.
 	if l%2 == 1 {
-		return args[l-1].EvalJSON(b.ctx, row)
+		return args[l-1].EvalJSON(row)
 	}
 	return ret, true, nil
 }
@@ -597,14 +597,14 @@ func (b *builtinIfIntSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfIntSig) evalInt(row chunk.Row) (ret int64, isNull bool, err error) {
-	arg0, isNull0, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull0, err := b.args[0].EvalInt(row)
 	if err != nil {
 		return 0, true, err
 	}
 	if !isNull0 && arg0 != 0 {
-		return b.args[1].EvalInt(b.ctx, row)
+		return b.args[1].EvalInt(row)
 	}
-	return b.args[2].EvalInt(b.ctx, row)
+	return b.args[2].EvalInt(row)
 }
 
 type builtinIfRealSig struct {
@@ -618,14 +618,14 @@ func (b *builtinIfRealSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfRealSig) evalReal(row chunk.Row) (ret float64, isNull bool, err error) {
-	arg0, isNull0, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull0, err := b.args[0].EvalInt(row)
 	if err != nil {
 		return 0, true, err
 	}
 	if !isNull0 && arg0 != 0 {
-		return b.args[1].EvalReal(b.ctx, row)
+		return b.args[1].EvalReal(row)
 	}
-	return b.args[2].EvalReal(b.ctx, row)
+	return b.args[2].EvalReal(row)
 }
 
 type builtinIfDecimalSig struct {
@@ -639,14 +639,14 @@ func (b *builtinIfDecimalSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfDecimalSig) evalDecimal(row chunk.Row) (ret *types.MyDecimal, isNull bool, err error) {
-	arg0, isNull0, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull0, err := b.args[0].EvalInt(row)
 	if err != nil {
 		return nil, true, err
 	}
 	if !isNull0 && arg0 != 0 {
-		return b.args[1].EvalDecimal(b.ctx, row)
+		return b.args[1].EvalDecimal(row)
 	}
-	return b.args[2].EvalDecimal(b.ctx, row)
+	return b.args[2].EvalDecimal(row)
 }
 
 type builtinIfStringSig struct {
@@ -660,14 +660,14 @@ func (b *builtinIfStringSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfStringSig) evalString(row chunk.Row) (ret string, isNull bool, err error) {
-	arg0, isNull0, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull0, err := b.args[0].EvalInt(row)
 	if err != nil {
 		return "", true, err
 	}
 	if !isNull0 && arg0 != 0 {
-		return b.args[1].EvalString(b.ctx, row)
+		return b.args[1].EvalString(row)
 	}
-	return b.args[2].EvalString(b.ctx, row)
+	return b.args[2].EvalString(row)
 }
 
 type builtinIfTimeSig struct {
@@ -681,14 +681,14 @@ func (b *builtinIfTimeSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfTimeSig) evalTime(row chunk.Row) (ret types.Time, isNull bool, err error) {
-	arg0, isNull0, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull0, err := b.args[0].EvalInt(row)
 	if err != nil {
 		return ret, true, err
 	}
 	if !isNull0 && arg0 != 0 {
-		return b.args[1].EvalTime(b.ctx, row)
+		return b.args[1].EvalTime(row)
 	}
-	return b.args[2].EvalTime(b.ctx, row)
+	return b.args[2].EvalTime(row)
 }
 
 type builtinIfDurationSig struct {
@@ -702,14 +702,14 @@ func (b *builtinIfDurationSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfDurationSig) evalDuration(row chunk.Row) (ret types.Duration, isNull bool, err error) {
-	arg0, isNull0, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull0, err := b.args[0].EvalInt(row)
 	if err != nil {
 		return ret, true, err
 	}
 	if !isNull0 && arg0 != 0 {
-		return b.args[1].EvalDuration(b.ctx, row)
+		return b.args[1].EvalDuration(row)
 	}
-	return b.args[2].EvalDuration(b.ctx, row)
+	return b.args[2].EvalDuration(row)
 }
 
 type builtinIfJSONSig struct {
@@ -723,14 +723,14 @@ func (b *builtinIfJSONSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfJSONSig) evalJSON(row chunk.Row) (ret types.BinaryJSON, isNull bool, err error) {
-	arg0, isNull0, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull0, err := b.args[0].EvalInt(row)
 	if err != nil {
 		return ret, true, err
 	}
 	if !isNull0 && arg0 != 0 {
-		return b.args[1].EvalJSON(b.ctx, row)
+		return b.args[1].EvalJSON(row)
 	}
-	return b.args[2].EvalJSON(b.ctx, row)
+	return b.args[2].EvalJSON(row)
 }
 
 type ifNullFunctionClass struct {
@@ -797,11 +797,11 @@ func (b *builtinIfNullIntSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfNullIntSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg0, isNull, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull, err := b.args[0].EvalInt(row)
 	if !isNull || err != nil {
 		return arg0, err != nil, err
 	}
-	arg1, isNull, err := b.args[1].EvalInt(b.ctx, row)
+	arg1, isNull, err := b.args[1].EvalInt(row)
 	return arg1, isNull || err != nil, err
 }
 
@@ -816,11 +816,11 @@ func (b *builtinIfNullRealSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfNullRealSig) evalReal(row chunk.Row) (float64, bool, error) {
-	arg0, isNull, err := b.args[0].EvalReal(b.ctx, row)
+	arg0, isNull, err := b.args[0].EvalReal(row)
 	if !isNull || err != nil {
 		return arg0, err != nil, err
 	}
-	arg1, isNull, err := b.args[1].EvalReal(b.ctx, row)
+	arg1, isNull, err := b.args[1].EvalReal(row)
 	return arg1, isNull || err != nil, err
 }
 
@@ -835,11 +835,11 @@ func (b *builtinIfNullDecimalSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfNullDecimalSig) evalDecimal(row chunk.Row) (*types.MyDecimal, bool, error) {
-	arg0, isNull, err := b.args[0].EvalDecimal(b.ctx, row)
+	arg0, isNull, err := b.args[0].EvalDecimal(row)
 	if !isNull || err != nil {
 		return arg0, err != nil, err
 	}
-	arg1, isNull, err := b.args[1].EvalDecimal(b.ctx, row)
+	arg1, isNull, err := b.args[1].EvalDecimal(row)
 	return arg1, isNull || err != nil, err
 }
 
@@ -854,11 +854,11 @@ func (b *builtinIfNullStringSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfNullStringSig) evalString(row chunk.Row) (string, bool, error) {
-	arg0, isNull, err := b.args[0].EvalString(b.ctx, row)
+	arg0, isNull, err := b.args[0].EvalString(row)
 	if !isNull || err != nil {
 		return arg0, err != nil, err
 	}
-	arg1, isNull, err := b.args[1].EvalString(b.ctx, row)
+	arg1, isNull, err := b.args[1].EvalString(row)
 	return arg1, isNull || err != nil, err
 }
 
@@ -873,11 +873,11 @@ func (b *builtinIfNullTimeSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfNullTimeSig) evalTime(row chunk.Row) (types.Time, bool, error) {
-	arg0, isNull, err := b.args[0].EvalTime(b.ctx, row)
+	arg0, isNull, err := b.args[0].EvalTime(row)
 	if !isNull || err != nil {
 		return arg0, err != nil, err
 	}
-	arg1, isNull, err := b.args[1].EvalTime(b.ctx, row)
+	arg1, isNull, err := b.args[1].EvalTime(row)
 	return arg1, isNull || err != nil, err
 }
 
@@ -892,11 +892,11 @@ func (b *builtinIfNullDurationSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfNullDurationSig) evalDuration(row chunk.Row) (types.Duration, bool, error) {
-	arg0, isNull, err := b.args[0].EvalDuration(b.ctx, row)
+	arg0, isNull, err := b.args[0].EvalDuration(row)
 	if !isNull || err != nil {
 		return arg0, err != nil, err
 	}
-	arg1, isNull, err := b.args[1].EvalDuration(b.ctx, row)
+	arg1, isNull, err := b.args[1].EvalDuration(row)
 	return arg1, isNull || err != nil, err
 }
 
@@ -911,10 +911,10 @@ func (b *builtinIfNullJSONSig) Clone() builtinFunc {
 }
 
 func (b *builtinIfNullJSONSig) evalJSON(row chunk.Row) (types.BinaryJSON, bool, error) {
-	arg0, isNull, err := b.args[0].EvalJSON(b.ctx, row)
+	arg0, isNull, err := b.args[0].EvalJSON(row)
 	if !isNull {
 		return arg0, err != nil, err
 	}
-	arg1, isNull, err := b.args[1].EvalJSON(b.ctx, row)
+	arg1, isNull, err := b.args[1].EvalJSON(row)
 	return arg1, isNull || err != nil, err
 }

@@ -111,7 +111,7 @@ func (b *builtinCaseWhen{{ .TypeName }}Sig) vecEval{{ .TypeName }}(input *chunk.
 	thensSlice := make([][]{{.TypeNameGo}}, l/2)
 	var eLseSlice []{{.TypeNameGo}}
 	{{- end }}
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	beforeWarns := sc.WarningCount()
 
 	for j := 0; j < l-1; j+=2 {
@@ -277,7 +277,7 @@ func (b *builtinIfNull{{ .TypeName }}Sig) vecEval{{ .TypeName }}(input *chunk.Ch
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	beforeWarns := sc.WarningCount()
 	err = b.args[1].VecEval{{ .TypeName }}(b.ctx, input, buf1)
 	afterWarns := sc.WarningCount()
@@ -309,7 +309,7 @@ func (b *builtinIfNull{{ .TypeName }}Sig) vecEval{{ .TypeName }}(input *chunk.Ch
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	beforeWarns := sc.WarningCount()
 	err = b.args[1].VecEval{{ .TypeName }}(b.ctx, input, buf1)
 	afterWarns := sc.WarningCount()
@@ -392,7 +392,7 @@ func (b *builtinIf{{ .TypeName }}Sig) vecEval{{ .TypeName }}(input *chunk.Chunk,
 	if err := b.args[0].VecEvalInt(b.ctx, input, buf0); err != nil {
 		return err
 	}
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	beforeWarns := sc.WarningCount()
 {{- if .Fixed }}
 	err = b.args[1].VecEval{{ .TypeName }}(b.ctx, input, result)

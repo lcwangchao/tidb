@@ -82,7 +82,7 @@ func findMaxPrefixLen(candidates [][]*expression.Column, keys []*expression.Colu
 	for _, candidateKeys := range candidates {
 		matchedLen := 0
 		for i := range keys {
-			if !(i < len(candidateKeys) && keys[i].Equal(nil, candidateKeys[i])) {
+			if !(i < len(candidateKeys) && keys[i].Equal(candidateKeys[i])) {
 				break
 			}
 			matchedLen++
@@ -309,11 +309,11 @@ func (p *LogicalJoin) getEnforcedMergeJoin(prop *property.PhysicalProperty, sche
 		isExist, hasLeftColInProp, hasRightColInProp := false, false, false
 		for joinKeyPos := 0; joinKeyPos < len(leftJoinKeys); joinKeyPos++ {
 			var key *expression.Column
-			if item.Col.Equal(p.SCtx(), leftJoinKeys[joinKeyPos]) {
+			if item.Col.Equal(leftJoinKeys[joinKeyPos]) {
 				key = leftJoinKeys[joinKeyPos]
 				hasLeftColInProp = true
 			}
-			if item.Col.Equal(p.SCtx(), rightJoinKeys[joinKeyPos]) {
+			if item.Col.Equal(rightJoinKeys[joinKeyPos]) {
 				key = rightJoinKeys[joinKeyPos]
 				hasRightColInProp = true
 			}
@@ -666,7 +666,7 @@ func (p *LogicalJoin) constructIndexMergeJoin(
 		outerCompareFuncs := make([]expression.CompareFunc, 0, len(join.OuterJoinKeys))
 
 		for i := range join.KeyOff2IdxOff {
-			if isOuterKeysPrefix && !prop.SortItems[i].Col.Equal(nil, join.OuterJoinKeys[keyOff2KeyOffOrderByIdx[i]]) {
+			if isOuterKeysPrefix && !prop.SortItems[i].Col.Equal(join.OuterJoinKeys[keyOff2KeyOffOrderByIdx[i]]) {
 				isOuterKeysPrefix = false
 			}
 			compareFuncs = append(compareFuncs, expression.GetCmpFunction(p.SCtx(), join.OuterJoinKeys[i], join.InnerJoinKeys[i]))
@@ -675,7 +675,7 @@ func (p *LogicalJoin) constructIndexMergeJoin(
 		// canKeepOuterOrder means whether the prop items are the prefix of the outer join keys.
 		canKeepOuterOrder := len(prop.SortItems) <= len(join.OuterJoinKeys)
 		for i := 0; canKeepOuterOrder && i < len(prop.SortItems); i++ {
-			if !prop.SortItems[i].Col.Equal(nil, join.OuterJoinKeys[keyOff2KeyOffOrderByIdx[i]]) {
+			if !prop.SortItems[i].Col.Equal(join.OuterJoinKeys[keyOff2KeyOffOrderByIdx[i]]) {
 				canKeepOuterOrder = false
 			}
 		}
@@ -893,7 +893,7 @@ func (p *LogicalJoin) buildIndexJoinInner2TableScan(
 			return nil
 		}
 		for i, key := range innerJoinKeys {
-			if !key.Equal(nil, pkCol) {
+			if !key.Equal(pkCol) {
 				keyOff2IdxOff[i] = -1
 				continue
 			}
@@ -1536,7 +1536,7 @@ func (ijHelper *indexJoinBuildHelper) resetContextForIndex(innerKeys []*expressi
 		if ijHelper.curIdxOff2KeyOff[i] >= 0 {
 			// Don't use the join columns if their collations are unmatched and the new collation is enabled.
 			if collate.NewCollationEnabled() && types.IsString(idxCol.RetType.GetType()) && types.IsString(outerKeys[ijHelper.curIdxOff2KeyOff[i]].RetType.GetType()) {
-				et, err := expression.CheckAndDeriveCollationFromExprs(ijHelper.innerPlan.SCtx(), "equal", types.ETInt, idxCol, outerKeys[ijHelper.curIdxOff2KeyOff[i]])
+				et, err := expression.CheckAndDeriveCollationFromExprs(expression.NewExprContext(ijHelper.innerPlan.SCtx()), "equal", types.ETInt, idxCol, outerKeys[ijHelper.curIdxOff2KeyOff[i]])
 				if err != nil {
 					logutil.BgLogger().Error("Unexpected error happened during constructing index join", zap.Stack("stack"))
 				}
@@ -1579,10 +1579,10 @@ loopOtherConds:
 		}
 		var funcName string
 		var anotherArg expression.Expression
-		if lCol, ok := sf.GetArgs()[0].(*expression.Column); ok && lCol.Equal(nil, nextCol) {
+		if lCol, ok := sf.GetArgs()[0].(*expression.Column); ok && lCol.Equal(nextCol) {
 			anotherArg = sf.GetArgs()[1]
 			funcName = sf.FuncName.L
-		} else if rCol, ok := sf.GetArgs()[1].(*expression.Column); ok && rCol.Equal(nil, nextCol) {
+		} else if rCol, ok := sf.GetArgs()[1].(*expression.Column); ok && rCol.Equal(nextCol) {
 			anotherArg = sf.GetArgs()[0]
 			// The column manager always build expression in the form of col op arg1.
 			// So we need use the symmetric one of the current function.
@@ -1619,7 +1619,7 @@ func (ijHelper *indexJoinBuildHelper) removeUselessEqAndInFunc(idxCols []*expres
 			ijHelper.curPossibleUsedKeys = append(ijHelper.curPossibleUsedKeys, idxCols[idxColPos])
 			continue
 		}
-		if notKeyColPos < len(notKeyEqAndIn) && ijHelper.curNotUsedIndexCols[notKeyColPos].Equal(nil, idxCols[idxColPos]) {
+		if notKeyColPos < len(notKeyEqAndIn) && ijHelper.curNotUsedIndexCols[notKeyColPos].Equal(idxCols[idxColPos]) {
 			notKeyColPos++
 			continue
 		}
@@ -2737,7 +2737,7 @@ func MatchItems(p *property.PhysicalProperty, items []*util.ByItems) bool {
 	}
 	for i, col := range p.SortItems {
 		sortItem := items[i]
-		if sortItem.Desc != col.Desc || !sortItem.Expr.Equal(nil, col.Col) {
+		if sortItem.Desc != col.Desc || !sortItem.Expr.Equal(col.Col) {
 			return false
 		}
 	}

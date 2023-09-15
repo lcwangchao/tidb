@@ -68,25 +68,25 @@ type VecExpr interface {
 	Vectorized() bool
 
 	// VecEvalInt evaluates this expression in a vectorized manner.
-	VecEvalInt(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error
+	VecEvalInt(input *chunk.Chunk, result *chunk.Column) error
 
 	// VecEvalReal evaluates this expression in a vectorized manner.
-	VecEvalReal(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error
+	VecEvalReal(input *chunk.Chunk, result *chunk.Column) error
 
 	// VecEvalString evaluates this expression in a vectorized manner.
-	VecEvalString(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error
+	VecEvalString(input *chunk.Chunk, result *chunk.Column) error
 
 	// VecEvalDecimal evaluates this expression in a vectorized manner.
-	VecEvalDecimal(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error
+	VecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error
 
 	// VecEvalTime evaluates this expression in a vectorized manner.
-	VecEvalTime(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error
+	VecEvalTime(input *chunk.Chunk, result *chunk.Column) error
 
 	// VecEvalDuration evaluates this expression in a vectorized manner.
-	VecEvalDuration(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error
+	VecEvalDuration(input *chunk.Chunk, result *chunk.Column) error
 
 	// VecEvalJSON evaluates this expression in a vectorized manner.
-	VecEvalJSON(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error
+	VecEvalJSON(input *chunk.Chunk, result *chunk.Column) error
 }
 
 // ReverseExpr contains all resersed evaluation methods.
@@ -117,25 +117,25 @@ type Expression interface {
 	Eval(row chunk.Row) (types.Datum, error)
 
 	// EvalInt returns the int64 representation of expression.
-	EvalInt(ctx sessionctx.Context, row chunk.Row) (val int64, isNull bool, err error)
+	EvalInt(row chunk.Row) (val int64, isNull bool, err error)
 
 	// EvalReal returns the float64 representation of expression.
-	EvalReal(ctx sessionctx.Context, row chunk.Row) (val float64, isNull bool, err error)
+	EvalReal(row chunk.Row) (val float64, isNull bool, err error)
 
 	// EvalString returns the string representation of expression.
-	EvalString(ctx sessionctx.Context, row chunk.Row) (val string, isNull bool, err error)
+	EvalString(row chunk.Row) (val string, isNull bool, err error)
 
 	// EvalDecimal returns the decimal representation of expression.
-	EvalDecimal(ctx sessionctx.Context, row chunk.Row) (val *types.MyDecimal, isNull bool, err error)
+	EvalDecimal(row chunk.Row) (val *types.MyDecimal, isNull bool, err error)
 
 	// EvalTime returns the DATE/DATETIME/TIMESTAMP representation of expression.
-	EvalTime(ctx sessionctx.Context, row chunk.Row) (val types.Time, isNull bool, err error)
+	EvalTime(row chunk.Row) (val types.Time, isNull bool, err error)
 
 	// EvalDuration returns the duration representation of expression.
-	EvalDuration(ctx sessionctx.Context, row chunk.Row) (val types.Duration, isNull bool, err error)
+	EvalDuration(row chunk.Row) (val types.Duration, isNull bool, err error)
 
 	// EvalJSON returns the JSON representation of expression.
-	EvalJSON(ctx sessionctx.Context, row chunk.Row) (val types.BinaryJSON, isNull bool, err error)
+	EvalJSON(row chunk.Row) (val types.BinaryJSON, isNull bool, err error)
 
 	// GetType gets the type that the expression returns.
 	GetType() *types.FieldType
@@ -144,7 +144,7 @@ type Expression interface {
 	Clone() Expression
 
 	// Equal checks whether two expressions are equal.
-	Equal(ctx sessionctx.Context, e Expression) bool
+	Equal(e Expression) bool
 
 	// IsCorrelated checks if this expression has correlated key.
 	IsCorrelated() bool
@@ -544,14 +544,14 @@ func toBool(sc *stmtctx.StatementContext, tp *types.FieldType, eType types.EvalT
 
 func implicitEvalReal(ctx sessionctx.Context, expr Expression, input *chunk.Chunk, result *chunk.Column) (err error) {
 	if expr.Vectorized() && ctx.GetSessionVars().EnableVectorizedExpression {
-		err = expr.VecEvalReal(ctx, input, result)
+		err = expr.VecEvalReal(input, result)
 	} else {
 		ind, n := 0, input.NumRows()
 		iter := chunk.NewIterator4Chunk(input)
 		result.ResizeFloat64(n, false)
 		f64s := result.Float64s()
 		for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-			value, isNull, err := expr.EvalReal(ctx, it)
+			value, isNull, err := expr.EvalReal(it)
 			if err != nil {
 				return err
 			}
@@ -575,19 +575,19 @@ func EvalExpr(ctx sessionctx.Context, expr Expression, evalType types.EvalType, 
 	if expr.Vectorized() && ctx.GetSessionVars().EnableVectorizedExpression {
 		switch evalType {
 		case types.ETInt:
-			err = expr.VecEvalInt(ctx, input, result)
+			err = expr.VecEvalInt(input, result)
 		case types.ETReal:
-			err = expr.VecEvalReal(ctx, input, result)
+			err = expr.VecEvalReal(input, result)
 		case types.ETDuration:
-			err = expr.VecEvalDuration(ctx, input, result)
+			err = expr.VecEvalDuration(input, result)
 		case types.ETDatetime, types.ETTimestamp:
-			err = expr.VecEvalTime(ctx, input, result)
+			err = expr.VecEvalTime(input, result)
 		case types.ETString:
-			err = expr.VecEvalString(ctx, input, result)
+			err = expr.VecEvalString(input, result)
 		case types.ETJson:
-			err = expr.VecEvalJSON(ctx, input, result)
+			err = expr.VecEvalJSON(input, result)
 		case types.ETDecimal:
-			err = expr.VecEvalDecimal(ctx, input, result)
+			err = expr.VecEvalDecimal(input, result)
 		default:
 			err = fmt.Errorf("invalid eval type %v", expr.GetType().EvalType())
 		}
@@ -599,7 +599,7 @@ func EvalExpr(ctx sessionctx.Context, expr Expression, evalType types.EvalType, 
 			result.ResizeInt64(n, false)
 			i64s := result.Int64s()
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalInt(ctx, it)
+				value, isNull, err := expr.EvalInt(it)
 				if err != nil {
 					return err
 				}
@@ -614,7 +614,7 @@ func EvalExpr(ctx sessionctx.Context, expr Expression, evalType types.EvalType, 
 			result.ResizeFloat64(n, false)
 			f64s := result.Float64s()
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalReal(ctx, it)
+				value, isNull, err := expr.EvalReal(it)
 				if err != nil {
 					return err
 				}
@@ -629,7 +629,7 @@ func EvalExpr(ctx sessionctx.Context, expr Expression, evalType types.EvalType, 
 			result.ResizeGoDuration(n, false)
 			d64s := result.GoDurations()
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalDuration(ctx, it)
+				value, isNull, err := expr.EvalDuration(it)
 				if err != nil {
 					return err
 				}
@@ -644,7 +644,7 @@ func EvalExpr(ctx sessionctx.Context, expr Expression, evalType types.EvalType, 
 			result.ResizeTime(n, false)
 			t64s := result.Times()
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalTime(ctx, it)
+				value, isNull, err := expr.EvalTime(it)
 				if err != nil {
 					return err
 				}
@@ -658,7 +658,7 @@ func EvalExpr(ctx sessionctx.Context, expr Expression, evalType types.EvalType, 
 		case types.ETString:
 			result.ReserveString(n)
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalString(ctx, it)
+				value, isNull, err := expr.EvalString(it)
 				if err != nil {
 					return err
 				}
@@ -671,7 +671,7 @@ func EvalExpr(ctx sessionctx.Context, expr Expression, evalType types.EvalType, 
 		case types.ETJson:
 			result.ReserveJSON(n)
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalJSON(ctx, it)
+				value, isNull, err := expr.EvalJSON(it)
 				if err != nil {
 					return err
 				}
@@ -685,7 +685,7 @@ func EvalExpr(ctx sessionctx.Context, expr Expression, evalType types.EvalType, 
 			result.ResizeDecimal(n, false)
 			d64s := result.Decimals()
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalDecimal(ctx, it)
+				value, isNull, err := expr.EvalDecimal(it)
 				if err != nil {
 					return err
 				}

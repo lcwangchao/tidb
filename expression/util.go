@@ -344,7 +344,7 @@ func extractConstantEqColumnsOrScalar(ctx sessionctx.Context, result []Expressio
 				if i == 0 {
 					continue
 				}
-				if !guard.Equal(ctx, v) {
+				if !guard.Equal(v) {
 					allArgsIsConst = false
 					break
 				}
@@ -469,7 +469,7 @@ func ColumnSubstituteImpl(expr Expression, schema *Schema, newExprs []Expression
 		// cowExprRef is a copy-on-write util, args array allocation happens only
 		// when expr in args is changed
 		refExprArr := cowExprRef{v.GetArgs(), nil}
-		oldCollEt, err := CheckAndDeriveCollationFromExprs(v.GetCtx(), v.FuncName.L, v.RetType.EvalType(), v.GetArgs()...)
+		oldCollEt, err := CheckAndDeriveCollationFromExprs(NewExprContext(v.GetCtx()), v.FuncName.L, v.RetType.EvalType(), v.GetArgs()...)
 		if err != nil {
 			logutil.BgLogger().Error("Unexpected error happened during ColumnSubstitution", zap.Stack("stack"))
 			return false, false, v
@@ -489,7 +489,7 @@ func ColumnSubstituteImpl(expr Expression, schema *Schema, newExprs []Expression
 				changed = false
 				copy(tmpArgForCollCheck, refExprArr.Result())
 				tmpArgForCollCheck[idx] = newFuncExpr
-				newCollEt, err := CheckAndDeriveCollationFromExprs(v.GetCtx(), v.FuncName.L, v.RetType.EvalType(), tmpArgForCollCheck...)
+				newCollEt, err := CheckAndDeriveCollationFromExprs(NewExprContext(v.GetCtx()), v.FuncName.L, v.RetType.EvalType(), tmpArgForCollCheck...)
 				if err != nil {
 					logutil.BgLogger().Error("Unexpected error happened during ColumnSubstitution", zap.Stack("stack"))
 					return false, failed, v
@@ -1244,7 +1244,7 @@ func GetStringFromConstant(ctx sessionctx.Context, value Expression) (string, bo
 		err := errors.Errorf("Not a Constant expression %+v", value)
 		return "", true, err
 	}
-	str, isNull, err := con.EvalString(ctx, chunk.Row{})
+	str, isNull, err := con.EvalString(chunk.Row{})
 	if err != nil || isNull {
 		return "", true, err
 	}

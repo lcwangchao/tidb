@@ -99,11 +99,11 @@ func (b *builtinLogicAndSig) Clone() builtinFunc {
 }
 
 func (b *builtinLogicAndSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg0, isNull0, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull0, err := b.args[0].EvalInt(row)
 	if err != nil || (!isNull0 && arg0 == 0) {
 		return 0, err != nil, err
 	}
-	arg1, isNull1, err := b.args[1].EvalInt(b.ctx, row)
+	arg1, isNull1, err := b.args[1].EvalInt(row)
 	if err != nil || (!isNull1 && arg1 == 0) {
 		return 0, err != nil, err
 	}
@@ -152,14 +152,14 @@ func (b *builtinLogicOrSig) Clone() builtinFunc {
 }
 
 func (b *builtinLogicOrSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg0, isNull0, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull0, err := b.args[0].EvalInt(row)
 	if err != nil {
 		return 0, true, err
 	}
 	if !isNull0 && arg0 != 0 {
 		return 1, false, nil
 	}
-	arg1, isNull1, err := b.args[1].EvalInt(b.ctx, row)
+	arg1, isNull1, err := b.args[1].EvalInt(row)
 	if err != nil {
 		return 0, true, err
 	}
@@ -211,11 +211,11 @@ func (b *builtinLogicXorSig) Clone() builtinFunc {
 }
 
 func (b *builtinLogicXorSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg0, isNull, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull, err := b.args[0].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
-	arg1, isNull, err := b.args[1].EvalInt(b.ctx, row)
+	arg1, isNull, err := b.args[1].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -255,11 +255,11 @@ func (b *builtinBitAndSig) Clone() builtinFunc {
 }
 
 func (b *builtinBitAndSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg0, isNull, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull, err := b.args[0].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
-	arg1, isNull, err := b.args[1].EvalInt(b.ctx, row)
+	arg1, isNull, err := b.args[1].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -296,11 +296,11 @@ func (b *builtinBitOrSig) Clone() builtinFunc {
 }
 
 func (b *builtinBitOrSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg0, isNull, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull, err := b.args[0].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
-	arg1, isNull, err := b.args[1].EvalInt(b.ctx, row)
+	arg1, isNull, err := b.args[1].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -337,11 +337,11 @@ func (b *builtinBitXorSig) Clone() builtinFunc {
 }
 
 func (b *builtinBitXorSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg0, isNull, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull, err := b.args[0].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
-	arg1, isNull, err := b.args[1].EvalInt(b.ctx, row)
+	arg1, isNull, err := b.args[1].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -378,11 +378,11 @@ func (b *builtinLeftShiftSig) Clone() builtinFunc {
 }
 
 func (b *builtinLeftShiftSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg0, isNull, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull, err := b.args[0].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
-	arg1, isNull, err := b.args[1].EvalInt(b.ctx, row)
+	arg1, isNull, err := b.args[1].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -419,11 +419,11 @@ func (b *builtinRightShiftSig) Clone() builtinFunc {
 }
 
 func (b *builtinRightShiftSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg0, isNull, err := b.args[0].EvalInt(b.ctx, row)
+	arg0, isNull, err := b.args[0].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
-	arg1, isNull, err := b.args[1].EvalInt(b.ctx, row)
+	arg1, isNull, err := b.args[1].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -532,7 +532,7 @@ func (b *builtinRealIsTrueSig) Clone() builtinFunc {
 }
 
 func (b *builtinRealIsTrueSig) evalInt(row chunk.Row) (int64, bool, error) {
-	input, isNull, err := b.args[0].EvalReal(b.ctx, row)
+	input, isNull, err := b.args[0].EvalReal(row)
 	if err != nil {
 		return 0, true, err
 	}
@@ -557,7 +557,7 @@ func (b *builtinDecimalIsTrueSig) Clone() builtinFunc {
 }
 
 func (b *builtinDecimalIsTrueSig) evalInt(row chunk.Row) (int64, bool, error) {
-	input, isNull, err := b.args[0].EvalDecimal(b.ctx, row)
+	input, isNull, err := b.args[0].EvalDecimal(row)
 	if err != nil {
 		return 0, true, err
 	}
@@ -582,7 +582,7 @@ func (b *builtinIntIsTrueSig) Clone() builtinFunc {
 }
 
 func (b *builtinIntIsTrueSig) evalInt(row chunk.Row) (int64, bool, error) {
-	input, isNull, err := b.args[0].EvalInt(b.ctx, row)
+	input, isNull, err := b.args[0].EvalInt(row)
 	if err != nil {
 		return 0, true, err
 	}
@@ -607,7 +607,7 @@ func (b *builtinRealIsFalseSig) Clone() builtinFunc {
 }
 
 func (b *builtinRealIsFalseSig) evalInt(row chunk.Row) (int64, bool, error) {
-	input, isNull, err := b.args[0].EvalReal(b.ctx, row)
+	input, isNull, err := b.args[0].EvalReal(row)
 	if err != nil {
 		return 0, true, err
 	}
@@ -632,7 +632,7 @@ func (b *builtinDecimalIsFalseSig) Clone() builtinFunc {
 }
 
 func (b *builtinDecimalIsFalseSig) evalInt(row chunk.Row) (int64, bool, error) {
-	input, isNull, err := b.args[0].EvalDecimal(b.ctx, row)
+	input, isNull, err := b.args[0].EvalDecimal(row)
 	if err != nil {
 		return 0, true, err
 	}
@@ -657,7 +657,7 @@ func (b *builtinIntIsFalseSig) Clone() builtinFunc {
 }
 
 func (b *builtinIntIsFalseSig) evalInt(row chunk.Row) (int64, bool, error) {
-	input, isNull, err := b.args[0].EvalInt(b.ctx, row)
+	input, isNull, err := b.args[0].EvalInt(row)
 	if err != nil {
 		return 0, true, err
 	}
@@ -699,7 +699,7 @@ func (b *builtinBitNegSig) Clone() builtinFunc {
 }
 
 func (b *builtinBitNegSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg, isNull, err := b.args[0].EvalInt(b.ctx, row)
+	arg, isNull, err := b.args[0].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -760,7 +760,7 @@ func (b *builtinUnaryNotRealSig) Clone() builtinFunc {
 }
 
 func (b *builtinUnaryNotRealSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg, isNull, err := b.args[0].EvalReal(b.ctx, row)
+	arg, isNull, err := b.args[0].EvalReal(row)
 	if isNull || err != nil {
 		return 0, true, err
 	}
@@ -781,7 +781,7 @@ func (b *builtinUnaryNotDecimalSig) Clone() builtinFunc {
 }
 
 func (b *builtinUnaryNotDecimalSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg, isNull, err := b.args[0].EvalDecimal(b.ctx, row)
+	arg, isNull, err := b.args[0].EvalDecimal(row)
 	if isNull || err != nil {
 		return 0, true, err
 	}
@@ -802,7 +802,7 @@ func (b *builtinUnaryNotIntSig) Clone() builtinFunc {
 }
 
 func (b *builtinUnaryNotIntSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg, isNull, err := b.args[0].EvalInt(b.ctx, row)
+	arg, isNull, err := b.args[0].EvalInt(row)
 	if isNull || err != nil {
 		return 0, true, err
 	}
@@ -823,7 +823,7 @@ func (b *builtinUnaryNotJSONSig) Clone() builtinFunc {
 }
 
 func (b *builtinUnaryNotJSONSig) evalInt(row chunk.Row) (int64, bool, error) {
-	arg, isNull, err := b.args[0].EvalJSON(b.ctx, row)
+	arg, isNull, err := b.args[0].EvalJSON(row)
 	if isNull || err != nil {
 		return 0, true, err
 	}
@@ -952,7 +952,7 @@ func (b *builtinUnaryMinusIntSig) Clone() builtinFunc {
 
 func (b *builtinUnaryMinusIntSig) evalInt(row chunk.Row) (res int64, isNull bool, err error) {
 	var val int64
-	val, isNull, err = b.args[0].EvalInt(b.ctx, row)
+	val, isNull, err = b.args[0].EvalInt(row)
 	if err != nil || isNull {
 		return val, isNull, err
 	}
@@ -983,7 +983,7 @@ func (b *builtinUnaryMinusDecimalSig) Clone() builtinFunc {
 }
 
 func (b *builtinUnaryMinusDecimalSig) evalDecimal(row chunk.Row) (*types.MyDecimal, bool, error) {
-	dec, isNull, err := b.args[0].EvalDecimal(b.ctx, row)
+	dec, isNull, err := b.args[0].EvalDecimal(row)
 	if err != nil || isNull {
 		return dec, isNull, err
 	}
@@ -1001,7 +1001,7 @@ func (b *builtinUnaryMinusRealSig) Clone() builtinFunc {
 }
 
 func (b *builtinUnaryMinusRealSig) evalReal(row chunk.Row) (float64, bool, error) {
-	val, isNull, err := b.args[0].EvalReal(b.ctx, row)
+	val, isNull, err := b.args[0].EvalReal(row)
 	return -val, isNull, err
 }
 
@@ -1071,7 +1071,7 @@ func evalIsNull(isNull bool, err error) (int64, bool, error) {
 }
 
 func (b *builtinDecimalIsNullSig) evalInt(row chunk.Row) (int64, bool, error) {
-	_, isNull, err := b.args[0].EvalDecimal(b.ctx, row)
+	_, isNull, err := b.args[0].EvalDecimal(row)
 	return evalIsNull(isNull, err)
 }
 
@@ -1086,7 +1086,7 @@ func (b *builtinDurationIsNullSig) Clone() builtinFunc {
 }
 
 func (b *builtinDurationIsNullSig) evalInt(row chunk.Row) (int64, bool, error) {
-	_, isNull, err := b.args[0].EvalDuration(b.ctx, row)
+	_, isNull, err := b.args[0].EvalDuration(row)
 	return evalIsNull(isNull, err)
 }
 
@@ -1101,7 +1101,7 @@ func (b *builtinIntIsNullSig) Clone() builtinFunc {
 }
 
 func (b *builtinIntIsNullSig) evalInt(row chunk.Row) (int64, bool, error) {
-	_, isNull, err := b.args[0].EvalInt(b.ctx, row)
+	_, isNull, err := b.args[0].EvalInt(row)
 	return evalIsNull(isNull, err)
 }
 
@@ -1116,7 +1116,7 @@ func (b *builtinRealIsNullSig) Clone() builtinFunc {
 }
 
 func (b *builtinRealIsNullSig) evalInt(row chunk.Row) (int64, bool, error) {
-	_, isNull, err := b.args[0].EvalReal(b.ctx, row)
+	_, isNull, err := b.args[0].EvalReal(row)
 	return evalIsNull(isNull, err)
 }
 
@@ -1131,7 +1131,7 @@ func (b *builtinStringIsNullSig) Clone() builtinFunc {
 }
 
 func (b *builtinStringIsNullSig) evalInt(row chunk.Row) (int64, bool, error) {
-	_, isNull, err := b.args[0].EvalString(b.ctx, row)
+	_, isNull, err := b.args[0].EvalString(row)
 	return evalIsNull(isNull, err)
 }
 
@@ -1146,6 +1146,6 @@ func (b *builtinTimeIsNullSig) Clone() builtinFunc {
 }
 
 func (b *builtinTimeIsNullSig) evalInt(row chunk.Row) (int64, bool, error) {
-	_, isNull, err := b.args[0].EvalTime(b.ctx, row)
+	_, isNull, err := b.args[0].EvalTime(row)
 	return evalIsNull(isNull, err)
 }

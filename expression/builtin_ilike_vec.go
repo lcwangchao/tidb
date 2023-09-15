@@ -73,11 +73,11 @@ func (b *builtinIlikeSig) getEscape(input *chunk.Chunk, result *chunk.Column) (i
 	rowNum := input.NumRows()
 	escape := int64('\\')
 
-	if !b.args[2].ConstItem(b.ctx.GetSessionVars().StmtCtx) {
+	if !b.args[2].ConstItem(b.ctx.StmtCtx) {
 		return escape, true, errors.Errorf("escape should be const")
 	}
 
-	escape, isConstNull, err := b.args[2].EvalInt(b.ctx, chunk.Row{})
+	escape, isConstNull, err := b.args[2].EvalInt(chunk.Row{})
 	if isConstNull {
 		fillNullStringIntoResult(result, rowNum)
 		return escape, true, nil

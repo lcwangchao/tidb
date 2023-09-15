@@ -160,12 +160,12 @@ func (s *partitionProcessor) getUsedHashPartitions(ctx sessionctx.Context,
 			if col, ok := hashExpr.(*expression.Column); ok && col.RetType.EvalType() == types.ETInt {
 				numPartitions := len(pi.Definitions)
 
-				posHigh, highIsNull, err := hashExpr.EvalInt(ctx, chunk.MutRowFromDatums(r.HighVal).ToRow())
+				posHigh, highIsNull, err := hashExpr.EvalInt(chunk.MutRowFromDatums(r.HighVal).ToRow())
 				if err != nil {
 					return nil, nil, err
 				}
 
-				posLow, lowIsNull, err := hashExpr.EvalInt(ctx, chunk.MutRowFromDatums(r.LowVal).ToRow())
+				posLow, lowIsNull, err := hashExpr.EvalInt(chunk.MutRowFromDatums(r.LowVal).ToRow())
 				if err != nil {
 					return nil, nil, err
 				}
@@ -225,7 +225,7 @@ func (s *partitionProcessor) getUsedHashPartitions(ctx sessionctx.Context,
 		highLowVals := make([]types.Datum, 0, len(r.HighVal)+len(r.LowVal))
 		highLowVals = append(highLowVals, r.HighVal...)
 		highLowVals = append(highLowVals, r.LowVal...)
-		pos, isNull, err := hashExpr.EvalInt(ctx, chunk.MutRowFromDatums(highLowVals).ToRow())
+		pos, isNull, err := hashExpr.EvalInt(chunk.MutRowFromDatums(highLowVals).ToRow())
 		if err != nil {
 			// If we failed to get the point position, we can just skip and ignore it.
 			continue
@@ -260,12 +260,12 @@ func (s *partitionProcessor) getUsedKeyPartitions(ctx sessionctx.Context,
 		if !r.IsPointNullable(ctx) {
 			if len(partCols) == 1 && partCols[0].RetType.EvalType() == types.ETInt {
 				col := partCols[0]
-				posHigh, highIsNull, err := col.EvalInt(ctx, chunk.MutRowFromDatums(r.HighVal).ToRow())
+				posHigh, highIsNull, err := col.EvalInt(chunk.MutRowFromDatums(r.HighVal).ToRow())
 				if err != nil {
 					return nil, nil, err
 				}
 
-				posLow, lowIsNull, err := col.EvalInt(ctx, chunk.MutRowFromDatums(r.LowVal).ToRow())
+				posLow, lowIsNull, err := col.EvalInt(chunk.MutRowFromDatums(r.LowVal).ToRow())
 				if err != nil {
 					return nil, nil, err
 				}
@@ -721,7 +721,7 @@ func (l *listPartitionPruner) findUsedListPartitions(conds []expression.Expressi
 		if len(r.HighVal) != len(exprCols) {
 			return l.fullRange, nil
 		}
-		value, isNull, err := pruneExpr.EvalInt(l.ctx, chunk.MutRowFromDatums(r.HighVal).ToRow())
+		value, isNull, err := pruneExpr.EvalInt(chunk.MutRowFromDatums(r.HighVal).ToRow())
 		if err != nil {
 			return nil, err
 		}
@@ -1385,7 +1385,7 @@ func partitionRangeForInExpr(sctx sessionctx.Context, args []expression.Expressi
 		if pruner.partFn != nil {
 			// replace fn(col) to fn(const)
 			partFnConst := replaceColumnWithConst(pruner.partFn, constExpr)
-			val, _, err = partFnConst.EvalInt(sctx, chunk.Row{})
+			val, _, err = partFnConst.EvalInt(chunk.Row{})
 		} else {
 			val, err = constExpr.Value.ToInt64(sctx.GetSessionVars().StmtCtx)
 		}
@@ -1501,7 +1501,7 @@ func (p *rangePruner) extractDataForPrune(sctx sessionctx.Context, expr expressi
 	if !constExpr.ConstItem(sctx.GetSessionVars().StmtCtx) {
 		return ret, false
 	}
-	c, isNull, err := constExpr.EvalInt(sctx, chunk.Row{})
+	c, isNull, err := constExpr.EvalInt(chunk.Row{})
 	if err == nil && !isNull {
 		ret.c = c
 		return ret, true
@@ -1920,7 +1920,7 @@ func (p *rangeColumnsPruner) pruneUseBinarySearch(sctx sessionctx.Context, op st
 			}
 			expr.SetCharsetAndCollation(charSet, collation)
 			var val int64
-			val, isNull, err = expr.EvalInt(sctx, chunk.Row{})
+			val, isNull, err = expr.EvalInt(chunk.Row{})
 			if err != nil {
 				savedError = err
 				return true

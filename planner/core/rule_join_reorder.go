@@ -305,7 +305,7 @@ func (s *joinReOrderSolver) optimizeRecursive(ctx sessionctx.Context, p LogicalP
 			schemaChanged = true
 		} else {
 			for i, col := range p.Schema().Columns {
-				if !col.Equal(nil, originalSchema.Columns[i]) {
+				if !col.Equal(originalSchema.Columns[i]) {
 					schemaChanged = true
 					break
 				}

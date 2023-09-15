@@ -79,10 +79,10 @@ func buildStringParam(bf *baseBuiltinFunc, idx int, input *chunk.Chunk, notProvi
 	}
 
 	// Check if this is a const value
-	if bf.args[idx].ConstItem(bf.ctx.GetSessionVars().StmtCtx) {
+	if bf.args[idx].ConstItem(bf.ctx.StmtCtx) {
 		// Initialize the const
 		var isConstNull bool
-		pa.defaultStrVal, isConstNull, err = bf.args[idx].EvalString(bf.ctx, chunk.Row{})
+		pa.defaultStrVal, isConstNull, err = bf.args[idx].EvalString(chunk.Row{})
 		if isConstNull || err != nil {
 			return nil, isConstNull, err
 		}
@@ -95,7 +95,7 @@ func buildStringParam(bf *baseBuiltinFunc, idx int, input *chunk.Chunk, notProvi
 	}
 
 	// Get values from input
-	err = bf.args[idx].VecEvalString(bf.ctx, input, pa.getCol())
+	err = bf.args[idx].VecEvalString(input, pa.getCol())
 
 	return &pa, false, err
 }
@@ -111,10 +111,10 @@ func buildIntParam(bf *baseBuiltinFunc, idx int, input *chunk.Chunk, notProvided
 	}
 
 	// Check if this is a const value
-	if bf.args[idx].ConstItem(bf.ctx.GetSessionVars().StmtCtx) {
+	if bf.args[idx].ConstItem(bf.ctx.StmtCtx) {
 		// Initialize the const
 		var isConstNull bool
-		pa.defaultIntVal, isConstNull, err = bf.args[idx].EvalInt(bf.ctx, chunk.Row{})
+		pa.defaultIntVal, isConstNull, err = bf.args[idx].EvalInt(chunk.Row{})
 		if isConstNull || err != nil {
 			return nil, isConstNull, err
 		}
@@ -127,7 +127,7 @@ func buildIntParam(bf *baseBuiltinFunc, idx int, input *chunk.Chunk, notProvided
 	}
 
 	// Get values from input
-	err = bf.args[idx].VecEvalInt(bf.ctx, input, pa.getCol())
+	err = bf.args[idx].VecEvalInt(input, pa.getCol())
 
 	return &pa, false, err
 }

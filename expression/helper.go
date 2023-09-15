@@ -60,7 +60,7 @@ func IsValidCurrentTimestampExpr(exprNode ast.ExprNode, fieldType *types.FieldTy
 }
 
 // GetTimeCurrentTimestamp is used for generating a timestamp for some special cases: cast null value to timestamp type with not null flag.
-func GetTimeCurrentTimestamp(ctx sessionctx.Context, tp byte, fsp int) (d types.Datum, err error) {
+func GetTimeCurrentTimestamp(ctx *ExprContext, tp byte, fsp int) (d types.Datum, err error) {
 	var t types.Time
 	t, err = getTimeCurrentTimeStamp(ctx, tp, fsp)
 	if err != nil {
@@ -70,7 +70,7 @@ func GetTimeCurrentTimestamp(ctx sessionctx.Context, tp byte, fsp int) (d types.
 	return d, nil
 }
 
-func getTimeCurrentTimeStamp(ctx sessionctx.Context, tp byte, fsp int) (t types.Time, err error) {
+func getTimeCurrentTimeStamp(ctx *ExprContext, tp byte, fsp int) (t types.Time, err error) {
 	value := types.NewTime(types.ZeroCoreTime, tp, fsp)
 	defaultTime, err := getStmtTimestamp(ctx)
 	if err != nil {
@@ -78,7 +78,7 @@ func getTimeCurrentTimeStamp(ctx sessionctx.Context, tp byte, fsp int) (t types.
 	}
 	value.SetCoreTime(types.FromGoTime(defaultTime.Truncate(time.Duration(math.Pow10(9-fsp)) * time.Nanosecond)))
 	if tp == mysql.TypeTimestamp || tp == mysql.TypeDatetime || tp == mysql.TypeDate {
-		err = value.ConvertTimeZone(time.Local, ctx.GetSessionVars().Location())
+		err = value.ConvertTimeZone(time.Local, ctx.Location())
 		if err != nil {
 			return value, err
 		}
@@ -95,7 +95,7 @@ func GetTimeValue(ctx sessionctx.Context, v interface{}, tp byte, fsp int, expli
 	case string:
 		lowerX := strings.ToLower(x)
 		if lowerX == ast.CurrentTimestamp || lowerX == ast.CurrentDate {
-			if value, err = getTimeCurrentTimeStamp(ctx, tp, fsp); err != nil {
+			if value, err = getTimeCurrentTimeStamp(NewExprContext(ctx), tp, fsp); err != nil {
 				return d, err
 			}
 		} else if lowerX == types.ZeroDatetimeStr {
@@ -155,14 +155,14 @@ func GetTimeValue(ctx sessionctx.Context, v interface{}, tp byte, fsp int, expli
 
 // if timestamp session variable set, use session variable as current time, otherwise use cached time
 // during one sql statement, the "current_time" should be the same
-func getStmtTimestamp(ctx sessionctx.Context) (time.Time, error) {
+func getStmtTimestamp(ctx *ExprContext) (time.Time, error) {
 	failpoint.Inject("injectNow", func(val failpoint.Value) {
 		v := time.Unix(int64(val.(int)), 0)
 		failpoint.Return(v, nil)
 	})
 
 	if ctx != nil {
-		staleTSO, err := ctx.GetSessionVars().StmtCtx.GetStaleTSO()
+		staleTSO, err := ctx.StmtCtx.GetStaleTSO()
 		if staleTSO != 0 && err == nil {
 			return oracle.GetTimeFromTS(staleTSO), nil
 		} else if err != nil {
@@ -176,13 +176,12 @@ func getStmtTimestamp(ctx sessionctx.Context) (time.Time, error) {
 		return now, nil
 	}
 
-	sessionVars := ctx.GetSessionVars()
-	timestampStr, err := sessionVars.GetSessionOrGlobalSystemVar(context.Background(), "timestamp")
+	timestampStr, err := ctx.GetSessionOrGlobalSystemVar(context.Background(), "timestamp")
 	if err != nil {
 		return now, err
 	}
 
-	timestamp, err := types.StrToFloat(sessionVars.StmtCtx, timestampStr, false)
+	timestamp, err := types.StrToFloat(ctx.StmtCtx, timestampStr, false)
 	if err != nil {
 		return time.Time{}, err
 	}

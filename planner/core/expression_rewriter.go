@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tidb/domain"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/expression/aggregation"
 	"github.com/pingcap/tidb/infoschema"
@@ -577,7 +576,7 @@ func (er *expressionRewriter) handleCompareSubquery(ctx context.Context, v *ast.
 	// Lexpr cannot compare with rexpr by different collate
 	opString := new(strings.Builder)
 	v.Op.Format(opString)
-	_, er.err = expression.CheckAndDeriveCollationFromExprs(er.sctx, opString.String(), types.ETInt, lexpr, rexpr)
+	_, er.err = expression.CheckAndDeriveCollationFromExprs(expression.NewExprContext(er.sctx), opString.String(), types.ETInt, lexpr, rexpr)
 	if er.err != nil {
 		return v, true
 	}
@@ -1731,7 +1730,7 @@ func (er *expressionRewriter) inToExpression(lLen int, not bool, tp *types.Field
 func (er *expressionRewriter) deriveCollationForIn(colLen int, _ int, args []expression.Expression) *expression.ExprCollation {
 	if colLen == 1 {
 		// a in (x, y, z) => coll[0]
-		coll2, err := expression.CheckAndDeriveCollationFromExprs(er.sctx, "IN", types.ETInt, args...)
+		coll2, err := expression.CheckAndDeriveCollationFromExprs(expression.NewExprContext(er.sctx), "IN", types.ETInt, args...)
 		er.err = err
 		if er.err != nil {
 			return nil
@@ -1846,7 +1845,7 @@ func (er *expressionRewriter) patternLikeOrIlikeToExpression(v *ast.PatternLikeO
 	isPatternExactMatch := false
 	// Treat predicate 'like' or 'ilike' the same way as predicate '=' when it is an exact match and new collation is not enabled.
 	if patExpression, ok := er.ctxStack[l-1].(*expression.Constant); ok && !collate.NewCollationEnabled() {
-		patString, isNull, err := patExpression.EvalString(nil, chunk.Row{})
+		patString, isNull, err := patExpression.EvalString(chunk.Row{})
 		if err != nil {
 			er.err = err
 			return
@@ -1955,7 +1954,7 @@ func (er *expressionRewriter) betweenToExpression(v *ast.BetweenExpr) {
 
 	expr, lexp, rexp := er.wrapExpWithCast()
 
-	coll, err := expression.CheckAndDeriveCollationFromExprs(er.sctx, "BETWEEN", types.ETInt, expr, lexp, rexp)
+	coll, err := expression.CheckAndDeriveCollationFromExprs(expression.NewExprContext(er.sctx), "BETWEEN", types.ETInt, expr, lexp, rexp)
 	er.err = err
 	if er.err != nil {
 		return
@@ -2311,8 +2310,8 @@ func hasCurrentDatetimeDefault(col *table.Column) bool {
 	return strings.ToLower(x) == ast.CurrentTimestamp
 }
 
-func decodeKeyFromString(ctx sessionctx.Context, s string) string {
-	sc := ctx.GetSessionVars().StmtCtx
+func decodeKeyFromString(ctx *expression.ExprContext, s string) string {
+	sc := ctx.StmtCtx
 	key, err := hex.DecodeString(s)
 	if err != nil {
 		sc.AppendWarning(errors.Errorf("invalid key: %X", key))
@@ -2328,12 +2327,8 @@ func decodeKeyFromString(ctx sessionctx.Context, s string) string {
 		sc.AppendWarning(errors.Errorf("invalid key: %X", key))
 		return s
 	}
-	dm := domain.GetDomain(ctx)
-	if dm == nil {
-		sc.AppendWarning(errors.Errorf("domain not found when decoding key: %X", key))
-		return s
-	}
-	is := dm.InfoSchema()
+
+	is := ctx.InfoSchema.(infoschema.InfoSchema)
 	if is == nil {
 		sc.AppendWarning(errors.Errorf("infoschema not found when decoding key: %X", key))
 		return s
@@ -2342,7 +2337,7 @@ func decodeKeyFromString(ctx sessionctx.Context, s string) string {
 	if tbl == nil {
 		tbl, _, _ = is.FindTableByPartitionID(tableID)
 	}
-	loc := ctx.GetSessionVars().Location()
+	loc := ctx.Location()
 	if tablecodec.IsRecordKey(key) {
 		ret, err := decodeRecordKey(key, tableID, tbl, loc)
 		if err != nil {

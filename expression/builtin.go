@@ -49,7 +49,7 @@ import (
 type baseBuiltinFunc struct {
 	bufAllocator columnBufferAllocator
 	args         []Expression
-	ctx          sessionctx.Context
+	ctx          *ExprContext
 	tp           *types.FieldType
 	pbCode       tipb.ScalarFuncSig
 	ctor         collate.Collator
@@ -109,7 +109,7 @@ func adjustNullFlagForReturnType(funcName string, args []Expression, bf baseBuil
 	}
 }
 
-func newBaseBuiltinFunc(ctx sessionctx.Context, funcName string, args []Expression, tp *types.FieldType) (baseBuiltinFunc, error) {
+func newBaseBuiltinFunc(ctx *ExprContext, funcName string, args []Expression, tp *types.FieldType) (baseBuiltinFunc, error) {
 	if ctx == nil {
 		return baseBuiltinFunc{}, errors.New("unexpected nil session ctx")
 	}
@@ -149,7 +149,7 @@ func newBaseBuiltinFuncWithTp(ctx sessionctx.Context, funcName string, args []Ex
 
 	// derive collation information for string function, and we must do it
 	// before doing implicit cast.
-	ec, err := deriveCollation(ctx, funcName, args, retType, argTps...)
+	ec, err := deriveCollation(NewExprContext(ctx), funcName, args, retType, argTps...)
 	if err != nil {
 		return
 	}
@@ -208,7 +208,7 @@ func newBaseBuiltinFuncWithTp(ctx sessionctx.Context, funcName string, args []Ex
 		childrenReversedOnce:   new(sync.Once),
 
 		args: args,
-		ctx:  ctx,
+		ctx:  NewExprContext(ctx),
 		tp:   fieldType,
 	}
 	bf.SetCharsetAndCollation(ec.Charset, ec.Collation)
@@ -232,7 +232,7 @@ func newBaseBuiltinFuncWithFieldType(ctx sessionctx.Context, tp *types.FieldType
 		childrenReversedOnce:   new(sync.Once),
 
 		args: args,
-		ctx:  ctx,
+		ctx:  NewExprContext(ctx),
 		tp:   tp,
 	}
 	bf.SetCharsetAndCollation(tp.GetCharset(), tp.GetCollate())
@@ -360,7 +360,7 @@ func (b *baseBuiltinFunc) equal(fun builtinFunc) bool {
 		return false
 	}
 	for i := range b.args {
-		if !b.args[i].Equal(b.ctx, funArgs[i]) {
+		if !b.args[i].Equal(funArgs[i]) {
 			return false
 		}
 	}
@@ -368,7 +368,7 @@ func (b *baseBuiltinFunc) equal(fun builtinFunc) bool {
 }
 
 func (b *baseBuiltinFunc) getCtx() sessionctx.Context {
-	return b.ctx
+	return b.ctx.GetSessionCtx()
 }
 
 func (b *baseBuiltinFunc) cloneFrom(from *baseBuiltinFunc) {
@@ -507,7 +507,7 @@ type builtinFunc interface {
 }
 
 type builtinFuncNew interface {
-	evalIntWithCtx(ctx sessionctx.Context, row chunk.Row) (val int64, isNull bool, err error)
+	evalIntWithCtx(ctx *ExprContext, row chunk.Row) (val int64, isNull bool, err error)
 }
 
 // baseFunctionClass will be contained in every struct that implement functionClass interface.

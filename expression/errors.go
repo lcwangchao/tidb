@@ -17,7 +17,6 @@ package expression
 import (
 	mysql "github.com/pingcap/tidb/errno"
 	pmysql "github.com/pingcap/tidb/parser/mysql"
-	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/dbterror"
 )
@@ -69,28 +68,28 @@ var (
 )
 
 // handleInvalidTimeError reports error or warning depend on the context.
-func handleInvalidTimeError(ctx sessionctx.Context, err error) error {
+func handleInvalidTimeError(ctx *ExprContext, err error) error {
 	if err == nil || !(types.ErrWrongValue.Equal(err) || types.ErrWrongValueForType.Equal(err) ||
 		types.ErrTruncatedWrongVal.Equal(err) || types.ErrInvalidWeekModeFormat.Equal(err) ||
 		types.ErrDatetimeFunctionOverflow.Equal(err) || types.ErrIncorrectDatetimeValue.Equal(err)) {
 		return err
 	}
-	sc := ctx.GetSessionVars().StmtCtx
+	sc := ctx.StmtCtx
 	err = sc.HandleTruncate(err)
-	if ctx.GetSessionVars().StrictSQLMode && (sc.InInsertStmt || sc.InUpdateStmt || sc.InDeleteStmt) {
+	if ctx.StrictSQLMode && (sc.InInsertStmt || sc.InUpdateStmt || sc.InDeleteStmt) {
 		return err
 	}
 	return nil
 }
 
 // handleDivisionByZeroError reports error or warning depend on the context.
-func handleDivisionByZeroError(ctx sessionctx.Context) error {
-	sc := ctx.GetSessionVars().StmtCtx
+func handleDivisionByZeroError(ctx *ExprContext) error {
+	sc := ctx.StmtCtx
 	if sc.InInsertStmt || sc.InUpdateStmt || sc.InDeleteStmt {
-		if !ctx.GetSessionVars().SQLMode.HasErrorForDivisionByZeroMode() {
+		if !ctx.SQLMode.HasErrorForDivisionByZeroMode() {
 			return nil
 		}
-		if ctx.GetSessionVars().StrictSQLMode && !sc.DividedByZeroAsWarning {
+		if ctx.StrictSQLMode && !sc.DividedByZeroAsWarning {
 			return ErrDivisionByZero
 		}
 	}
@@ -99,9 +98,9 @@ func handleDivisionByZeroError(ctx sessionctx.Context) error {
 }
 
 // handleAllowedPacketOverflowed reports error or warning depend on the context.
-func handleAllowedPacketOverflowed(ctx sessionctx.Context, exprName string, maxAllowedPacketSize uint64) error {
+func handleAllowedPacketOverflowed(ctx *ExprContext, exprName string, maxAllowedPacketSize uint64) error {
 	err := errWarnAllowedPacketOverflowed.GenWithStackByArgs(exprName, maxAllowedPacketSize)
-	sc := ctx.GetSessionVars().StmtCtx
+	sc := ctx.StmtCtx
 
 	// insert|update|delete ignore ...
 	if sc.TruncateAsWarning {
@@ -109,7 +108,7 @@ func handleAllowedPacketOverflowed(ctx sessionctx.Context, exprName string, maxA
 		return nil
 	}
 
-	if ctx.GetSessionVars().StrictSQLMode && (sc.InInsertStmt || sc.InUpdateStmt || sc.InDeleteStmt) {
+	if ctx.StrictSQLMode && (sc.InInsertStmt || sc.InUpdateStmt || sc.InDeleteStmt) {
 		return err
 	}
 	sc.AppendWarning(err)

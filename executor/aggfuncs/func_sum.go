@@ -91,7 +91,7 @@ func (e *baseSum4Float64) AppendFinalResult2Chunk(_ sessionctx.Context, pr Parti
 func (e *baseSum4Float64) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4SumFloat64)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalReal(sctx, row)
+		input, isNull, err := e.args[0].EvalReal(row)
 		if err != nil {
 			return 0, err
 		}
@@ -123,7 +123,7 @@ var _ SlidingWindowAggFunc = &sum4Float64{}
 func (e *sum4Float64) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.Row, lastStart, lastEnd uint64, shiftStart, shiftEnd uint64, pr PartialResult) error {
 	p := (*partialResult4SumFloat64)(pr)
 	for i := uint64(0); i < shiftEnd; i++ {
-		input, isNull, err := e.args[0].EvalReal(sctx, getRow(lastEnd+i))
+		input, isNull, err := e.args[0].EvalReal(getRow(lastEnd + i))
 		if err != nil {
 			return err
 		}
@@ -134,7 +134,7 @@ func (e *sum4Float64) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.R
 		p.notNullRowCount++
 	}
 	for i := uint64(0); i < shiftStart; i++ {
-		input, isNull, err := e.args[0].EvalReal(sctx, getRow(lastStart+i))
+		input, isNull, err := e.args[0].EvalReal(getRow(lastStart + i))
 		if err != nil {
 			return err
 		}
@@ -189,7 +189,7 @@ func (e *sum4Decimal) AppendFinalResult2Chunk(_ sessionctx.Context, pr PartialRe
 func (e *sum4Decimal) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4SumDecimal)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalDecimal(sctx, row)
+		input, isNull, err := e.args[0].EvalDecimal(row)
 		if err != nil {
 			return 0, err
 		}
@@ -218,7 +218,7 @@ var _ SlidingWindowAggFunc = &sum4Decimal{}
 func (e *sum4Decimal) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.Row, lastStart, lastEnd uint64, shiftStart, shiftEnd uint64, pr PartialResult) error {
 	p := (*partialResult4SumDecimal)(pr)
 	for i := uint64(0); i < shiftEnd; i++ {
-		input, isNull, err := e.args[0].EvalDecimal(sctx, getRow(lastEnd+i))
+		input, isNull, err := e.args[0].EvalDecimal(getRow(lastEnd + i))
 		if err != nil {
 			return err
 		}
@@ -239,7 +239,7 @@ func (e *sum4Decimal) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.R
 		p.notNullRowCount++
 	}
 	for i := uint64(0); i < shiftStart; i++ {
-		input, isNull, err := e.args[0].EvalDecimal(sctx, getRow(lastStart+i))
+		input, isNull, err := e.args[0].EvalDecimal(getRow(lastStart + i))
 		if err != nil {
 			return err
 		}
@@ -293,7 +293,7 @@ func (*sum4DistinctFloat64) ResetPartialResult(pr PartialResult) {
 func (e *sum4DistinctFloat64) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4SumDistinctFloat64)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalReal(sctx, row)
+		input, isNull, err := e.args[0].EvalReal(row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -342,7 +342,7 @@ func (*sum4DistinctDecimal) ResetPartialResult(pr PartialResult) {
 func (e *sum4DistinctDecimal) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4SumDistinctDecimal)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalDecimal(sctx, row)
+		input, isNull, err := e.args[0].EvalDecimal(row)
 		if err != nil {
 			return memDelta, err
 		}

@@ -232,7 +232,7 @@ func (b *BuiltinGroupingImplSig) evalInt(row chunk.Row) (int64, bool, error) {
 		return 0, false, errors.Errorf("Meta data is not initialized")
 	}
 	// grouping function should be rewritten from raw column ref to built gid column and groupingMarks meta.
-	groupingID, isNull, err := b.args[0].EvalInt(b.ctx, row)
+	groupingID, isNull, err := b.args[0].EvalInt(row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -270,7 +270,7 @@ func (b *BuiltinGroupingImplSig) vecEvalInt(input *chunk.Chunk, result *chunk.Co
 		return err
 	}
 	defer b.bufAllocator.put(bufVal)
-	if err = b.args[0].VecEvalInt(b.ctx, input, bufVal); err != nil {
+	if err = b.args[0].VecEvalInt(input, bufVal); err != nil {
 		return err
 	}
 

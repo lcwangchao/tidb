@@ -33,7 +33,7 @@ func (b *builtinCastIntAsDurationSig) vecEvalDuration(input *chunk.Chunk, result
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalInt(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalInt(input, buf); err != nil {
 		return err
 	}
 
@@ -48,10 +48,10 @@ func (b *builtinCastIntAsDurationSig) vecEvalDuration(input *chunk.Chunk, result
 		dur, err := types.NumberToDuration(i64s[i], b.tp.GetDecimal())
 		if err != nil {
 			if types.ErrOverflow.Equal(err) {
-				err = b.ctx.GetSessionVars().StmtCtx.HandleOverflow(err, err)
+				err = b.ctx.StmtCtx.HandleOverflow(err, err)
 			}
 			if types.ErrTruncatedWrongVal.Equal(err) {
-				err = b.ctx.GetSessionVars().StmtCtx.HandleTruncate(err)
+				err = b.ctx.StmtCtx.HandleTruncate(err)
 			}
 			if err != nil {
 				return err
@@ -69,7 +69,7 @@ func (*builtinCastIntAsDurationSig) vectorized() bool {
 }
 
 func (b *builtinCastIntAsIntSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
-	if err := b.args[0].VecEvalInt(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalInt(input, result); err != nil {
 		return err
 	}
 	if b.inUnion && mysql.HasUnsignedFlag(b.tp.GetFlag()) {
@@ -96,7 +96,7 @@ func (b *builtinCastIntAsRealSig) vecEvalReal(input *chunk.Chunk, result *chunk.
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalInt(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalInt(input, buf); err != nil {
 		return err
 	}
 
@@ -134,7 +134,7 @@ func (*builtinCastIntAsRealSig) vectorized() bool {
 }
 
 func (b *builtinCastRealAsRealSig) vecEvalReal(input *chunk.Chunk, result *chunk.Column) error {
-	if err := b.args[0].VecEvalReal(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalReal(input, result); err != nil {
 		return err
 	}
 	n := input.NumRows()
@@ -169,7 +169,7 @@ func (b *builtinCastTimeAsJSONSig) vecEvalJSON(input *chunk.Chunk, result *chunk
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err = b.args[0].VecEvalTime(b.ctx, input, buf); err != nil {
+	if err = b.args[0].VecEvalTime(input, buf); err != nil {
 		return err
 	}
 
@@ -201,7 +201,7 @@ func (b *builtinCastRealAsStringSig) vecEvalString(input *chunk.Chunk, result *c
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalReal(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalReal(input, buf); err != nil {
 		return err
 	}
 
@@ -217,7 +217,7 @@ func (b *builtinCastRealAsStringSig) vecEvalString(input *chunk.Chunk, result *c
 	var res string
 	f64s := buf.Float64s()
 	result.ReserveString(n)
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	for i, v := range f64s {
 		if buf.IsNull(i) {
 			result.AppendNull()
@@ -251,11 +251,11 @@ func (b *builtinCastDecimalAsStringSig) vecEvalString(input *chunk.Chunk, result
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalDecimal(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalDecimal(input, buf); err != nil {
 		return err
 	}
 
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	vas := buf.Decimals()
 	result.ReserveString(n)
 	for i, v := range vas {
@@ -291,7 +291,7 @@ func (b *builtinCastTimeAsDecimalSig) vecEvalDecimal(input *chunk.Chunk, result 
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalTime(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalTime(input, buf); err != nil {
 		return err
 	}
 
@@ -299,7 +299,7 @@ func (b *builtinCastTimeAsDecimalSig) vecEvalDecimal(input *chunk.Chunk, result 
 	result.MergeNulls(buf)
 	times := buf.Times()
 	decs := result.Decimals()
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	dec := new(types.MyDecimal)
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
@@ -327,7 +327,7 @@ func (b *builtinCastDurationAsIntSig) vecEvalInt(input *chunk.Chunk, result *chu
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalDuration(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalDuration(input, buf); err != nil {
 		return err
 	}
 
@@ -344,7 +344,7 @@ func (b *builtinCastDurationAsIntSig) vecEvalInt(input *chunk.Chunk, result *chu
 
 		duration.Duration = ds[i]
 		duration.Fsp = fsp
-		dur, err := duration.RoundFrac(types.DefaultFsp, b.ctx.GetSessionVars().Location())
+		dur, err := duration.RoundFrac(types.DefaultFsp, b.ctx.Location())
 		if err != nil {
 			return err
 		}
@@ -367,7 +367,7 @@ func (b *builtinCastIntAsTimeSig) vecEvalTime(input *chunk.Chunk, result *chunk.
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalInt(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalInt(input, buf); err != nil {
 		return err
 	}
 
@@ -375,7 +375,7 @@ func (b *builtinCastIntAsTimeSig) vecEvalTime(input *chunk.Chunk, result *chunk.
 	result.MergeNulls(buf)
 	times := result.Times()
 	i64s := buf.Int64s()
-	stmt := b.ctx.GetSessionVars().StmtCtx
+	stmt := b.ctx.StmtCtx
 	fsp := b.tp.GetDecimal()
 
 	var tm types.Time
@@ -417,7 +417,7 @@ func (b *builtinCastRealAsJSONSig) vecEvalJSON(input *chunk.Chunk, result *chunk
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalReal(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalReal(input, buf); err != nil {
 		return err
 	}
 	f64s := buf.Float64s()
@@ -444,14 +444,14 @@ func (b *builtinCastJSONAsRealSig) vecEvalReal(input *chunk.Chunk, result *chunk
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalJSON(input, buf); err != nil {
 		return err
 	}
 
 	result.ResizeFloat64(n, false)
 	result.MergeNulls(buf)
 	f64s := result.Float64s()
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
 			continue
@@ -475,7 +475,7 @@ func (b *builtinCastJSONAsTimeSig) vecEvalTime(input *chunk.Chunk, result *chunk
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalJSON(input, buf); err != nil {
 		return err
 	}
 
@@ -483,7 +483,7 @@ func (b *builtinCastJSONAsTimeSig) vecEvalTime(input *chunk.Chunk, result *chunk
 	result.MergeNulls(buf)
 	times := result.Times()
 
-	stmtCtx := b.ctx.GetSessionVars().StmtCtx
+	stmtCtx := b.ctx.StmtCtx
 	ts, err := getStmtTimestamp(b.ctx)
 	if err != nil {
 		ts = gotime.Now()
@@ -511,7 +511,7 @@ func (b *builtinCastJSONAsTimeSig) vecEvalTime(input *chunk.Chunk, result *chunk
 		case types.JSONTypeCodeDuration:
 			duration := val.GetDuration()
 
-			sc := b.ctx.GetSessionVars().StmtCtx
+			sc := b.ctx.StmtCtx
 			tm, err := duration.ConvertToTimeWithTimestamp(sc, b.tp.GetType(), ts)
 			if err != nil {
 				if err = handleInvalidTimeError(b.ctx, err); err != nil {
@@ -565,7 +565,7 @@ func (b *builtinCastRealAsTimeSig) vecEvalTime(input *chunk.Chunk, result *chunk
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalReal(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalReal(input, buf); err != nil {
 		return err
 	}
 
@@ -573,7 +573,7 @@ func (b *builtinCastRealAsTimeSig) vecEvalTime(input *chunk.Chunk, result *chunk
 	result.MergeNulls(buf)
 	times := result.Times()
 	f64s := buf.Float64s()
-	stmt := b.ctx.GetSessionVars().StmtCtx
+	stmt := b.ctx.StmtCtx
 	fsp := b.tp.GetDecimal()
 	for i := 0; i < n; i++ {
 		if buf.IsNull(i) {
@@ -606,13 +606,13 @@ func (*builtinCastDecimalAsDecimalSig) vectorized() bool {
 }
 
 func (b *builtinCastDecimalAsDecimalSig) vecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error {
-	if err := b.args[0].VecEvalDecimal(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalDecimal(input, result); err != nil {
 		return err
 	}
 
 	n := input.NumRows()
 	decs := result.Decimals()
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	conditionUnionAndUnsigned := b.inUnion && mysql.HasUnsignedFlag(b.tp.GetFlag())
 	dec := new(types.MyDecimal)
 	for i := 0; i < n; i++ {
@@ -643,7 +643,7 @@ func (b *builtinCastDurationAsTimeSig) vecEvalTime(input *chunk.Chunk, result *c
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalDuration(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalDuration(input, buf); err != nil {
 		return err
 	}
 
@@ -652,7 +652,7 @@ func (b *builtinCastDurationAsTimeSig) vecEvalTime(input *chunk.Chunk, result *c
 	var duration types.Duration
 	ds := buf.GoDurations()
 	times := result.Times()
-	stmtCtx := b.ctx.GetSessionVars().StmtCtx
+	stmtCtx := b.ctx.StmtCtx
 	ts, err := getStmtTimestamp(b.ctx)
 	if err != nil {
 		ts = gotime.Now()
@@ -693,7 +693,7 @@ func (b *builtinCastIntAsStringSig) vecEvalString(input *chunk.Chunk, result *ch
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalInt(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalInt(input, buf); err != nil {
 		return err
 	}
 
@@ -716,7 +716,7 @@ func (b *builtinCastIntAsStringSig) vecEvalString(input *chunk.Chunk, result *ch
 		if isYearType && str == "0" {
 			str = "0000"
 		}
-		str, err = types.ProduceStrWithSpecifiedTp(str, b.tp, b.ctx.GetSessionVars().StmtCtx, false)
+		str, err = types.ProduceStrWithSpecifiedTp(str, b.tp, b.ctx.StmtCtx, false)
 		if err != nil {
 			return err
 		}
@@ -745,7 +745,7 @@ func (b *builtinCastRealAsIntSig) vecEvalInt(input *chunk.Chunk, result *chunk.C
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalReal(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalReal(input, buf); err != nil {
 		return err
 	}
 
@@ -765,12 +765,12 @@ func (b *builtinCastRealAsIntSig) vecEvalInt(input *chunk.Chunk, result *chunk.C
 			i64s[i] = 0
 		} else {
 			var uintVal uint64
-			sc := b.ctx.GetSessionVars().StmtCtx
+			sc := b.ctx.StmtCtx
 			uintVal, err = types.ConvertFloatToUint(sc, f64s[i], types.IntergerUnsignedUpperBound(mysql.TypeLonglong), mysql.TypeLonglong)
 			i64s[i] = int64(uintVal)
 		}
 		if types.ErrOverflow.Equal(err) {
-			err = b.ctx.GetSessionVars().StmtCtx.HandleOverflow(err, err)
+			err = b.ctx.StmtCtx.HandleOverflow(err, err)
 		}
 		if err != nil {
 			return err
@@ -790,7 +790,7 @@ func (b *builtinCastTimeAsRealSig) vecEvalReal(input *chunk.Chunk, result *chunk
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalTime(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalTime(input, buf); err != nil {
 		return err
 	}
 	result.ResizeFloat64(n, false)
@@ -804,7 +804,7 @@ func (b *builtinCastTimeAsRealSig) vecEvalReal(input *chunk.Chunk, result *chunk
 		f64, err := times[i].ToNumber().ToFloat64()
 		if err != nil {
 			if types.ErrOverflow.Equal(err) {
-				err = b.ctx.GetSessionVars().StmtCtx.HandleOverflow(err, err)
+				err = b.ctx.StmtCtx.HandleOverflow(err, err)
 			}
 			if err != nil {
 				return err
@@ -828,7 +828,7 @@ func (b *builtinCastStringAsJSONSig) vecEvalJSON(input *chunk.Chunk, result *chu
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err = b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err = b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
@@ -892,7 +892,7 @@ func (b *builtinCastRealAsDecimalSig) vecEvalDecimal(input *chunk.Chunk, result 
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err = b.args[0].VecEvalReal(b.ctx, input, buf); err != nil {
+	if err = b.args[0].VecEvalReal(input, buf); err != nil {
 		return err
 	}
 	result.ResizeDecimal(n, false)
@@ -907,7 +907,7 @@ func (b *builtinCastRealAsDecimalSig) vecEvalDecimal(input *chunk.Chunk, result 
 			if err = resdecimal[i].FromFloat64(bufreal[i]); err != nil {
 				if types.ErrOverflow.Equal(err) {
 					warnErr := types.ErrTruncatedWrongVal.GenWithStackByArgs("DECIMAL", b.args[0])
-					err = b.ctx.GetSessionVars().StmtCtx.HandleOverflow(err, warnErr)
+					err = b.ctx.StmtCtx.HandleOverflow(err, warnErr)
 				} else if types.ErrTruncated.Equal(err) {
 					// This behavior is consistent with MySQL.
 					err = nil
@@ -917,7 +917,7 @@ func (b *builtinCastRealAsDecimalSig) vecEvalDecimal(input *chunk.Chunk, result 
 				}
 			}
 		}
-		dec, err := types.ProduceDecWithSpecifiedTp(&resdecimal[i], b.tp, b.ctx.GetSessionVars().StmtCtx)
+		dec, err := types.ProduceDecWithSpecifiedTp(&resdecimal[i], b.tp, b.ctx.StmtCtx)
 		if err != nil {
 			return err
 		}
@@ -933,12 +933,12 @@ func (*builtinCastStringAsIntSig) vectorized() bool {
 func (b *builtinCastStringAsIntSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	if b.args[0].GetType().Hybrid() || IsBinaryLiteral(b.args[0]) {
-		return b.args[0].VecEvalInt(b.ctx, input, result)
+		return b.args[0].VecEvalInt(input, result)
 	}
 
 	// Take the implicit evalInt path if possible.
 	if CanImplicitEvalInt(b.args[0]) {
-		return b.args[0].VecEvalInt(b.ctx, input, result)
+		return b.args[0].VecEvalInt(input, result)
 	}
 
 	result.ResizeInt64(n, false)
@@ -947,11 +947,11 @@ func (b *builtinCastStringAsIntSig) vecEvalInt(input *chunk.Chunk, result *chunk
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	result.MergeNulls(buf)
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	i64s := result.Int64s()
 	isUnsigned := mysql.HasUnsignedFlag(b.tp.GetFlag())
 	unionUnsigned := isUnsigned && b.inUnion
@@ -1000,7 +1000,7 @@ func (b *builtinCastStringAsDurationSig) vecEvalDuration(input *chunk.Chunk, res
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	result.ResizeGoDuration(n, false)
@@ -1010,10 +1010,10 @@ func (b *builtinCastStringAsDurationSig) vecEvalDuration(input *chunk.Chunk, res
 		if result.IsNull(i) {
 			continue
 		}
-		dur, isNull, err := types.ParseDuration(b.ctx.GetSessionVars().StmtCtx, buf.GetString(i), b.tp.GetDecimal())
+		dur, isNull, err := types.ParseDuration(b.ctx.StmtCtx, buf.GetString(i), b.tp.GetDecimal())
 		if err != nil {
 			if types.ErrTruncatedWrongVal.Equal(err) {
-				err = b.ctx.GetSessionVars().StmtCtx.HandleTruncate(err)
+				err = b.ctx.StmtCtx.HandleTruncate(err)
 			}
 			if err != nil {
 				return err
@@ -1039,7 +1039,7 @@ func (b *builtinCastDurationAsDecimalSig) vecEvalDecimal(input *chunk.Chunk, res
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalDuration(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalDuration(input, buf); err != nil {
 		return err
 	}
 	result.ResizeDecimal(n, false)
@@ -1047,7 +1047,7 @@ func (b *builtinCastDurationAsDecimalSig) vecEvalDecimal(input *chunk.Chunk, res
 	d64s := result.Decimals()
 	var duration types.Duration
 	ds := buf.GoDurations()
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	fsp := b.args[0].GetType().GetDecimal()
 	if fsp, err = types.CheckFsp(fsp); err != nil {
 		return err
@@ -1078,7 +1078,7 @@ func (b *builtinCastIntAsDecimalSig) vecEvalDecimal(input *chunk.Chunk, result *
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalInt(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalInt(input, buf); err != nil {
 		return err
 	}
 
@@ -1088,7 +1088,7 @@ func (b *builtinCastIntAsDecimalSig) vecEvalDecimal(input *chunk.Chunk, result *
 	result.ResizeDecimal(n, false)
 	result.MergeNulls(buf)
 	decs := result.Decimals()
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	dec := new(types.MyDecimal)
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
@@ -1124,7 +1124,7 @@ func (b *builtinCastIntAsJSONSig) vecEvalJSON(input *chunk.Chunk, result *chunk.
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalInt(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalInt(input, buf); err != nil {
 		return err
 	}
 	nums := buf.Int64s()
@@ -1163,7 +1163,7 @@ func (*builtinCastJSONAsJSONSig) vectorized() bool {
 }
 
 func (b *builtinCastJSONAsJSONSig) vecEvalJSON(input *chunk.Chunk, result *chunk.Column) error {
-	return b.args[0].VecEvalJSON(b.ctx, input, result)
+	return b.args[0].VecEvalJSON(input, result)
 }
 
 func (*builtinCastJSONAsStringSig) vectorized() bool {
@@ -1177,7 +1177,7 @@ func (b *builtinCastJSONAsStringSig) vecEvalString(input *chunk.Chunk, result *c
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalJSON(input, buf); err != nil {
 		return err
 	}
 
@@ -1187,7 +1187,7 @@ func (b *builtinCastJSONAsStringSig) vecEvalString(input *chunk.Chunk, result *c
 			result.AppendNull()
 			continue
 		}
-		s, err := types.ProduceStrWithSpecifiedTp(buf.GetJSON(i).String(), b.tp, b.ctx.GetSessionVars().StmtCtx, false)
+		s, err := types.ProduceStrWithSpecifiedTp(buf.GetJSON(i).String(), b.tp, b.ctx.StmtCtx, false)
 		if err != nil {
 			return err
 		}
@@ -1207,7 +1207,7 @@ func (b *builtinCastDurationAsRealSig) vecEvalReal(input *chunk.Chunk, result *c
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err = b.args[0].VecEvalDuration(b.ctx, input, buf); err != nil {
+	if err = b.args[0].VecEvalDuration(input, buf); err != nil {
 		return err
 	}
 
@@ -1246,14 +1246,14 @@ func (b *builtinCastJSONAsIntSig) vecEvalInt(input *chunk.Chunk, result *chunk.C
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalJSON(input, buf); err != nil {
 		return err
 	}
 
 	result.ResizeInt64(n, false)
 	result.MergeNulls(buf)
 	i64s := result.Int64s()
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
 			continue
@@ -1277,7 +1277,7 @@ func (b *builtinCastRealAsDurationSig) vecEvalDuration(input *chunk.Chunk, resul
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalReal(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalReal(input, buf); err != nil {
 		return err
 	}
 	result.ResizeGoDuration(n, false)
@@ -1288,10 +1288,10 @@ func (b *builtinCastRealAsDurationSig) vecEvalDuration(input *chunk.Chunk, resul
 		if result.IsNull(i) {
 			continue
 		}
-		dur, _, err := types.ParseDuration(b.ctx.GetSessionVars().StmtCtx, strconv.FormatFloat(f64s[i], 'f', -1, 64), b.tp.GetDecimal())
+		dur, _, err := types.ParseDuration(b.ctx.StmtCtx, strconv.FormatFloat(f64s[i], 'f', -1, 64), b.tp.GetDecimal())
 		if err != nil {
 			if types.ErrTruncatedWrongVal.Equal(err) {
-				err = b.ctx.GetSessionVars().StmtCtx.HandleTruncate(err)
+				err = b.ctx.StmtCtx.HandleTruncate(err)
 				if err != nil {
 					return err
 				}
@@ -1317,7 +1317,7 @@ func (b *builtinCastTimeAsDurationSig) vecEvalDuration(input *chunk.Chunk, resul
 		return err
 	}
 	defer b.bufAllocator.put(arg0)
-	if err := b.args[0].VecEvalTime(b.ctx, input, arg0); err != nil {
+	if err := b.args[0].VecEvalTime(input, arg0); err != nil {
 		return err
 	}
 	arg0s := arg0.Times()
@@ -1332,7 +1332,7 @@ func (b *builtinCastTimeAsDurationSig) vecEvalDuration(input *chunk.Chunk, resul
 		if err != nil {
 			return err
 		}
-		d, err = d.RoundFrac(b.tp.GetDecimal(), b.ctx.GetSessionVars().Location())
+		d, err = d.RoundFrac(b.tp.GetDecimal(), b.ctx.Location())
 		if err != nil {
 			return err
 		}
@@ -1347,7 +1347,7 @@ func (*builtinCastDurationAsDurationSig) vectorized() bool {
 
 func (b *builtinCastDurationAsDurationSig) vecEvalDuration(input *chunk.Chunk, result *chunk.Column) error {
 	var err error
-	if err = b.args[0].VecEvalDuration(b.ctx, input, result); err != nil {
+	if err = b.args[0].VecEvalDuration(input, result); err != nil {
 		return err
 	}
 
@@ -1361,7 +1361,7 @@ func (b *builtinCastDurationAsDurationSig) vecEvalDuration(input *chunk.Chunk, r
 			continue
 		}
 		dur.Duration = v
-		rd, err = dur.RoundFrac(b.tp.GetDecimal(), b.ctx.GetSessionVars().Location())
+		rd, err = dur.RoundFrac(b.tp.GetDecimal(), b.ctx.Location())
 		if err != nil {
 			return err
 		}
@@ -1381,13 +1381,13 @@ func (b *builtinCastDurationAsStringSig) vecEvalString(input *chunk.Chunk, resul
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalDuration(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalDuration(input, buf); err != nil {
 		return err
 	}
 
 	var res string
 	var isNull bool
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	result.ReserveString(n)
 	fsp := b.args[0].GetType().GetDecimal()
 	for i := 0; i < n; i++ {
@@ -1423,7 +1423,7 @@ func (b *builtinCastDecimalAsRealSig) vecEvalReal(input *chunk.Chunk, result *ch
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalDecimal(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalDecimal(input, buf); err != nil {
 		return err
 	}
 
@@ -1445,7 +1445,7 @@ func (b *builtinCastDecimalAsRealSig) vecEvalReal(input *chunk.Chunk, result *ch
 		res, err := d[i].ToFloat64()
 		if err != nil {
 			if types.ErrOverflow.Equal(err) {
-				err = b.ctx.GetSessionVars().StmtCtx.HandleOverflow(err, err)
+				err = b.ctx.StmtCtx.HandleOverflow(err, err)
 			}
 			if err != nil {
 				return err
@@ -1469,7 +1469,7 @@ func (b *builtinCastDecimalAsTimeSig) vecEvalTime(input *chunk.Chunk, result *ch
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalDecimal(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalDecimal(input, buf); err != nil {
 		return err
 	}
 
@@ -1477,7 +1477,7 @@ func (b *builtinCastDecimalAsTimeSig) vecEvalTime(input *chunk.Chunk, result *ch
 	result.MergeNulls(buf)
 	times := result.Times()
 	decimals := buf.Decimals()
-	stmt := b.ctx.GetSessionVars().StmtCtx
+	stmt := b.ctx.StmtCtx
 	fsp := b.tp.GetDecimal()
 	for i := 0; i < n; i++ {
 		if buf.IsNull(i) {
@@ -1511,7 +1511,7 @@ func (b *builtinCastTimeAsIntSig) vecEvalInt(input *chunk.Chunk, result *chunk.C
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalTime(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalTime(input, buf); err != nil {
 		return err
 	}
 
@@ -1519,7 +1519,7 @@ func (b *builtinCastTimeAsIntSig) vecEvalInt(input *chunk.Chunk, result *chunk.C
 	result.MergeNulls(buf)
 	times := buf.Times()
 	i64s := result.Int64s()
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
 			continue
@@ -1542,12 +1542,12 @@ func (*builtinCastTimeAsTimeSig) vectorized() bool {
 
 func (b *builtinCastTimeAsTimeSig) vecEvalTime(input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
-	if err := b.args[0].VecEvalTime(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalTime(input, result); err != nil {
 		return err
 	}
 
 	times := result.Times()
-	stmt := b.ctx.GetSessionVars().StmtCtx
+	stmt := b.ctx.StmtCtx
 	fsp := b.tp.GetDecimal()
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
@@ -1586,13 +1586,13 @@ func (b *builtinCastTimeAsStringSig) vecEvalString(input *chunk.Chunk, result *c
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalTime(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalTime(input, buf); err != nil {
 		return err
 	}
 
 	var res string
 	var isNull bool
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	vas := buf.Times()
 	result.ReserveString(n)
 	for i, v := range vas {
@@ -1628,10 +1628,10 @@ func (b *builtinCastJSONAsDecimalSig) vecEvalDecimal(input *chunk.Chunk, result 
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err = b.args[0].VecEvalJSON(b.ctx, input, buf); err != nil {
+	if err = b.args[0].VecEvalJSON(input, buf); err != nil {
 		return err
 	}
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	result.ResizeDecimal(n, false)
 	result.MergeNulls(buf)
 	res := result.Decimals()
@@ -1658,12 +1658,12 @@ func (*builtinCastStringAsRealSig) vectorized() bool {
 
 func (b *builtinCastStringAsRealSig) vecEvalReal(input *chunk.Chunk, result *chunk.Column) error {
 	if IsBinaryLiteral(b.args[0]) {
-		return b.args[0].VecEvalReal(b.ctx, input, result)
+		return b.args[0].VecEvalReal(input, result)
 	}
 
 	// Take the implicit evalReal path if possible.
 	if CanImplicitEvalReal(b.args[0]) {
-		return b.args[0].VecEvalReal(b.ctx, input, result)
+		return b.args[0].VecEvalReal(input, result)
 	}
 
 	n := input.NumRows()
@@ -1672,14 +1672,14 @@ func (b *builtinCastStringAsRealSig) vecEvalReal(input *chunk.Chunk, result *chu
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err = b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err = b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
 	result.ResizeFloat64(n, false)
 	result.MergeNulls(buf)
 	ret := result.Float64s()
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
@@ -1707,7 +1707,7 @@ func (*builtinCastStringAsDecimalSig) vectorized() bool {
 
 func (b *builtinCastStringAsDecimalSig) vecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error {
 	if IsBinaryLiteral(b.args[0]) {
-		return b.args[0].VecEvalDecimal(b.ctx, input, result)
+		return b.args[0].VecEvalDecimal(input, result)
 	}
 	n := input.NumRows()
 	buf, err := b.bufAllocator.get()
@@ -1715,13 +1715,13 @@ func (b *builtinCastStringAsDecimalSig) vecEvalDecimal(input *chunk.Chunk, resul
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err = b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err = b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	result.ResizeDecimal(n, false)
 	result.MergeNulls(buf)
 	res := result.Decimals()
-	stmtCtx := b.ctx.GetSessionVars().StmtCtx
+	stmtCtx := b.ctx.StmtCtx
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
 			continue
@@ -1754,14 +1754,14 @@ func (b *builtinCastStringAsTimeSig) vecEvalTime(input *chunk.Chunk, result *chu
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
 	result.ResizeTime(n, false)
 	result.MergeNulls(buf)
 	times := result.Times()
-	stmtCtx := b.ctx.GetSessionVars().StmtCtx
+	stmtCtx := b.ctx.StmtCtx
 	fsp := b.tp.GetDecimal()
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
@@ -1778,7 +1778,7 @@ func (b *builtinCastStringAsTimeSig) vecEvalTime(input *chunk.Chunk, result *chu
 			result.SetNull(i, true)
 			continue
 		}
-		if tm.IsZero() && b.ctx.GetSessionVars().SQLMode.HasNoZeroDateMode() {
+		if tm.IsZero() && b.ctx.SQLMode.HasNoZeroDateMode() {
 			err = handleInvalidTimeError(b.ctx, types.ErrWrongValue.GenWithStackByArgs(types.DateTimeStr, tm.String()))
 			if err != nil {
 				return err
@@ -1806,7 +1806,7 @@ func (b *builtinCastDecimalAsIntSig) vecEvalInt(input *chunk.Chunk, result *chun
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalDecimal(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalDecimal(input, buf); err != nil {
 		return err
 	}
 
@@ -1838,7 +1838,7 @@ func (b *builtinCastDecimalAsIntSig) vecEvalInt(input *chunk.Chunk, result *chun
 
 		if types.ErrOverflow.Equal(err) {
 			warnErr := types.ErrTruncatedWrongVal.GenWithStackByArgs("DECIMAL", d64s[i])
-			err = b.ctx.GetSessionVars().StmtCtx.HandleOverflow(err, warnErr)
+			err = b.ctx.StmtCtx.HandleOverflow(err, warnErr)
 		}
 
 		if err != nil {
@@ -1859,7 +1859,7 @@ func (b *builtinCastDecimalAsDurationSig) vecEvalDuration(input *chunk.Chunk, re
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalDecimal(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalDecimal(input, buf); err != nil {
 		return err
 	}
 
@@ -1871,10 +1871,10 @@ func (b *builtinCastDecimalAsDurationSig) vecEvalDuration(input *chunk.Chunk, re
 		if result.IsNull(i) {
 			continue
 		}
-		dur, _, err := types.ParseDuration(b.ctx.GetSessionVars().StmtCtx, string(args[i].ToString()), b.tp.GetDecimal())
+		dur, _, err := types.ParseDuration(b.ctx.StmtCtx, string(args[i].ToString()), b.tp.GetDecimal())
 		if err != nil {
 			if types.ErrTruncatedWrongVal.Equal(err) {
-				err = b.ctx.GetSessionVars().StmtCtx.HandleTruncate(err)
+				err = b.ctx.StmtCtx.HandleTruncate(err)
 				if err != nil {
 					return err
 				}
@@ -1900,13 +1900,13 @@ func (b *builtinCastStringAsStringSig) vecEvalString(input *chunk.Chunk, result 
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 
 	var res string
 	var isNull bool
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := b.ctx.StmtCtx
 	result.ReserveString(n)
 	for i := 0; i < n; i++ {
 		if buf.IsNull(i) {
@@ -1941,11 +1941,11 @@ func (b *builtinCastJSONAsDurationSig) vecEvalDuration(input *chunk.Chunk, resul
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalJSON(input, buf); err != nil {
 		return err
 	}
 
-	stmtCtx := b.ctx.GetSessionVars().StmtCtx
+	stmtCtx := b.ctx.StmtCtx
 
 	result.ResizeGoDuration(n, false)
 	result.MergeNulls(buf)
@@ -1964,7 +1964,7 @@ func (b *builtinCastJSONAsDurationSig) vecEvalDuration(input *chunk.Chunk, resul
 			if err != nil {
 				return err
 			}
-			d, err = d.RoundFrac(b.tp.GetDecimal(), b.ctx.GetSessionVars().Location())
+			d, err = d.RoundFrac(b.tp.GetDecimal(), b.ctx.Location())
 			if err != nil {
 				return err
 			}
@@ -2010,7 +2010,7 @@ func (b *builtinCastDecimalAsJSONSig) vecEvalJSON(input *chunk.Chunk, result *ch
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err = b.args[0].VecEvalDecimal(b.ctx, input, buf); err != nil {
+	if err = b.args[0].VecEvalDecimal(input, buf); err != nil {
 		return err
 	}
 
@@ -2043,7 +2043,7 @@ func (b *builtinCastDurationAsJSONSig) vecEvalJSON(input *chunk.Chunk, result *c
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err = b.args[0].VecEvalDuration(b.ctx, input, buf); err != nil {
+	if err = b.args[0].VecEvalDuration(input, buf); err != nil {
 		return err
 	}
 

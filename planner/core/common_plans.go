@@ -208,7 +208,7 @@ type Execute struct {
 func isGetVarBinaryLiteral(sctx sessionctx.Context, expr expression.Expression) (res bool) {
 	scalarFunc, ok := expr.(*expression.ScalarFunction)
 	if ok && scalarFunc.FuncName.L == ast.GetVar {
-		name, isNull, err := scalarFunc.GetArgs()[0].EvalString(sctx, chunk.Row{})
+		name, isNull, err := scalarFunc.GetArgs()[0].EvalString(chunk.Row{})
 		if err != nil || isNull {
 			res = false
 		} else if dt, ok2 := sctx.GetSessionVars().GetUserVarVal(name); ok2 {

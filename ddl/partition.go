@@ -696,7 +696,7 @@ func getPartitionIntervalFromTable(ctx sessionctx.Context, tbInfo *model.TableIn
 		if err != nil {
 			return nil
 		}
-		val, isNull, err := exprs[0].EvalInt(ctx, chunk.Row{})
+		val, isNull, err := exprs[0].EvalInt(chunk.Row{})
 		if isNull || err != nil || val < 1 {
 			// If NULL, error or interval < 1 then cannot be an INTERVAL partitioned table
 			return nil
@@ -719,7 +719,7 @@ func getPartitionIntervalFromTable(ctx sessionctx.Context, tbInfo *model.TableIn
 		if err != nil {
 			return nil
 		}
-		val, isNull, err := exprs[0].EvalInt(ctx, chunk.Row{})
+		val, isNull, err := exprs[0].EvalInt(chunk.Row{})
 		if isNull || err != nil || val < 1 {
 			// If NULL, error or interval < 1 then cannot be an INTERVAL partitioned table
 			return nil
@@ -1726,7 +1726,7 @@ func getRangeValue(ctx sessionctx.Context, str string, unsigned bool) (interface
 		if err1 != nil {
 			return 0, false, err1
 		}
-		res, isNull, err2 := e.EvalInt(ctx, chunk.Row{})
+		res, isNull, err2 := e.EvalInt(chunk.Row{})
 		if err2 == nil && !isNull {
 			return uint64(res), true, nil
 		}
@@ -1742,7 +1742,7 @@ func getRangeValue(ctx sessionctx.Context, str string, unsigned bool) (interface
 		if err1 != nil {
 			return 0, false, err1
 		}
-		res, isNull, err2 := e.EvalInt(ctx, chunk.Row{})
+		res, isNull, err2 := e.EvalInt(chunk.Row{})
 		if err2 == nil && !isNull {
 			return res, true, nil
 		}

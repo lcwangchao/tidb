@@ -55,7 +55,7 @@ type bitOrUint64 struct {
 func (e *bitOrUint64) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4BitFunc)(pr)
 	for _, row := range rowsInGroup {
-		inputValue, isNull, err := e.args[0].EvalInt(sctx, row)
+		inputValue, isNull, err := e.args[0].EvalInt(row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -80,7 +80,7 @@ type bitXorUint64 struct {
 func (e *bitXorUint64) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4BitFunc)(pr)
 	for _, row := range rowsInGroup {
-		inputValue, isNull, err := e.args[0].EvalInt(sctx, row)
+		inputValue, isNull, err := e.args[0].EvalInt(row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -97,7 +97,7 @@ var _ SlidingWindowAggFunc = &bitXorUint64{}
 func (e *bitXorUint64) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.Row, lastStart, lastEnd uint64, shiftStart, shiftEnd uint64, pr PartialResult) error {
 	p := (*partialResult4BitFunc)(pr)
 	for i := uint64(0); i < shiftStart; i++ {
-		inputValue, isNull, err := e.args[0].EvalInt(sctx, getRow(lastStart+i))
+		inputValue, isNull, err := e.args[0].EvalInt(getRow(lastStart + i))
 		if err != nil {
 			return err
 		}
@@ -107,7 +107,7 @@ func (e *bitXorUint64) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.
 		*p ^= uint64(inputValue)
 	}
 	for i := uint64(0); i < shiftEnd; i++ {
-		inputValue, isNull, err := e.args[0].EvalInt(sctx, getRow(lastEnd+i))
+		inputValue, isNull, err := e.args[0].EvalInt(getRow(lastEnd + i))
 		if err != nil {
 			return err
 		}
@@ -143,7 +143,7 @@ func (*bitAndUint64) ResetPartialResult(pr PartialResult) {
 func (e *bitAndUint64) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4BitFunc)(pr)
 	for _, row := range rowsInGroup {
-		inputValue, isNull, err := e.args[0].EvalInt(sctx, row)
+		inputValue, isNull, err := e.args[0].EvalInt(row)
 		if err != nil {
 			return memDelta, err
 		}

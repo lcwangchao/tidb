@@ -332,26 +332,26 @@ func TestDeferredParamNotNull(t *testing.T) {
 	require.Equal(t, mysql.TypeDouble, cstFloat64.GetType().GetType())
 	require.Equal(t, mysql.TypeEnum, cstEnum.GetType().GetType())
 
-	d, _, err := cstInt.EvalInt(ctx, chunk.Row{})
+	d, _, err := cstInt.EvalInt(chunk.Row{})
 	require.NoError(t, err)
 	require.Equal(t, int64(1), d)
-	r, _, err := cstFloat64.EvalReal(ctx, chunk.Row{})
+	r, _, err := cstFloat64.EvalReal(chunk.Row{})
 	require.NoError(t, err)
 	require.Equal(t, float64(2.1), r)
-	de, _, err := cstDec.EvalDecimal(ctx, chunk.Row{})
+	de, _, err := cstDec.EvalDecimal(chunk.Row{})
 	require.NoError(t, err)
 	require.Equal(t, "20170118123950.123", de.String())
-	s, _, err := cstBytes.EvalString(ctx, chunk.Row{})
+	s, _, err := cstBytes.EvalString(chunk.Row{})
 	require.NoError(t, err)
 	require.Equal(t, "b", s)
-	evalTime, _, err := cstTime.EvalTime(ctx, chunk.Row{})
+	evalTime, _, err := cstTime.EvalTime(chunk.Row{})
 	require.NoError(t, err)
 	v := ctx.GetSessionVars().PlanCacheParams.GetParamValue(2)
 	require.Equal(t, 0, evalTime.Compare(v.GetMysqlTime()))
-	dur, _, err := cstDuration.EvalDuration(ctx, chunk.Row{})
+	dur, _, err := cstDuration.EvalDuration(chunk.Row{})
 	require.NoError(t, err)
 	require.Equal(t, types.ZeroDuration.Duration, dur.Duration)
-	evalJSON, _, err := cstJSON.EvalJSON(ctx, chunk.Row{})
+	evalJSON, _, err := cstJSON.EvalJSON(chunk.Row{})
 	require.NoError(t, err)
 	require.NotNil(t, evalJSON)
 }
@@ -361,41 +361,41 @@ func TestDeferredExprNotNull(t *testing.T) {
 	ctx := mock.NewContext()
 	cst := &Constant{DeferredExpr: m, RetType: newIntFieldType()}
 	m.i, m.err = nil, fmt.Errorf("ERROR")
-	_, _, err := cst.EvalInt(ctx, chunk.Row{})
+	_, _, err := cst.EvalInt(chunk.Row{})
 	require.Error(t, err)
-	_, _, err = cst.EvalReal(ctx, chunk.Row{})
+	_, _, err = cst.EvalReal(chunk.Row{})
 	require.Error(t, err)
-	_, _, err = cst.EvalDecimal(ctx, chunk.Row{})
+	_, _, err = cst.EvalDecimal(chunk.Row{})
 	require.Error(t, err)
-	_, _, err = cst.EvalString(ctx, chunk.Row{})
+	_, _, err = cst.EvalString(chunk.Row{})
 	require.Error(t, err)
-	_, _, err = cst.EvalTime(ctx, chunk.Row{})
+	_, _, err = cst.EvalTime(chunk.Row{})
 	require.Error(t, err)
-	_, _, err = cst.EvalDuration(ctx, chunk.Row{})
+	_, _, err = cst.EvalDuration(chunk.Row{})
 	require.Error(t, err)
-	_, _, err = cst.EvalJSON(ctx, chunk.Row{})
+	_, _, err = cst.EvalJSON(chunk.Row{})
 	require.Error(t, err)
 
 	m.i, m.err = nil, nil
-	_, isNull, err := cst.EvalInt(ctx, chunk.Row{})
+	_, isNull, err := cst.EvalInt(chunk.Row{})
 	require.NoError(t, err)
 	require.True(t, isNull)
-	_, isNull, err = cst.EvalReal(ctx, chunk.Row{})
+	_, isNull, err = cst.EvalReal(chunk.Row{})
 	require.NoError(t, err)
 	require.True(t, isNull)
-	_, isNull, err = cst.EvalDecimal(ctx, chunk.Row{})
+	_, isNull, err = cst.EvalDecimal(chunk.Row{})
 	require.NoError(t, err)
 	require.True(t, isNull)
-	_, isNull, err = cst.EvalString(ctx, chunk.Row{})
+	_, isNull, err = cst.EvalString(chunk.Row{})
 	require.NoError(t, err)
 	require.True(t, isNull)
-	_, isNull, err = cst.EvalTime(ctx, chunk.Row{})
+	_, isNull, err = cst.EvalTime(chunk.Row{})
 	require.NoError(t, err)
 	require.True(t, isNull)
-	_, isNull, err = cst.EvalDuration(ctx, chunk.Row{})
+	_, isNull, err = cst.EvalDuration(chunk.Row{})
 	require.NoError(t, err)
 	require.True(t, isNull)
-	_, isNull, err = cst.EvalJSON(ctx, chunk.Row{})
+	_, isNull, err = cst.EvalJSON(chunk.Row{})
 	require.NoError(t, err)
 	require.True(t, isNull)
 
@@ -404,27 +404,27 @@ func TestDeferredExprNotNull(t *testing.T) {
 	require.Equal(t, int64(2333), xInt)
 
 	m.i = float64(123.45)
-	xFlo, _, _ := cst.EvalReal(ctx, chunk.Row{})
+	xFlo, _, _ := cst.EvalReal(chunk.Row{})
 	require.Equal(t, float64(123.45), xFlo)
 
 	m.i = "abc"
-	xStr, _, _ := cst.EvalString(ctx, chunk.Row{})
+	xStr, _, _ := cst.EvalString(chunk.Row{})
 	require.Equal(t, "abc", xStr)
 
 	m.i = &types.MyDecimal{}
-	xDec, _, _ := cst.EvalDecimal(ctx, chunk.Row{})
+	xDec, _, _ := cst.EvalDecimal(chunk.Row{})
 	require.Equal(t, 0, xDec.Compare(m.i.(*types.MyDecimal)))
 
 	m.i = types.ZeroTime
-	xTim, _, _ := cst.EvalTime(ctx, chunk.Row{})
+	xTim, _, _ := cst.EvalTime(chunk.Row{})
 	require.Equal(t, 0, xTim.Compare(m.i.(types.Time)))
 
 	m.i = types.Duration{}
-	xDur, _, _ := cst.EvalDuration(ctx, chunk.Row{})
+	xDur, _, _ := cst.EvalDuration(chunk.Row{})
 	require.Equal(t, 0, xDur.Compare(m.i.(types.Duration)))
 
 	m.i = types.BinaryJSON{}
-	xJsn, _, _ := cst.EvalJSON(ctx, chunk.Row{})
+	xJsn, _, _ := cst.EvalJSON(chunk.Row{})
 	require.Equal(t, xJsn.String(), m.i.(types.BinaryJSON).String())
 
 	cln := cst.Clone().(*Constant)
@@ -442,7 +442,7 @@ func TestVectorizedConstant(t *testing.T) {
 		}
 		col := chunk.NewColumn(newIntFieldType(), 1024)
 		ctx := mock.NewContext()
-		require.Nil(t, cst.VecEvalInt(ctx, chk, col))
+		require.Nil(t, cst.VecEvalInt(chk, col))
 		i64s := col.Int64s()
 		require.Equal(t, 1024, len(i64s))
 		for _, v := range i64s {
@@ -452,7 +452,7 @@ func TestVectorizedConstant(t *testing.T) {
 		// fixed-length type with Sel
 		sel := []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29}
 		chk.SetSel(sel)
-		require.Nil(t, cst.VecEvalInt(ctx, chk, col))
+		require.Nil(t, cst.VecEvalInt(chk, col))
 		i64s = col.Int64s()
 		for i := range sel {
 			require.Equal(t, int64(2333), i64s[i])
@@ -471,7 +471,7 @@ func TestVectorizedConstant(t *testing.T) {
 		chk.SetSel(nil)
 		col := chunk.NewColumn(newStringFieldType(), 1024)
 		ctx := mock.NewContext()
-		require.Nil(t, cst.VecEvalString(ctx, chk, col))
+		require.Nil(t, cst.VecEvalString(chk, col))
 		for i := 0; i < 1024; i++ {
 			require.Equal(t, "hello", col.GetString(i))
 		}
@@ -479,7 +479,7 @@ func TestVectorizedConstant(t *testing.T) {
 		// var-length type with Sel
 		sel := []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29}
 		chk.SetSel(sel)
-		require.Nil(t, cst.VecEvalString(ctx, chk, col))
+		require.Nil(t, cst.VecEvalString(chk, col))
 		for i := range sel {
 			require.Equal(t, "hello", col.GetString(i))
 		}

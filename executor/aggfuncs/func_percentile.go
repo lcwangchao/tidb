@@ -144,7 +144,7 @@ func (e *percentileOriginal4Int) UpdatePartialResult(sctx sessionctx.Context, ro
 	p := (*partialResult4PercentileInt)(pr)
 	startMem := p.MemSize()
 	for _, row := range rowsInGroup {
-		v, isNull, err := e.args[0].EvalInt(sctx, row)
+		v, isNull, err := e.args[0].EvalInt(row)
 		if err != nil {
 			return 0, err
 		}
@@ -197,7 +197,7 @@ func (e *percentileOriginal4Real) UpdatePartialResult(sctx sessionctx.Context, r
 	p := (*partialResult4PercentileReal)(pr)
 	startMem := p.MemSize()
 	for _, row := range rowsInGroup {
-		v, isNull, err := e.args[0].EvalReal(sctx, row)
+		v, isNull, err := e.args[0].EvalReal(row)
 		if err != nil {
 			return 0, err
 		}
@@ -250,7 +250,7 @@ func (e *percentileOriginal4Decimal) UpdatePartialResult(sctx sessionctx.Context
 	p := (*partialResult4PercentileDecimal)(pr)
 	startMem := p.MemSize()
 	for _, row := range rowsInGroup {
-		v, isNull, err := e.args[0].EvalDecimal(sctx, row)
+		v, isNull, err := e.args[0].EvalDecimal(row)
 		if err != nil {
 			return 0, err
 		}
@@ -303,7 +303,7 @@ func (e *percentileOriginal4Time) UpdatePartialResult(sctx sessionctx.Context, r
 	p := (*partialResult4PercentileTime)(pr)
 	startMem := p.MemSize()
 	for _, row := range rowsInGroup {
-		v, isNull, err := e.args[0].EvalTime(sctx, row)
+		v, isNull, err := e.args[0].EvalTime(row)
 		if err != nil {
 			return 0, err
 		}
@@ -356,7 +356,7 @@ func (e *percentileOriginal4Duration) UpdatePartialResult(sctx sessionctx.Contex
 	p := (*partialResult4PercentileDuration)(pr)
 	startMem := p.MemSize()
 	for _, row := range rowsInGroup {
-		v, isNull, err := e.args[0].EvalDuration(sctx, row)
+		v, isNull, err := e.args[0].EvalDuration(row)
 		if err != nil {
 			return 0, err
 		}

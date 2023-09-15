@@ -91,7 +91,7 @@ func (b *builtinInternalToBinarySig) Clone() builtinFunc {
 }
 
 func (b *builtinInternalToBinarySig) evalString(row chunk.Row) (res string, isNull bool, err error) {
-	val, isNull, err := b.args[0].EvalString(b.ctx, row)
+	val, isNull, err := b.args[0].EvalString(row)
 	if isNull || err != nil {
 		return res, isNull, err
 	}
@@ -112,7 +112,7 @@ func (b *builtinInternalToBinarySig) vecEvalString(input *chunk.Chunk, result *c
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	enc := charset.FindEncoding(b.args[0].GetType().GetCharset())
@@ -170,7 +170,7 @@ func (b *builtinInternalFromBinarySig) Clone() builtinFunc {
 }
 
 func (b *builtinInternalFromBinarySig) evalString(row chunk.Row) (res string, isNull bool, err error) {
-	val, isNull, err := b.args[0].EvalString(b.ctx, row)
+	val, isNull, err := b.args[0].EvalString(row)
 	if isNull || err != nil {
 		return val, isNull, err
 	}
@@ -195,7 +195,7 @@ func (b *builtinInternalFromBinarySig) vecEvalString(input *chunk.Chunk, result 
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(input, buf); err != nil {
 		return err
 	}
 	enc := charset.FindEncoding(b.tp.GetCharset())

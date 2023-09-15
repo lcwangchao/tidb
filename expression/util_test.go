@@ -248,17 +248,17 @@ func TestSubstituteCorCol2Constant(t *testing.T) {
 	ans1 := &Constant{Value: types.NewIntDatum(3), RetType: types.NewFieldType(mysql.TypeLonglong)}
 	ret, err := SubstituteCorCol2Constant(plus2)
 	require.NoError(t, err)
-	require.True(t, ret.Equal(ctx, ans1))
+	require.True(t, ret.Equal(ans1))
 	col1 := &Column{Index: 1, RetType: types.NewFieldType(mysql.TypeLonglong)}
 	ret, err = SubstituteCorCol2Constant(col1)
 	require.NoError(t, err)
 	ans2 := col1
-	require.True(t, ret.Equal(ctx, ans2))
+	require.True(t, ret.Equal(ans2))
 	plus3 := newFunction(ast.Plus, plus2, col1)
 	ret, err = SubstituteCorCol2Constant(plus3)
 	require.NoError(t, err)
 	ans3 := newFunction(ast.Plus, ans1, col1)
-	require.True(t, ret.Equal(ctx, ans3))
+	require.True(t, ret.Equal(ans3))
 }
 
 func TestPushDownNot(t *testing.T) {
@@ -275,35 +275,35 @@ func TestPushDownNot(t *testing.T) {
 	orFunc2 := newFunction(ast.LogicOr, andFunc2, neFunc)
 	notFuncCopy := notFunc.Clone()
 	ret := PushDownNot(ctx, notFunc)
-	require.True(t, ret.Equal(ctx, orFunc2))
-	require.True(t, notFunc.Equal(ctx, notFuncCopy))
+	require.True(t, ret.Equal(orFunc2))
+	require.True(t, notFunc.Equal(notFuncCopy))
 
 	// issue 15725
 	// (not not a) should be optimized to (a is true)
 	notFunc = newFunction(ast.UnaryNot, col)
 	notFunc = newFunction(ast.UnaryNot, notFunc)
 	ret = PushDownNot(ctx, notFunc)
-	require.True(t, ret.Equal(ctx, newFunction(ast.IsTruthWithNull, col)))
+	require.True(t, ret.Equal(newFunction(ast.IsTruthWithNull, col)))
 
 	// (not not (a+1)) should be optimized to (a+1 is true)
 	plusFunc := newFunction(ast.Plus, col, NewOne())
 	notFunc = newFunction(ast.UnaryNot, plusFunc)
 	notFunc = newFunction(ast.UnaryNot, notFunc)
 	ret = PushDownNot(ctx, notFunc)
-	require.True(t, ret.Equal(ctx, newFunction(ast.IsTruthWithNull, plusFunc)))
+	require.True(t, ret.Equal(newFunction(ast.IsTruthWithNull, plusFunc)))
 	// (not not not a) should be optimized to (not (a is true))
 	notFunc = newFunction(ast.UnaryNot, col)
 	notFunc = newFunction(ast.UnaryNot, notFunc)
 	notFunc = newFunction(ast.UnaryNot, notFunc)
 	ret = PushDownNot(ctx, notFunc)
-	require.True(t, ret.Equal(ctx, newFunction(ast.UnaryNot, newFunction(ast.IsTruthWithNull, col))))
+	require.True(t, ret.Equal(newFunction(ast.UnaryNot, newFunction(ast.IsTruthWithNull, col))))
 	// (not not not not a) should be optimized to (a is true)
 	notFunc = newFunction(ast.UnaryNot, col)
 	notFunc = newFunction(ast.UnaryNot, notFunc)
 	notFunc = newFunction(ast.UnaryNot, notFunc)
 	notFunc = newFunction(ast.UnaryNot, notFunc)
 	ret = PushDownNot(ctx, notFunc)
-	require.True(t, ret.Equal(ctx, newFunction(ast.IsTruthWithNull, col)))
+	require.True(t, ret.Equal(newFunction(ast.IsTruthWithNull, col)))
 }
 
 func TestFilter(t *testing.T) {
@@ -497,68 +497,68 @@ type MockExpr struct {
 	i   interface{}
 }
 
-func (m *MockExpr) VecEvalInt(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
-func (m *MockExpr) VecEvalReal(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalReal(input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
-func (m *MockExpr) VecEvalString(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalString(input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
-func (m *MockExpr) VecEvalDecimal(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
-func (m *MockExpr) VecEvalTime(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalTime(input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
-func (m *MockExpr) VecEvalDuration(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalDuration(input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
-func (m *MockExpr) VecEvalJSON(ctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalJSON(input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
 
 func (m *MockExpr) String() string                          { return "" }
 func (m *MockExpr) MarshalJSON() ([]byte, error)            { return nil, nil }
 func (m *MockExpr) Eval(row chunk.Row) (types.Datum, error) { return types.NewDatum(m.i), m.err }
-func (m *MockExpr) EvalInt(ctx sessionctx.Context, row chunk.Row) (val int64, isNull bool, err error) {
+func (m *MockExpr) EvalInt(row chunk.Row) (val int64, isNull bool, err error) {
 	if x, ok := m.i.(int64); ok {
 		return x, false, m.err
 	}
 	return 0, m.i == nil, m.err
 }
-func (m *MockExpr) EvalReal(ctx sessionctx.Context, row chunk.Row) (val float64, isNull bool, err error) {
+func (m *MockExpr) EvalReal(row chunk.Row) (val float64, isNull bool, err error) {
 	if x, ok := m.i.(float64); ok {
 		return x, false, m.err
 	}
 	return 0, m.i == nil, m.err
 }
-func (m *MockExpr) EvalString(ctx sessionctx.Context, row chunk.Row) (val string, isNull bool, err error) {
+func (m *MockExpr) EvalString(row chunk.Row) (val string, isNull bool, err error) {
 	if x, ok := m.i.(string); ok {
 		return x, false, m.err
 	}
 	return "", m.i == nil, m.err
 }
-func (m *MockExpr) EvalDecimal(ctx sessionctx.Context, row chunk.Row) (val *types.MyDecimal, isNull bool, err error) {
+func (m *MockExpr) EvalDecimal(row chunk.Row) (val *types.MyDecimal, isNull bool, err error) {
 	if x, ok := m.i.(*types.MyDecimal); ok {
 		return x, false, m.err
 	}
 	return nil, m.i == nil, m.err
 }
-func (m *MockExpr) EvalTime(ctx sessionctx.Context, row chunk.Row) (val types.Time, isNull bool, err error) {
+func (m *MockExpr) EvalTime(row chunk.Row) (val types.Time, isNull bool, err error) {
 	if x, ok := m.i.(types.Time); ok {
 		return x, false, m.err
 	}
 	return types.ZeroTime, m.i == nil, m.err
 }
-func (m *MockExpr) EvalDuration(ctx sessionctx.Context, row chunk.Row) (val types.Duration, isNull bool, err error) {
+func (m *MockExpr) EvalDuration(row chunk.Row) (val types.Duration, isNull bool, err error) {
 	if x, ok := m.i.(types.Duration); ok {
 		return x, false, m.err
 	}
 	return types.Duration{}, m.i == nil, m.err
 }
-func (m *MockExpr) EvalJSON(ctx sessionctx.Context, row chunk.Row) (val types.BinaryJSON, isNull bool, err error) {
+func (m *MockExpr) EvalJSON(row chunk.Row) (val types.BinaryJSON, isNull bool, err error) {
 	if x, ok := m.i.(types.BinaryJSON); ok {
 		return x, false, m.err
 	}
@@ -569,7 +569,7 @@ func (m *MockExpr) ReverseEval(sc *stmtctx.StatementContext, res types.Datum, rT
 }
 func (m *MockExpr) GetType() *types.FieldType                                     { return m.t }
 func (m *MockExpr) Clone() Expression                                             { return nil }
-func (m *MockExpr) Equal(ctx sessionctx.Context, e Expression) bool               { return false }
+func (m *MockExpr) Equal(e Expression) bool                                       { return false }
 func (m *MockExpr) IsCorrelated() bool                                            { return false }
 func (m *MockExpr) ConstItem(_ *stmtctx.StatementContext) bool                    { return false }
 func (m *MockExpr) Decorrelate(schema *Schema) Expression                         { return m }
