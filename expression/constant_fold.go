@@ -161,7 +161,7 @@ func foldConstant(expr Expression) (Expression, bool) {
 		}
 
 		args := x.GetArgs()
-		sc := x.GetCtx().GetSessionVars().StmtCtx
+		sc := x.GetCtx().StmtCtx
 		argIsConst := make([]bool, len(args))
 		hasNullArg := false
 		allConstArg := true

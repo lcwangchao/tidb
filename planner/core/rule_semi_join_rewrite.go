@@ -90,7 +90,7 @@ func (smj *semiJoinRewriter) recursivePlan(p LogicalPlan) (LogicalPlan, error) {
 	aggOutputCols := make([]*expression.Column, 0, len(join.EqualConditions))
 	for i := range join.EqualConditions {
 		innerCol := join.EqualConditions[i].GetArgs()[1].(*expression.Column)
-		firstRow, err := aggregation.NewAggFuncDesc(join.SCtx(), ast.AggFuncFirstRow, []expression.Expression{innerCol}, false)
+		firstRow, err := aggregation.NewAggFuncDesc(join.ExprCtx(), ast.AggFuncFirstRow, []expression.Expression{innerCol}, false)
 		if err != nil {
 			return nil, err
 		}

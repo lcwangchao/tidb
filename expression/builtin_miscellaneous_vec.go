@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/util/chunk"
 	"github.com/pingcap/tidb/util/vitess"
 )
@@ -336,7 +335,7 @@ func (b *builtinSleepSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) e
 			return errIncorrectArgs.GenWithStackByArgs("sleep")
 		}
 
-		if isKilled := doSleep(val, b.ctx.GetSessionCtx().GetSessionVars()); isKilled {
+		if isKilled := doSleep(val, b.ctx); isKilled {
 			for j := i; j < n; j++ {
 				i64s[j] = 1
 			}
@@ -347,7 +346,7 @@ func (b *builtinSleepSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) e
 	return nil
 }
 
-func doSleep(secs float64, sessVars *variable.SessionVars) (isKilled bool) {
+func doSleep(secs float64, ctx *ExprContext) (isKilled bool) {
 	if secs <= 0.0 {
 		return false
 	}
@@ -359,15 +358,15 @@ func doSleep(secs float64, sessVars *variable.SessionVars) (isKilled bool) {
 		select {
 		case <-ticker.C:
 			// MySQL 8.0 sleep: https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_sleep
-			if len(sessVars.StmtCtx.TableIDs) == 0 {
+			if len(ctx.StmtCtx.TableIDs) == 0 {
 				// Regular kill or Killed because of max execution time
-				if atomic.CompareAndSwapUint32(&sessVars.Killed, 1, 0) || atomic.CompareAndSwapUint32(&sessVars.Killed, 2, 0) {
+				if atomic.CompareAndSwapUint32(ctx.Killed, 1, 0) || atomic.CompareAndSwapUint32(ctx.Killed, 2, 0) {
 					timer.Stop()
 					return true
 				}
 			} else {
 				// Regular kill or Killed because of max execution time.
-				if atomic.LoadUint32(&sessVars.Killed) == 1 || atomic.LoadUint32(&sessVars.Killed) == 2 {
+				if atomic.LoadUint32(ctx.Killed) == 1 || atomic.LoadUint32(ctx.Killed) == 2 {
 					timer.Stop()
 					return true
 				}

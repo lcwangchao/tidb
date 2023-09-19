@@ -512,7 +512,7 @@ func GetColDefaultValue(ctx sessionctx.Context, col *model.ColumnInfo) (types.Da
 
 // EvalColDefaultExpr eval default expr node to explicit default value.
 func EvalColDefaultExpr(ctx sessionctx.Context, col *model.ColumnInfo, defaultExpr ast.ExprNode) (types.Datum, error) {
-	d, err := expression.EvalAstExpr(ctx, defaultExpr)
+	d, err := expression.EvalAstExpr(expression.NewExprContext(ctx), defaultExpr)
 	if err != nil {
 		return types.Datum{}, err
 	}
@@ -531,7 +531,7 @@ func getColDefaultExprValue(ctx sessionctx.Context, col *model.ColumnInfo, defau
 	if err == nil {
 		defaultExpr = stmts[0].(*ast.SelectStmt).Fields.Fields[0].Expr
 	}
-	d, err := expression.EvalAstExpr(ctx, defaultExpr)
+	d, err := expression.EvalAstExpr(expression.NewExprContext(ctx), defaultExpr)
 	if err != nil {
 		return types.Datum{}, err
 	}
@@ -572,7 +572,7 @@ func getColDefaultValue(ctx sessionctx.Context, col *model.ColumnInfo, defaultVa
 			}
 		}
 	}
-	value, err := expression.GetTimeValue(ctx, defaultVal, col.GetType(), col.GetDecimal(), explicitTz)
+	value, err := expression.GetTimeValue(expression.NewExprContext(ctx), defaultVal, col.GetType(), col.GetDecimal(), explicitTz)
 	if err != nil {
 		return types.Datum{}, errGetDefaultFailed.GenWithStackByArgs(col.Name)
 	}

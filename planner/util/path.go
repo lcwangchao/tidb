@@ -124,7 +124,7 @@ func (path *AccessPath) IsTablePath() bool {
 func (path *AccessPath) SplitCorColAccessCondFromFilters(ctx sessionctx.Context, eqOrInCount int) (access, remained []expression.Expression) {
 	// The plan cache do not support subquery now. So we skip this function when
 	// 'MaybeOverOptimized4PlanCache' function return true .
-	if expression.MaybeOverOptimized4PlanCache(ctx, path.TableFilters) {
+	if expression.MaybeOverOptimized4PlanCache(expression.NewExprContext(ctx), path.TableFilters) {
 		return nil, path.TableFilters
 	}
 	access = make([]expression.Expression, len(path.IdxCols)-eqOrInCount)

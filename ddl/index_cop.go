@@ -325,7 +325,7 @@ func NewCopContext(tblInfo *model.TableInfo, idxInfo *model.IndexInfo, sessCtx s
 		handleIDs = []int64{extra.ID}
 	}
 
-	expColInfos, _, err := expression.ColumnInfos2ColumnsAndNames(sessCtx,
+	expColInfos, _, err := expression.ColumnInfos2ColumnsAndNames(expression.NewExprContext(sessCtx),
 		model.CIStr{} /* unused */, tblInfo.Name, colInfos, tblInfo)
 	if err != nil {
 		return nil, err

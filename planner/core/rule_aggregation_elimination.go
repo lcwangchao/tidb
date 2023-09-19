@@ -223,25 +223,25 @@ func rewriteCount(ctx sessionctx.Context, exprs []expression.Expression, targetT
 		if mysql.HasNotNullFlag(expr.GetType().GetFlag()) {
 			isNullExprs = append(isNullExprs, expression.NewZero())
 		} else {
-			isNullExpr := expression.NewFunctionInternal(ctx, ast.IsNull, types.NewFieldType(mysql.TypeTiny), expr)
+			isNullExpr := expression.NewFunctionInternal(expression.NewExprContext(ctx), ast.IsNull, types.NewFieldType(mysql.TypeTiny), expr)
 			isNullExprs = append(isNullExprs, isNullExpr)
 		}
 	}
 
-	innerExpr := expression.ComposeDNFCondition(ctx, isNullExprs...)
-	newExpr := expression.NewFunctionInternal(ctx, ast.If, targetTp, innerExpr, expression.NewZero(), expression.NewOne())
+	innerExpr := expression.ComposeDNFCondition(expression.NewExprContext(ctx), isNullExprs...)
+	newExpr := expression.NewFunctionInternal(expression.NewExprContext(ctx), ast.If, targetTp, innerExpr, expression.NewZero(), expression.NewOne())
 	return newExpr
 }
 
 func rewriteBitFunc(ctx sessionctx.Context, funcType string, arg expression.Expression, targetTp *types.FieldType) expression.Expression {
 	// For not integer type. We need to cast(cast(arg as signed) as unsigned) to make the bit function work.
-	innerCast := expression.WrapWithCastAsInt(ctx, arg)
+	innerCast := expression.WrapWithCastAsInt(expression.NewExprContext(ctx), arg)
 	outerCast := wrapCastFunction(ctx, innerCast, targetTp)
 	var finalExpr expression.Expression
 	if funcType != ast.AggFuncBitAnd {
-		finalExpr = expression.NewFunctionInternal(ctx, ast.Ifnull, targetTp, outerCast, expression.NewZero())
+		finalExpr = expression.NewFunctionInternal(expression.NewExprContext(ctx), ast.Ifnull, targetTp, outerCast, expression.NewZero())
 	} else {
-		finalExpr = expression.NewFunctionInternal(ctx, ast.Ifnull, outerCast.GetType(), outerCast, &expression.Constant{Value: types.NewUintDatum(math.MaxUint64), RetType: targetTp})
+		finalExpr = expression.NewFunctionInternal(expression.NewExprContext(ctx), ast.Ifnull, outerCast.GetType(), outerCast, &expression.Constant{Value: types.NewUintDatum(math.MaxUint64), RetType: targetTp})
 	}
 	return finalExpr
 }
@@ -251,7 +251,7 @@ func wrapCastFunction(ctx sessionctx.Context, arg expression.Expression, targetT
 	if arg.GetType().Equal(targetTp) {
 		return arg
 	}
-	return expression.BuildCastFunction(ctx, arg, targetTp)
+	return expression.BuildCastFunction(expression.NewExprContext(ctx), arg, targetTp)
 }
 
 func (a *aggregationEliminator) optimize(ctx context.Context, p LogicalPlan, opt *logicalOptimizeOp) (LogicalPlan, error) {

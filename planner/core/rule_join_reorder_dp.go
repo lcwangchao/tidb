@@ -247,7 +247,7 @@ func (s *joinReorderDPSolver) newJoinWithEdge(leftPlan, rightPlan LogicalPlan, e
 		if leftPlan.Schema().Contains(lCol) {
 			eqConds = append(eqConds, edge.edge)
 		} else {
-			newSf := expression.NewFunctionInternal(s.ctx, ast.EQ, edge.edge.GetType(), rCol, lCol).(*expression.ScalarFunction)
+			newSf := expression.NewFunctionInternal(expression.NewExprContext(s.ctx), ast.EQ, edge.edge.GetType(), rCol, lCol).(*expression.ScalarFunction)
 			eqConds = append(eqConds, newSf)
 		}
 	}

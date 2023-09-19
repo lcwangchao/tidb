@@ -800,7 +800,7 @@ func comparePartitionAstAndModel(ctx sessionctx.Context, pAst *ast.PartitionOpti
 			L:  ast.NewValueExpr(lessThan, "", ""),
 			R:  generatedExpr,
 		}
-		cmp, err := expression.EvalAstExpr(ctx, cmpExpr)
+		cmp, err := expression.EvalAstExpr(expression.NewExprContext(ctx), cmpExpr)
 		if err != nil {
 			return err
 		}
@@ -848,7 +848,7 @@ func comparePartitionDefinitions(ctx sessionctx.Context, a, b []*ast.PartitionDe
 			L:  definedExpr,
 			R:  generatedExpr,
 		}
-		cmp, err := expression.EvalAstExpr(ctx, cmpExpr)
+		cmp, err := expression.EvalAstExpr(expression.NewExprContext(ctx), cmpExpr)
 		if err != nil {
 			return err
 		}
@@ -1049,7 +1049,7 @@ func GeneratePartDefsFromInterval(ctx sessionctx.Context, tp ast.AlterTableType,
 	default:
 		return dbterror.ErrGeneralUnsupportedDDL.GenWithStackByArgs("INTERVAL partitioning: Internal error during generating altered INTERVAL partitions, no known alter type")
 	}
-	lastVal, err := expression.EvalAstExpr(ctx, lastExpr)
+	lastVal, err := expression.EvalAstExpr(expression.NewExprContext(ctx), lastExpr)
 	if err != nil {
 		return err
 	}
@@ -1092,7 +1092,7 @@ func GeneratePartDefsFromInterval(ctx sessionctx.Context, tp ast.AlterTableType,
 				}
 			}
 		}
-		currVal, err = expression.EvalAstExpr(ctx, currExpr)
+		currVal, err = expression.EvalAstExpr(expression.NewExprContext(ctx), currExpr)
 		if err != nil {
 			return err
 		}
@@ -1412,7 +1412,7 @@ func checkPartitionValuesIsInt(ctx sessionctx.Context, defName interface{}, expr
 			}
 			continue
 		}
-		val, err := expression.EvalAstExpr(ctx, exp)
+		val, err := expression.EvalAstExpr(expression.NewExprContext(ctx), exp)
 		if err != nil {
 			return err
 		}
@@ -1556,7 +1556,7 @@ func checkPartitionFuncType(ctx sessionctx.Context, expr ast.ExprNode, tblInfo *
 		return nil
 	}
 
-	e, err := expression.RewriteSimpleExprWithTableInfo(ctx, tblInfo, expr, false)
+	e, err := expression.RewriteSimpleExprWithTableInfo(expression.NewExprContext(ctx), tblInfo, expr, false)
 	if err != nil {
 		return errors.Trace(err)
 	}

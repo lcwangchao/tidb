@@ -79,7 +79,7 @@ func Selectivity(
 		ret = pseudoSelectivity(coll, exprs)
 		if sc.EnableOptimizerCETrace {
 			ceTraceExpr(ctx, tableID, "Table Stats-Pseudo-Expression",
-				expression.ComposeCNFCondition(ctx, exprs...), ret*float64(coll.RealtimeCount))
+				expression.ComposeCNFCondition(expression.NewExprContext(ctx), exprs...), ret*float64(coll.RealtimeCount))
 		}
 		return ret, nil, nil
 	}
@@ -212,7 +212,7 @@ func Selectivity(
 					curExpr = append(curExpr, remainedExprs[i])
 				}
 			}
-			expr := expression.ComposeCNFCondition(ctx, curExpr...)
+			expr := expression.ComposeCNFCondition(expression.NewExprContext(ctx), curExpr...)
 			ceTraceExpr(ctx, tableID, "Table Stats-Expression-CNF", expr, ret*float64(coll.RealtimeCount))
 		} else if sc.EnableOptimizerDebugTrace {
 			var strs []string
@@ -269,7 +269,7 @@ func Selectivity(
 
 	// Try to cover remaining Constants
 	for i, c := range notCoveredConstants {
-		if expression.MaybeOverOptimized4PlanCache(ctx, []expression.Expression{c}) {
+		if expression.MaybeOverOptimized4PlanCache(expression.NewExprContext(ctx), []expression.Expression{c}) {
 			continue
 		}
 		if c.Value.IsNull() {
@@ -349,7 +349,7 @@ OUTER:
 		if sc.EnableOptimizerCETrace {
 			// Tracing for the expression estimation results after applying the DNF estimation result.
 			curExpr = append(curExpr, remainedExprs[i])
-			expr := expression.ComposeCNFCondition(ctx, curExpr...)
+			expr := expression.ComposeCNFCondition(expression.NewExprContext(ctx), curExpr...)
 			ceTraceExpr(ctx, tableID, "Table Stats-Expression-CNF", expr, ret*float64(coll.RealtimeCount))
 		}
 	}
@@ -411,7 +411,7 @@ OUTER:
 
 	if sc.EnableOptimizerCETrace {
 		// Tracing for the expression estimation results after applying the default selectivity.
-		totalExpr := expression.ComposeCNFCondition(ctx, remainedExprs...)
+		totalExpr := expression.ComposeCNFCondition(expression.NewExprContext(ctx), remainedExprs...)
 		ceTraceExpr(ctx, tableID, "Table Stats-Expression-CNF", totalExpr, ret*float64(coll.RealtimeCount))
 	}
 	return ret, nodes, nil
@@ -708,7 +708,7 @@ func GetSelectivityByFilter(sctx sessionctx.Context, coll *statistics.HistColl, 
 			}
 			c.AppendDatum(0, &val)
 		}
-		selected, err = expression.VectorizedFilter(sctx, filters, chunk.NewIterator4Chunk(c), selected)
+		selected, err = expression.VectorizedFilter(expression.NewExprContext(sctx), filters, chunk.NewIterator4Chunk(c), selected)
 		if err != nil {
 			return false, 0, err
 		}
@@ -725,7 +725,7 @@ func GetSelectivityByFilter(sctx sessionctx.Context, coll *statistics.HistColl, 
 	// The buckets lower bounds are used as random samples and are regarded equally.
 	if hist != nil && histTotalCnt > 0 {
 		selected = selected[:0]
-		selected, err = expression.VectorizedFilter(sctx, filters, chunk.NewIterator4Chunk(hist.Bounds), selected)
+		selected, err = expression.VectorizedFilter(expression.NewExprContext(sctx), filters, chunk.NewIterator4Chunk(hist.Bounds), selected)
 		if err != nil {
 			return false, 0, err
 		}
@@ -759,7 +759,7 @@ func GetSelectivityByFilter(sctx sessionctx.Context, coll *statistics.HistColl, 
 	c.Reset()
 	c.AppendNull(0)
 	selected = selected[:0]
-	selected, err = expression.VectorizedFilter(sctx, filters, chunk.NewIterator4Chunk(c), selected)
+	selected, err = expression.VectorizedFilter(expression.NewExprContext(sctx), filters, chunk.NewIterator4Chunk(c), selected)
 	if err != nil || len(selected) != 1 || !selected[0] {
 		nullSel = 0
 	} else {

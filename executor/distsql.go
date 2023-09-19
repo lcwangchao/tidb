@@ -336,7 +336,7 @@ func (e *IndexReaderExecutor) open(ctx context.Context, kvRanges []kv.KeyRange) 
 			args = append(args, expression.NewInt64Const(pid))
 		}
 
-		inCondition, err := expression.NewFunction(e.Ctx(), ast.In, types.NewFieldType(mysql.TypeLonglong), args...)
+		inCondition, err := expression.NewFunction(e.ExprCtx(), ast.In, types.NewFieldType(mysql.TypeLonglong), args...)
 		if err != nil {
 			return err
 		}

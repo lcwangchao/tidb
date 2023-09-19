@@ -158,9 +158,9 @@ func (la *LogicalAggregation) PruneColumns(parentUsedCols []*expression.Column, 
 		var err error
 		var newAgg *aggregation.AggFuncDesc
 		if allFirstRow {
-			newAgg, err = aggregation.NewAggFuncDesc(la.SCtx(), ast.AggFuncFirstRow, []expression.Expression{expression.NewOne()}, false)
+			newAgg, err = aggregation.NewAggFuncDesc(la.ExprCtx(), ast.AggFuncFirstRow, []expression.Expression{expression.NewOne()}, false)
 		} else {
-			newAgg, err = aggregation.NewAggFuncDesc(la.SCtx(), ast.AggFuncCount, []expression.Expression{expression.NewOne()}, false)
+			newAgg, err = aggregation.NewAggFuncDesc(la.ExprCtx(), ast.AggFuncCount, []expression.Expression{expression.NewOne()}, false)
 		}
 		if err != nil {
 			return err

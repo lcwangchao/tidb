@@ -20,7 +20,6 @@ import (
 
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/parser/terror"
-	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/sessionctx/stmtctx"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/chunk"
@@ -121,14 +120,13 @@ type Constant struct {
 
 // ParamMarker indicates param provided by COM_STMT_EXECUTE.
 type ParamMarker struct {
-	ctx   sessionctx.Context
+	ctx   *ExprContext
 	order int
 }
 
 // GetUserVar returns the corresponding user variable presented in the `EXECUTE` statement or `COM_EXECUTE` command.
 func (d *ParamMarker) GetUserVar() types.Datum {
-	sessionVars := d.ctx.GetSessionVars()
-	return sessionVars.PlanCacheParams.GetParamValue(d.order)
+	return d.ctx.PlanCacheParams.GetParamValue(d.order)
 }
 
 // String implements fmt.Stringer interface.
@@ -251,7 +249,7 @@ func (c *Constant) Eval(row chunk.Row) (types.Datum, error) {
 			sf, sfOk := c.DeferredExpr.(*ScalarFunction)
 			if sfOk {
 				if dt.Kind() != types.KindMysqlDecimal {
-					val, err := dt.ConvertTo(sf.GetCtx().GetSessionVars().StmtCtx, c.RetType)
+					val, err := dt.ConvertTo(sf.GetCtx().StmtCtx, c.RetType)
 					if err != nil {
 						return dt, err
 					}

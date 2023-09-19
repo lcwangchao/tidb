@@ -678,7 +678,7 @@ func (p *LogicalMemTable) findBestTask(prop *property.PhysicalProperty, planCoun
 func (ds *DataSource) tryToGetDualTask() (task, error) {
 	for _, cond := range ds.pushedDownConds {
 		if con, ok := cond.(*expression.Constant); ok && con.DeferredExpr == nil && con.ParamMarker == nil {
-			result, _, err := expression.EvalBool(ds.SCtx(), []expression.Expression{cond}, chunk.Row{})
+			result, _, err := expression.EvalBool(expression.NewExprContext(ds.SCtx()), []expression.Expression{cond}, chunk.Row{})
 			if err != nil {
 				return nil, err
 			}
@@ -1123,7 +1123,7 @@ func (ds *DataSource) findBestTask(prop *property.PhysicalProperty, planCounter 
 		// if we already know the range of the scan is empty, just return a TableDual
 		if len(path.Ranges) == 0 {
 			// We should uncache the tableDual plan.
-			if expression.MaybeOverOptimized4PlanCache(ds.SCtx(), path.AccessConds) {
+			if expression.MaybeOverOptimized4PlanCache(expression.NewExprContext(ds.SCtx()), path.AccessConds) {
 				ds.SCtx().GetSessionVars().StmtCtx.SetSkipPlanCache(errors.Errorf("get a TableDual plan"))
 			}
 			dual := PhysicalTableDual{}.Init(ds.SCtx(), ds.StatsInfo(), ds.SelectBlockOffset())
@@ -1201,7 +1201,7 @@ func (ds *DataSource) findBestTask(prop *property.PhysicalProperty, planCounter 
 
 				// Batch/PointGet plans may be over-optimized, like `a>=1(?) and a<=1(?)` --> `a=1` --> PointGet(a=1).
 				// For safety, prevent these plans from the plan cache here.
-				if !pointGetTask.invalid() && expression.MaybeOverOptimized4PlanCache(ds.SCtx(), candidate.path.AccessConds) && !isSafePointGetPath4PlanCache(ds.SCtx(), candidate.path) {
+				if !pointGetTask.invalid() && expression.MaybeOverOptimized4PlanCache(expression.NewExprContext(ds.SCtx()), candidate.path.AccessConds) && !isSafePointGetPath4PlanCache(ds.SCtx(), candidate.path) {
 					ds.SCtx().GetSessionVars().StmtCtx.SetSkipPlanCache(errors.New("Batch/PointGet plans may be over-optimized"))
 				}
 
@@ -2593,7 +2593,7 @@ func appendCandidate(lp LogicalPlan, task task, prop *property.PhysicalProperty,
 // 'not (a != 1)' would not be handled so we need to convert it to 'a = 1', which can be handled when building range.
 func pushDownNot(ctx sessionctx.Context, conds []expression.Expression) []expression.Expression {
 	for i, cond := range conds {
-		conds[i] = expression.PushDownNot(ctx, cond)
+		conds[i] = expression.PushDownNot(expression.NewExprContext(ctx), cond)
 	}
 	return conds
 }

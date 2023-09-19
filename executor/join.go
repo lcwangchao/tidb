@@ -977,7 +977,7 @@ func (w *probeWorker) getNewJoinResult() (bool, *hashjoinWorkerResult) {
 func (w *probeWorker) join2Chunk(probeSideChk *chunk.Chunk, hCtx *hashContext, joinResult *hashjoinWorkerResult,
 	selected []bool) (ok bool, _ *hashjoinWorkerResult) {
 	var err error
-	selected, err = expression.VectorizedFilter(w.hashJoinCtx.sessCtx, w.hashJoinCtx.outerFilter, chunk.NewIterator4Chunk(probeSideChk), selected)
+	selected, err = expression.VectorizedFilter(expression.NewExprContext(w.hashJoinCtx.sessCtx), w.hashJoinCtx.outerFilter, chunk.NewIterator4Chunk(probeSideChk), selected)
 	if err != nil {
 		joinResult.err = err
 		return false, joinResult
@@ -1239,7 +1239,7 @@ func (w *buildWorker) buildHashTableForList(buildSideResultCh <-chan *chunk.Chun
 			if len(w.hashJoinCtx.outerFilter) == 0 {
 				err = w.hashJoinCtx.rowContainer.PutChunk(chk, w.hashJoinCtx.isNullEQ)
 			} else {
-				selected, err = expression.VectorizedFilter(w.hashJoinCtx.sessCtx, w.hashJoinCtx.outerFilter, chunk.NewIterator4Chunk(chk), selected)
+				selected, err = expression.VectorizedFilter(expression.NewExprContext(w.hashJoinCtx.sessCtx), w.hashJoinCtx.outerFilter, chunk.NewIterator4Chunk(chk), selected)
 				if err != nil {
 					return err
 				}
@@ -1386,7 +1386,7 @@ func (e *NestedLoopApplyExec) fetchSelectedOuterRow(ctx context.Context, chk *ch
 			if e.outerChunk.NumRows() == 0 {
 				return nil, nil
 			}
-			e.outerSelected, err = expression.VectorizedFilter(e.ctx, e.outerFilter, outerIter, e.outerSelected)
+			e.outerSelected, err = expression.VectorizedFilter(e.ExprCtx(), e.outerFilter, outerIter, e.outerSelected)
 			if err != nil {
 				return nil, err
 			}
@@ -1437,7 +1437,7 @@ func (e *NestedLoopApplyExec) fetchAllInners(ctx context.Context) error {
 			return nil
 		}
 
-		e.innerSelected, err = expression.VectorizedFilter(e.ctx, e.innerFilter, innerIter, e.innerSelected)
+		e.innerSelected, err = expression.VectorizedFilter(e.ExprCtx(), e.innerFilter, innerIter, e.innerSelected)
 		if err != nil {
 			return err
 		}

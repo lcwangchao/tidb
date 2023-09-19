@@ -23,8 +23,6 @@ import (
 	"github.com/pingcap/tidb/extension"
 	"github.com/pingcap/tidb/parser/auth"
 	"github.com/pingcap/tidb/parser/mysql"
-	"github.com/pingcap/tidb/privilege"
-	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/chunk"
@@ -96,7 +94,7 @@ func newExtensionFuncClass(def *extension.FunctionDef) (*extensionFuncClass, err
 	}, nil
 }
 
-func (c *extensionFuncClass) getFunction(ctx sessionctx.Context, args []Expression) (builtinFunc, error) {
+func (c *extensionFuncClass) getFunction(ctx *ExprContext, args []Expression) (builtinFunc, error) {
 	if err := c.checkPrivileges(ctx); err != nil {
 		return nil, err
 	}
@@ -113,7 +111,7 @@ func (c *extensionFuncClass) getFunction(ctx sessionctx.Context, args []Expressi
 	return sig, nil
 }
 
-func (c *extensionFuncClass) checkPrivileges(ctx sessionctx.Context) error {
+func (c *extensionFuncClass) checkPrivileges(ctx *ExprContext) error {
 	fn := c.funcDef.RequireDynamicPrivileges
 	if fn == nil {
 		return nil
@@ -125,8 +123,8 @@ func (c *extensionFuncClass) checkPrivileges(ctx sessionctx.Context) error {
 		return nil
 	}
 
-	manager := privilege.GetPrivilegeManager(ctx)
-	activeRoles := ctx.GetSessionVars().ActiveRoles
+	manager := ctx.GetPrivilegeManager()
+	activeRoles := ctx.ActiveRoles
 
 	for _, priv := range privs {
 		if !manager.RequestDynamicVerification(activeRoles, priv, false) {

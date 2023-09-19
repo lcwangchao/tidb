@@ -1017,7 +1017,7 @@ func checkColumnDefaultValue(ctx sessionctx.Context, col *table.Column, value in
 	if value != nil && ctx.GetSessionVars().SQLMode.HasNoZeroDateMode() &&
 		ctx.GetSessionVars().SQLMode.HasStrictMode() && types.IsTypeTime(col.GetType()) {
 		if vv, ok := value.(string); ok {
-			timeValue, err := expression.GetTimeValue(ctx, vv, col.GetType(), col.GetDecimal(), nil)
+			timeValue, err := expression.GetTimeValue(expression.NewExprContext(ctx), vv, col.GetType(), col.GetDecimal(), nil)
 			if err != nil {
 				return hasDefaultValue, value, errors.Trace(err)
 			}
@@ -1306,7 +1306,7 @@ func getDefaultValue(ctx sessionctx.Context, col *table.Column, option *ast.Colu
 	}
 
 	if tp == mysql.TypeTimestamp || tp == mysql.TypeDatetime || tp == mysql.TypeDate {
-		vd, err := expression.GetTimeValue(ctx, option.Expr, tp, fsp, nil)
+		vd, err := expression.GetTimeValue(expression.NewExprContext(ctx), option.Expr, tp, fsp, nil)
 		value := vd.GetValue()
 		if err != nil {
 			return nil, false, dbterror.ErrInvalidDefaultValue.GenWithStackByArgs(col.Name.O)
@@ -1326,7 +1326,7 @@ func getDefaultValue(ctx sessionctx.Context, col *table.Column, option *ast.Colu
 	}
 
 	// evaluate the non-function-call expr to a certain value.
-	v, err := expression.EvalAstExpr(ctx, option.Expr)
+	v, err := expression.EvalAstExpr(expression.NewExprContext(ctx), option.Expr)
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
@@ -3173,7 +3173,7 @@ func parseAndEvalBoolExpr(ctx sessionctx.Context, l, r string, colInfo *model.Co
 	if err != nil {
 		return false, err
 	}
-	e, err := expression.NewFunctionBase(ctx, ast.GT, field_types.NewFieldType(mysql.TypeLonglong), lexpr, rexpr)
+	e, err := expression.NewFunctionBase(expression.NewExprContext(ctx), ast.GT, field_types.NewFieldType(mysql.TypeLonglong), lexpr, rexpr)
 	if err != nil {
 		return false, err
 	}
@@ -5260,7 +5260,7 @@ func setDefaultValueWithBinaryPadding(col *table.Column, value interface{}) erro
 }
 
 func setColumnComment(ctx sessionctx.Context, col *table.Column, option *ast.ColumnOption) error {
-	value, err := expression.EvalAstExpr(ctx, option.Expr)
+	value, err := expression.EvalAstExpr(expression.NewExprContext(ctx), option.Expr)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -7132,7 +7132,7 @@ func BuildHiddenColumnInfo(ctx sessionctx.Context, indexPartSpecifications []*as
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		expr, err := expression.RewriteSimpleExprWithTableInfo(ctx, tblInfo, idxPart.Expr, true)
+		expr, err := expression.RewriteSimpleExprWithTableInfo(expression.NewExprContext(ctx), tblInfo, idxPart.Expr, true)
 		if err != nil {
 			// TODO: refine the error message.
 			return nil, err
@@ -7786,7 +7786,7 @@ func checkAndGetColumnsTypeAndValuesMatch(ctx sessionctx.Context, colTypes []typ
 			continue
 		}
 		colType := colTypes[i]
-		val, err := expression.EvalAstExpr(ctx, colExpr)
+		val, err := expression.EvalAstExpr(expression.NewExprContext(ctx), colExpr)
 		if err != nil {
 			return nil, err
 		}

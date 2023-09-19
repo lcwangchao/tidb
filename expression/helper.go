@@ -24,7 +24,6 @@ import (
 	"github.com/pingcap/tidb/parser/ast"
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/parser/terror"
-	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/types"
 	driver "github.com/pingcap/tidb/types/parser_driver"
 	"github.com/pingcap/tidb/util/logutil"
@@ -87,15 +86,15 @@ func getTimeCurrentTimeStamp(ctx *ExprContext, tp byte, fsp int) (t types.Time, 
 }
 
 // GetTimeValue gets the time value with type tp.
-func GetTimeValue(ctx sessionctx.Context, v interface{}, tp byte, fsp int, explicitTz *time.Location) (d types.Datum, err error) {
+func GetTimeValue(ctx *ExprContext, v interface{}, tp byte, fsp int, explicitTz *time.Location) (d types.Datum, err error) {
 	var value types.Time
 
-	sc := ctx.GetSessionVars().StmtCtx
+	sc := ctx.StmtCtx
 	switch x := v.(type) {
 	case string:
 		lowerX := strings.ToLower(x)
 		if lowerX == ast.CurrentTimestamp || lowerX == ast.CurrentDate {
-			if value, err = getTimeCurrentTimeStamp(NewExprContext(ctx), tp, fsp); err != nil {
+			if value, err = getTimeCurrentTimeStamp(ctx, tp, fsp); err != nil {
 				return d, err
 			}
 		} else if lowerX == types.ZeroDatetimeStr {
@@ -137,7 +136,7 @@ func GetTimeValue(ctx sessionctx.Context, v interface{}, tp byte, fsp int, expli
 			return d, err
 		}
 		ft := types.NewFieldType(mysql.TypeLonglong)
-		xval, err := v.ConvertTo(ctx.GetSessionVars().StmtCtx, ft)
+		xval, err := v.ConvertTo(ctx.StmtCtx, ft)
 		if err != nil {
 			return d, err
 		}

@@ -139,7 +139,7 @@ func newBaseBuiltinFunc(ctx *ExprContext, funcName string, args []Expression, tp
 // newBaseBuiltinFuncWithTp creates a built-in function signature with specified types of arguments and the return type of the function.
 // argTps indicates the types of the args, retType indicates the return type of the built-in function.
 // Every built-in function needs to be determined argTps and retType when we create it.
-func newBaseBuiltinFuncWithTp(ctx sessionctx.Context, funcName string, args []Expression, retType types.EvalType, argTps ...types.EvalType) (bf baseBuiltinFunc, err error) {
+func newBaseBuiltinFuncWithTp(ctx *ExprContext, funcName string, args []Expression, retType types.EvalType, argTps ...types.EvalType) (bf baseBuiltinFunc, err error) {
 	if len(args) != len(argTps) {
 		panic("unexpected length of args and argTps")
 	}
@@ -149,7 +149,7 @@ func newBaseBuiltinFuncWithTp(ctx sessionctx.Context, funcName string, args []Ex
 
 	// derive collation information for string function, and we must do it
 	// before doing implicit cast.
-	ec, err := deriveCollation(NewExprContext(ctx), funcName, args, retType, argTps...)
+	ec, err := deriveCollation(ctx, funcName, args, retType, argTps...)
 	if err != nil {
 		return
 	}
@@ -208,7 +208,7 @@ func newBaseBuiltinFuncWithTp(ctx sessionctx.Context, funcName string, args []Ex
 		childrenReversedOnce:   new(sync.Once),
 
 		args: args,
-		ctx:  NewExprContext(ctx),
+		ctx:  ctx,
 		tp:   fieldType,
 	}
 	bf.SetCharsetAndCollation(ec.Charset, ec.Collation)
@@ -367,8 +367,8 @@ func (b *baseBuiltinFunc) equal(fun builtinFunc) bool {
 	return true
 }
 
-func (b *baseBuiltinFunc) getCtx() sessionctx.Context {
-	return b.ctx.GetSessionCtx()
+func (b *baseBuiltinFunc) getCtx() *ExprContext {
+	return b.ctx
 }
 
 func (b *baseBuiltinFunc) cloneFrom(from *baseBuiltinFunc) {
@@ -483,7 +483,7 @@ type builtinFunc interface {
 	// equal check if this function equals to another function.
 	equal(builtinFunc) bool
 	// getCtx returns this function's context.
-	getCtx() sessionctx.Context
+	getCtx() *ExprContext
 	// getRetTp returns the return type of the built-in function.
 	getRetTp() *types.FieldType
 	// setPbCode sets pbCode for signature.
@@ -541,7 +541,7 @@ func VerifyArgsWrapper(name string, l int) error {
 // functionClass is the interface for a function which may contains multiple functions.
 type functionClass interface {
 	// getFunction gets a function signature by the types and the counts of given arguments.
-	getFunction(ctx sessionctx.Context, args []Expression) (builtinFunc, error)
+	getFunction(ctx *ExprContext, args []Expression) (builtinFunc, error)
 	// verifyArgsByCount verifies the count of parameters.
 	verifyArgsByCount(l int) error
 }

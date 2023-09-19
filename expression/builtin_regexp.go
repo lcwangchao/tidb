@@ -24,7 +24,6 @@ import (
 
 	"github.com/pingcap/tidb/parser/charset"
 	"github.com/pingcap/tidb/parser/mysql"
-	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/chunk"
 	"github.com/pingcap/tidb/util/collate"
@@ -215,7 +214,7 @@ type regexpLikeFunctionClass struct {
 	baseFunctionClass
 }
 
-func (c *regexpLikeFunctionClass) getFunction(ctx sessionctx.Context, args []Expression) (builtinFunc, error) {
+func (c *regexpLikeFunctionClass) getFunction(ctx *ExprContext, args []Expression) (builtinFunc, error) {
 	if err := c.verifyArgs(args); err != nil {
 		return nil, err
 	}
@@ -366,7 +365,7 @@ type regexpSubstrFunctionClass struct {
 	baseFunctionClass
 }
 
-func (c *regexpSubstrFunctionClass) getFunction(ctx sessionctx.Context, args []Expression) (builtinFunc, error) {
+func (c *regexpSubstrFunctionClass) getFunction(ctx *ExprContext, args []Expression) (builtinFunc, error) {
 	if err := c.verifyArgs(args); err != nil {
 		return nil, err
 	}
@@ -683,7 +682,7 @@ type regexpInStrFunctionClass struct {
 	baseFunctionClass
 }
 
-func (c *regexpInStrFunctionClass) getFunction(ctx sessionctx.Context, args []Expression) (builtinFunc, error) {
+func (c *regexpInStrFunctionClass) getFunction(ctx *ExprContext, args []Expression) (builtinFunc, error) {
 	if err := c.verifyArgs(args); err != nil {
 		return nil, ErrRegexp.GenWithStackByArgs(err)
 	}
@@ -1048,7 +1047,7 @@ type regexpReplaceFunctionClass struct {
 	baseFunctionClass
 }
 
-func (c *regexpReplaceFunctionClass) getFunction(ctx sessionctx.Context, args []Expression) (builtinFunc, error) {
+func (c *regexpReplaceFunctionClass) getFunction(ctx *ExprContext, args []Expression) (builtinFunc, error) {
 	if err := c.verifyArgs(args); err != nil {
 		return nil, ErrRegexp.GenWithStackByArgs(err)
 	}

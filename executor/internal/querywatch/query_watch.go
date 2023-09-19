@@ -44,7 +44,7 @@ func setWatchOption(ctx context.Context,
 	switch op.Tp {
 	case ast.QueryWatchResourceGroup:
 		if op.ExprValue != nil {
-			expr, err := expression.RewriteAstExpr(sctx, op.ExprValue, nil, nil, false)
+			expr, err := expression.RewriteAstExpr(expression.NewExprContext(sctx), op.ExprValue, nil, nil, false)
 			if err != nil {
 				return err
 			}
@@ -62,7 +62,7 @@ func setWatchOption(ctx context.Context,
 	case ast.QueryWatchAction:
 		record.Action = rmpb.RunawayAction(op.IntValue)
 	case ast.QueryWatchType:
-		expr, err := expression.RewriteAstExpr(sctx, op.ExprValue, nil, nil, false)
+		expr, err := expression.RewriteAstExpr(expression.NewExprContext(sctx), op.ExprValue, nil, nil, false)
 		if err != nil {
 			return err
 		}

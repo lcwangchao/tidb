@@ -48,7 +48,7 @@ type AggFuncDesc struct {
 
 // NewAggFuncDesc creates an aggregation function signature descriptor.
 // this func cannot be called twice as the TypeInfer has changed the type of args in the first time.
-func NewAggFuncDesc(ctx sessionctx.Context, name string, args []expression.Expression, hasDistinct bool) (*AggFuncDesc, error) {
+func NewAggFuncDesc(ctx *expression.ExprContext, name string, args []expression.Expression, hasDistinct bool) (*AggFuncDesc, error) {
 	b, err := newBaseFuncDesc(ctx, name, args)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func NewAggFuncDesc(ctx sessionctx.Context, name string, args []expression.Expre
 }
 
 // NewAggFuncDescForWindowFunc creates an aggregation function from window functions, where baseFuncDesc may be ready.
-func NewAggFuncDescForWindowFunc(ctx sessionctx.Context, desc *WindowFuncDesc, hasDistinct bool) (*AggFuncDesc, error) {
+func NewAggFuncDescForWindowFunc(ctx *expression.ExprContext, desc *WindowFuncDesc, hasDistinct bool) (*AggFuncDesc, error) {
 	if desc.RetTp == nil { // safety check
 		return NewAggFuncDesc(ctx, desc.Name, desc.Args, hasDistinct)
 	}
@@ -91,7 +91,7 @@ func (a *AggFuncDesc) String() string {
 }
 
 // Equal checks whether two aggregation function signatures are equal.
-func (a *AggFuncDesc) Equal(ctx sessionctx.Context, other *AggFuncDesc) bool {
+func (a *AggFuncDesc) Equal(ctx *expression.ExprContext, other *AggFuncDesc) bool {
 	if a.HasDistinct != other.HasDistinct {
 		return false
 	}
@@ -99,7 +99,7 @@ func (a *AggFuncDesc) Equal(ctx sessionctx.Context, other *AggFuncDesc) bool {
 		return false
 	}
 	for i := range a.OrderByItems {
-		if !a.OrderByItems[i].Equal(ctx, other.OrderByItems[i]) {
+		if !a.OrderByItems[i].Equal(other.OrderByItems[i]) {
 			return false
 		}
 	}
@@ -200,7 +200,7 @@ func (a *AggFuncDesc) Split(ordinal []int) (partialAggDesc, finalAggDesc *AggFun
 // +------+-----------+---------+---------+------------+-------------+------------+---------+---------+------+----------+
 // |    1 |         1 |      95 | 95.0000 |         95 |          95 |         95 |      95 |      95 | NULL |     NULL |
 // +------+-----------+---------+---------+------------+-------------+------------+---------+---------+------+----------+
-func (a *AggFuncDesc) EvalNullValueInOuterJoin(ctx sessionctx.Context, schema *expression.Schema) (types.Datum, bool) {
+func (a *AggFuncDesc) EvalNullValueInOuterJoin(ctx *expression.ExprContext, schema *expression.Schema) (types.Datum, bool) {
 	switch a.Name {
 	case ast.AggFuncCount:
 		return a.evalNullValueInOuterJoin4Count(ctx, schema)
@@ -258,7 +258,7 @@ func (a *AggFuncDesc) GetAggFunc(ctx sessionctx.Context) Aggregation {
 	}
 }
 
-func (a *AggFuncDesc) evalNullValueInOuterJoin4Count(ctx sessionctx.Context, schema *expression.Schema) (types.Datum, bool) {
+func (a *AggFuncDesc) evalNullValueInOuterJoin4Count(ctx *expression.ExprContext, schema *expression.Schema) (types.Datum, bool) {
 	for _, arg := range a.Args {
 		result := expression.EvaluateExprWithNull(ctx, schema, arg)
 		con, ok := result.(*expression.Constant)
@@ -269,7 +269,7 @@ func (a *AggFuncDesc) evalNullValueInOuterJoin4Count(ctx sessionctx.Context, sch
 	return types.NewDatum(1), true
 }
 
-func (a *AggFuncDesc) evalNullValueInOuterJoin4Sum(ctx sessionctx.Context, schema *expression.Schema) (types.Datum, bool) {
+func (a *AggFuncDesc) evalNullValueInOuterJoin4Sum(ctx *expression.ExprContext, schema *expression.Schema) (types.Datum, bool) {
 	result := expression.EvaluateExprWithNull(ctx, schema, a.Args[0])
 	con, ok := result.(*expression.Constant)
 	if !ok || con.Value.IsNull() {
@@ -278,7 +278,7 @@ func (a *AggFuncDesc) evalNullValueInOuterJoin4Sum(ctx sessionctx.Context, schem
 	return con.Value, true
 }
 
-func (a *AggFuncDesc) evalNullValueInOuterJoin4BitAnd(ctx sessionctx.Context, schema *expression.Schema) (types.Datum, bool) {
+func (a *AggFuncDesc) evalNullValueInOuterJoin4BitAnd(ctx *expression.ExprContext, schema *expression.Schema) (types.Datum, bool) {
 	result := expression.EvaluateExprWithNull(ctx, schema, a.Args[0])
 	con, ok := result.(*expression.Constant)
 	if !ok || con.Value.IsNull() {
@@ -287,7 +287,7 @@ func (a *AggFuncDesc) evalNullValueInOuterJoin4BitAnd(ctx sessionctx.Context, sc
 	return con.Value, true
 }
 
-func (a *AggFuncDesc) evalNullValueInOuterJoin4BitOr(ctx sessionctx.Context, schema *expression.Schema) (types.Datum, bool) {
+func (a *AggFuncDesc) evalNullValueInOuterJoin4BitOr(ctx *expression.ExprContext, schema *expression.Schema) (types.Datum, bool) {
 	result := expression.EvaluateExprWithNull(ctx, schema, a.Args[0])
 	con, ok := result.(*expression.Constant)
 	if !ok || con.Value.IsNull() {

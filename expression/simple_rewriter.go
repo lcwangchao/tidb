@@ -51,7 +51,7 @@ func ParseSimpleExprWithTableInfo(ctx sessionctx.Context, exprStr string, tableI
 		return nil, errors.Trace(err)
 	}
 	expr := stmts[0].(*ast.SelectStmt).Fields.Fields[0].Expr
-	return RewriteSimpleExprWithTableInfo(ctx, tableInfo, expr, false)
+	return RewriteSimpleExprWithTableInfo(NewExprContext(ctx), tableInfo, expr, false)
 }
 
 // ParseSimpleExprCastWithTableInfo parses simple expression string to Expression.
@@ -61,13 +61,13 @@ func ParseSimpleExprCastWithTableInfo(ctx sessionctx.Context, exprStr string, ta
 	if err != nil {
 		return nil, err
 	}
-	e = BuildCastFunction(ctx, e, targetFt)
+	e = BuildCastFunction(NewExprContext(ctx), e, targetFt)
 	return e, nil
 }
 
 // RewriteSimpleExprWithTableInfo rewrites simple ast.ExprNode to expression.Expression.
-func RewriteSimpleExprWithTableInfo(ctx sessionctx.Context, tbl *model.TableInfo, expr ast.ExprNode, allowCastArray bool) (Expression, error) {
-	dbName := model.NewCIStr(ctx.GetSessionVars().CurrentDB)
+func RewriteSimpleExprWithTableInfo(ctx *ExprContext, tbl *model.TableInfo, expr ast.ExprNode, allowCastArray bool) (Expression, error) {
+	dbName := model.NewCIStr(ctx.CurrentDB)
 	columns, names, err := ColumnInfos2ColumnsAndNames(ctx, dbName, tbl.Name, tbl.Cols(), tbl)
 	if err != nil {
 		return nil, err
@@ -103,7 +103,7 @@ func ParseSimpleExprsWithNames(ctx sessionctx.Context, exprStr string, schema *S
 	fields := stmts[0].(*ast.SelectStmt).Fields.Fields
 	exprs := make([]Expression, 0, len(fields))
 	for _, field := range fields {
-		expr, err := RewriteSimpleExprWithNames(ctx, field.Expr, schema, names)
+		expr, err := RewriteSimpleExprWithNames(NewExprContext(ctx), field.Expr, schema, names)
 		if err != nil {
 			return nil, err
 		}
@@ -113,7 +113,7 @@ func ParseSimpleExprsWithNames(ctx sessionctx.Context, exprStr string, schema *S
 }
 
 // RewriteSimpleExprWithNames rewrites simple ast.ExprNode to expression.Expression.
-func RewriteSimpleExprWithNames(ctx sessionctx.Context, expr ast.ExprNode, schema *Schema, names []*types.FieldName) (Expression, error) {
+func RewriteSimpleExprWithNames(ctx *ExprContext, expr ast.ExprNode, schema *Schema, names []*types.FieldName) (Expression, error) {
 	e, err := RewriteAstExpr(ctx, expr, schema, names, false)
 	if err != nil {
 		return nil, err

@@ -219,7 +219,7 @@ func (e *ParallelNestedLoopApplyExec) outerWorker(ctx context.Context) {
 		}
 		e.outerList.Add(chk)
 		outerIter := chunk.NewIterator4Chunk(chk)
-		selected, err = expression.VectorizedFilter(e.Ctx(), e.outerFilter, outerIter, selected)
+		selected, err = expression.VectorizedFilter(e.ExprCtx(), e.outerFilter, outerIter, selected)
 		if err != nil {
 			e.putResult(nil, err)
 			return
@@ -324,7 +324,7 @@ func (e *ParallelNestedLoopApplyExec) fetchAllInners(ctx context.Context, id int
 			break
 		}
 
-		e.innerSelected[id], err = expression.VectorizedFilter(e.Ctx(), e.innerFilter[id], innerIter, e.innerSelected[id])
+		e.innerSelected[id], err = expression.VectorizedFilter(e.ExprCtx(), e.innerFilter[id], innerIter, e.innerSelected[id])
 		if err != nil {
 			return err
 		}

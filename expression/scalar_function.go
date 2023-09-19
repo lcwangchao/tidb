@@ -106,7 +106,7 @@ func (sf *ScalarFunction) ReverseEval(sc *stmtctx.StatementContext, res types.Da
 }
 
 // GetCtx gets the context of function.
-func (sf *ScalarFunction) GetCtx() sessionctx.Context {
+func (sf *ScalarFunction) GetCtx() *ExprContext {
 	return sf.Function.getCtx()
 }
 
@@ -176,7 +176,7 @@ func typeInferForNull(args []Expression) {
 // newFunctionImpl creates a new scalar function or constant.
 // fold: 1 means folding constants, while 0 means not,
 // -1 means try to fold constants if without errors/warnings, otherwise not.
-func newFunctionImpl(ctx sessionctx.Context, fold int, funcName string, retType *types.FieldType, checkOrInit ScalarFunctionCallBack, args ...Expression) (ret Expression, err error) {
+func newFunctionImpl(ctx *ExprContext, fold int, funcName string, retType *types.FieldType, checkOrInit ScalarFunctionCallBack, args ...Expression) (ret Expression, err error) {
 	defer func() {
 		if err == nil && ret != nil && checkOrInit != nil {
 			if sf, ok := ret.(*ScalarFunction); ok {
@@ -197,7 +197,7 @@ func newFunctionImpl(ctx sessionctx.Context, fold int, funcName string, retType 
 	case InternalFuncToBinary:
 		return BuildToBinaryFunction(ctx, args[0]), nil
 	case ast.Sysdate:
-		if ctx.GetSessionVars().SysdateIsNow {
+		if ctx.SysdateIsNow {
 			funcName = ast.Now
 		}
 	}
@@ -210,13 +210,13 @@ func newFunctionImpl(ctx sessionctx.Context, fold int, funcName string, retType 
 	}
 
 	if !ok {
-		db := ctx.GetSessionVars().CurrentDB
+		db := ctx.CurrentDB
 		if db == "" {
 			return nil, errors.Trace(ErrNoDB)
 		}
 		return nil, ErrFunctionNotExists.GenWithStackByArgs("FUNCTION", db+"."+funcName)
 	}
-	noopFuncsMode := ctx.GetSessionVars().NoopFuncsMode
+	noopFuncsMode := ctx.NoopFuncsMode
 	if noopFuncsMode != variable.OnInt {
 		if _, ok := noopFuncs[funcName]; ok {
 			err := ErrFunctionsNoopImpl.GenWithStackByArgs(funcName)
@@ -224,7 +224,7 @@ func newFunctionImpl(ctx sessionctx.Context, fold int, funcName string, retType 
 				return nil, err
 			}
 			// NoopFuncsMode is Warn, append an error
-			ctx.GetSessionVars().StmtCtx.AppendWarning(err)
+			ctx.StmtCtx.AppendWarning(err)
 		}
 	}
 	funcArgs := make([]Expression, len(args))
@@ -252,7 +252,7 @@ func newFunctionImpl(ctx sessionctx.Context, fold int, funcName string, retType 
 		return FoldConstant(sf), nil
 	} else if fold == -1 {
 		// try to fold constants, and return the original function if errors/warnings occur
-		sc := ctx.GetSessionVars().StmtCtx
+		sc := ctx.StmtCtx
 		beforeWarns := sc.WarningCount()
 		newSf := FoldConstant(sf)
 		afterWarns := sc.WarningCount()
@@ -279,22 +279,22 @@ func defaultScalarFunctionCheck(function *ScalarFunction) (Expression, error) {
 }
 
 // NewFunctionWithInit creates a new scalar function with callback init function.
-func NewFunctionWithInit(ctx sessionctx.Context, funcName string, retType *types.FieldType, init ScalarFunctionCallBack, args ...Expression) (Expression, error) {
+func NewFunctionWithInit(ctx *ExprContext, funcName string, retType *types.FieldType, init ScalarFunctionCallBack, args ...Expression) (Expression, error) {
 	return newFunctionImpl(ctx, 1, funcName, retType, init, args...)
 }
 
 // NewFunction creates a new scalar function or constant via a constant folding.
-func NewFunction(ctx sessionctx.Context, funcName string, retType *types.FieldType, args ...Expression) (Expression, error) {
+func NewFunction(ctx *ExprContext, funcName string, retType *types.FieldType, args ...Expression) (Expression, error) {
 	return newFunctionImpl(ctx, 1, funcName, retType, defaultScalarFunctionCheck, args...)
 }
 
 // NewFunctionBase creates a new scalar function with no constant folding.
-func NewFunctionBase(ctx sessionctx.Context, funcName string, retType *types.FieldType, args ...Expression) (Expression, error) {
+func NewFunctionBase(ctx *ExprContext, funcName string, retType *types.FieldType, args ...Expression) (Expression, error) {
 	return newFunctionImpl(ctx, 0, funcName, retType, defaultScalarFunctionCheck, args...)
 }
 
 // NewFunctionTryFold creates a new scalar function with trying constant folding.
-func NewFunctionTryFold(ctx sessionctx.Context, funcName string, retType *types.FieldType, args ...Expression) (Expression, error) {
+func NewFunctionTryFold(ctx *ExprContext, funcName string, retType *types.FieldType, args ...Expression) (Expression, error) {
 	return newFunctionImpl(ctx, -1, funcName, retType, defaultScalarFunctionCheck, args...)
 }
 
@@ -304,7 +304,7 @@ func NewFunctionTryFold(ctx sessionctx.Context, funcName string, retType *types.
 // error, collation derivation error, special function with meta doesn't be initialized error and so on.
 // only threw the these internal error out, then we can debug and dig it out quickly rather than in a confusion
 // of index out of range / nil pointer error / function execution error.
-func NewFunctionInternal(ctx sessionctx.Context, funcName string, retType *types.FieldType, args ...Expression) Expression {
+func NewFunctionInternal(ctx *ExprContext, funcName string, retType *types.FieldType, args ...Expression) Expression {
 	expr, err := NewFunction(ctx, funcName, retType, args...)
 	terror.Log(errors.Trace(err))
 	return expr
@@ -418,7 +418,7 @@ func (sf *ScalarFunction) Eval(row chunk.Row) (d types.Datum, err error) {
 		if !isNull && err == nil && tp.GetType() == mysql.TypeEnum {
 			res, err = types.ParseEnum(tp.GetElems(), str, tp.GetCollate())
 			if ctx := sf.GetCtx(); ctx != nil {
-				if sc := ctx.GetSessionVars().StmtCtx; sc != nil {
+				if sc := ctx.StmtCtx; sc != nil {
 					err = sc.HandleTruncate(err)
 				}
 			}
@@ -439,8 +439,7 @@ func (sf *ScalarFunction) Eval(row chunk.Row) (d types.Datum, err error) {
 func (sf *ScalarFunction) EvalInt(row chunk.Row) (int64, bool, error) {
 	if f, ok := sf.Function.(builtinFuncNew); ok {
 		// TODO: think how to pass ctx here
-		ctx := NewExprContext(sf.Function.getCtx())
-		_ = ctx.GetSessionCtx()
+		ctx := sf.Function.getCtx()
 		return f.evalIntWithCtx(ctx, row)
 	}
 	return sf.Function.evalInt(row)

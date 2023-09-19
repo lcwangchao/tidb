@@ -202,6 +202,10 @@ func (e *BaseExecutor) Ctx() sessionctx.Context {
 	return e.ctx
 }
 
+func (e *BaseExecutor) ExprCtx() *expression.ExprContext {
+	return expression.NewExprContext(e.ctx)
+}
+
 // GetSchema gets the schema.
 func (e *BaseExecutor) GetSchema() *expression.Schema {
 	return e.schema

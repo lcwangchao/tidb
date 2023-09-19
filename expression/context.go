@@ -20,11 +20,13 @@ import (
 	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/parser/auth"
 	"github.com/pingcap/tidb/parser/mysql"
+	"github.com/pingcap/tidb/privilege"
 	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/sessionctx/stmtctx"
 	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/chunk"
+	"github.com/pingcap/tidb/util/mathutil"
 	"time"
 )
 
@@ -46,6 +48,7 @@ type ExprContext struct {
 	LastFoundRows               uint64
 	SetLastInsertID             func(insertID uint64)
 	Value                       func(key fmt.Stringer) interface{}
+	SetValue                    func(key fmt.Stringer, value interface{})
 	InfoSchema                  interface{}
 	MaxExecutionTime            uint64
 	SequenceState               *variable.SequenceState
@@ -61,6 +64,16 @@ type ExprContext struct {
 	GetCharsetInfo              func() (charset, collation string)
 	GetStore                    func() kv.Storage
 	ConnectionInfo              *variable.ConnectionInfo
+	Rng                         *mathutil.MysqlRng
+	SysdateIsNow                bool
+	GetPrivilegeManager         func() privilege.Manager
+	NoopFuncsMode               int
+	EnableVectorizedExpression  bool
+	AllocPlanColumnID           func() int64
+	Killed                      *uint32
+	RetrieveSQLDigest           func(ctx context.Context, digests []interface{}) (map[string]string, error)
+	GetAllowInSubqToJoinAndAgg  func() bool
+	DefaultCollationForUTF8MB4  string
 }
 
 func NewExprContext(sctx sessionctx.Context) *ExprContext {
@@ -83,6 +96,7 @@ func NewExprContext(sctx sessionctx.Context) *ExprContext {
 		LastFoundRows:               sessVars.LastFoundRows,
 		SetLastInsertID:             sessVars.SetLastInsertID,
 		Value:                       sctx.Value,
+		SetValue:                    sctx.SetValue,
 		MaxExecutionTime:            sessVars.MaxExecutionTime,
 		SequenceState:               sessVars.SequenceState,
 		GetAdvisoryLock:             sctx.GetAdvisoryLock,
@@ -97,6 +111,34 @@ func NewExprContext(sctx sessionctx.Context) *ExprContext {
 		GetCharsetInfo:              sessVars.GetCharsetInfo,
 		GetStore:                    sctx.GetStore,
 		ConnectionInfo:              sessVars.ConnectionInfo,
+		Rng:                         sessVars.Rng,
+		SysdateIsNow:                sessVars.SysdateIsNow,
+		NoopFuncsMode:               sessVars.NoopFuncsMode,
+		EnableVectorizedExpression:  sessVars.EnableVectorizedExpression,
+		GetPrivilegeManager: func() privilege.Manager {
+			return privilege.GetPrivilegeManager(sctx)
+		},
+		AllocPlanColumnID: sessVars.AllocPlanColumnID,
+		Killed:            &sessVars.Killed,
+		RetrieveSQLDigest: func(ctx context.Context, digests []interface{}) (map[string]string, error) {
+			retriever := NewSQLDigestTextRetriever()
+			for _, item := range digests {
+				if item != nil {
+					digest, ok := item.(string)
+					if ok {
+						retriever.SQLDigestsMap[digest] = ""
+					}
+				}
+			}
+
+			if err := retriever.RetrieveGlobal(ctx, sctx); err != nil {
+				return nil, err
+			}
+
+			return retriever.SQLDigestsMap, nil
+		},
+		GetAllowInSubqToJoinAndAgg: sessVars.GetAllowInSubqToJoinAndAgg,
+		DefaultCollationForUTF8MB4: sessVars.DefaultCollationForUTF8MB4,
 	}
 }
 

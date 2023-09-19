@@ -416,7 +416,7 @@ func TestRefineArgsWithCastEnum(t *testing.T) {
 	f := funcs[ast.EQ].(*compareFunctionClass)
 	require.NotNil(t, f)
 
-	args := f.refineArgsByUnsignedFlag(ctx, []Expression{zeroUintConst, enumCol})
+	args := f.refineArgsByUnsignedFlag([]Expression{zeroUintConst, enumCol})
 	require.Equal(t, zeroUintConst, args[0])
 	require.Equal(t, enumCol, args[1])
 }

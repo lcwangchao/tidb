@@ -242,7 +242,7 @@ func newPartitionExpr(tblInfo *model.TableInfo, tp model.PartitionType, expr str
 	// a partitioned table cannot rely on session context/sql modes, so use a default one!
 	ctx := mock.NewContext()
 	dbName := model.NewCIStr(ctx.GetSessionVars().CurrentDB)
-	columns, names, err := expression.ColumnInfos2ColumnsAndNames(ctx, dbName, tblInfo.Name, tblInfo.Cols(), tblInfo)
+	columns, names, err := expression.ColumnInfos2ColumnsAndNames(expression.NewExprContext(ctx), dbName, tblInfo.Name, tblInfo.Cols(), tblInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -366,7 +366,7 @@ func dataForRangeColumnsPruning(ctx sessionctx.Context, defs []model.PartitionDe
 			switch schema.Columns[colOffsets[j]].RetType.GetType() {
 			case mysql.TypeDatetime, mysql.TypeDate:
 				// Will also fold constant
-				tmp = expression.BuildCastFunction(ctx, tmp, schema.Columns[colOffsets[j]].RetType)
+				tmp = expression.BuildCastFunction(expression.NewExprContext(ctx), tmp, schema.Columns[colOffsets[j]].RetType)
 			}
 			lessThanCols = append(lessThanCols, &tmp)
 		}
@@ -382,7 +382,7 @@ func parseSimpleExprWithNames(p *parser.Parser, ctx sessionctx.Context, exprStr 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return expression.RewriteSimpleExprWithNames(ctx, exprNode, schema, names)
+	return expression.RewriteSimpleExprWithNames(expression.NewExprContext(ctx), exprNode, schema, names)
 }
 
 // ForKeyPruning is used for key partition pruning.
@@ -1818,7 +1818,7 @@ func parseExpr(p *parser.Parser, exprStr string) (ast.ExprNode, error) {
 }
 
 func rewritePartitionExpr(ctx sessionctx.Context, field ast.ExprNode, schema *expression.Schema, names types.NameSlice) (expression.Expression, error) {
-	expr, err := expression.RewriteSimpleExprWithNames(ctx, field, schema, names)
+	expr, err := expression.RewriteSimpleExprWithNames(expression.NewExprContext(ctx), field, schema, names)
 	return expr, err
 }
 

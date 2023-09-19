@@ -33,15 +33,16 @@ import (
 
 // PBPlanBuilder uses to build physical plan from dag protocol buffers.
 type PBPlanBuilder struct {
-	sctx   sessionctx.Context
-	tps    []*types.FieldType
-	is     infoschema.InfoSchema
-	ranges []*coprocessor.KeyRange
+	sctx    sessionctx.Context
+	exprCtx *expression.ExprContext
+	tps     []*types.FieldType
+	is      infoschema.InfoSchema
+	ranges  []*coprocessor.KeyRange
 }
 
 // NewPBPlanBuilder creates a new pb plan builder.
 func NewPBPlanBuilder(sctx sessionctx.Context, is infoschema.InfoSchema, ranges []*coprocessor.KeyRange) *PBPlanBuilder {
-	return &PBPlanBuilder{sctx: sctx, is: is, ranges: ranges}
+	return &PBPlanBuilder{sctx: sctx, is: is, ranges: ranges, exprCtx: expression.NewExprContext(sctx)}
 }
 
 // Build builds physical plan from dag protocol buffers.
@@ -224,7 +225,7 @@ func (b *PBPlanBuilder) getAggInfo(executor *tipb.Executor) ([]*aggregation.AggF
 	var err error
 	aggFuncs := make([]*aggregation.AggFuncDesc, 0, len(executor.Aggregation.AggFunc))
 	for _, expr := range executor.Aggregation.AggFunc {
-		aggFunc, err := aggregation.PBExprToAggFuncDesc(b.sctx, expr, b.tps)
+		aggFunc, err := aggregation.PBExprToAggFuncDesc(b.exprCtx, expr, b.tps)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}

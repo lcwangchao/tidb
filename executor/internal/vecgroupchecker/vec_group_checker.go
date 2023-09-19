@@ -335,7 +335,7 @@ func (e *VecGroupChecker) evalGroupItemsAndResolveGroups(
 		return err
 	}
 	defer e.releaseBuffer(col)
-	err = expression.EvalExpr(e.ctx, item, eType, chk, col)
+	err = expression.EvalExpr(expression.NewExprContext(e.ctx), item, eType, chk, col)
 	if err != nil {
 		return err
 	}

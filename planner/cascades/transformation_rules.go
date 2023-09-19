@@ -869,8 +869,8 @@ func (*pushDownJoin) predicatePushDown(
 		tempCond = append(tempCond, expression.ScalarFuncs2Exprs(join.EqualConditions)...)
 		tempCond = append(tempCond, join.OtherConditions...)
 		tempCond = append(tempCond, predicates...)
-		tempCond = expression.ExtractFiltersFromDNFs(sctx, tempCond)
-		tempCond = expression.PropagateConstant(sctx, tempCond)
+		tempCond = expression.ExtractFiltersFromDNFs(expression.NewExprContext(sctx), tempCond)
+		tempCond = expression.PropagateConstant(expression.NewExprContext(sctx), tempCond)
 		// Return table dual when filter is constant false or null.
 		dual := plannercore.Conds2TableDual(join, tempCond)
 		if dual != nil {
@@ -901,9 +901,9 @@ func (*pushDownJoin) predicatePushDown(
 		copy(remainCond, predicates)
 		nullSensitive := join.JoinType == plannercore.AntiLeftOuterSemiJoin || join.JoinType == plannercore.LeftOuterSemiJoin
 		if join.JoinType == plannercore.RightOuterJoin {
-			joinConds, remainCond = expression.PropConstOverOuterJoin(join.SCtx(), joinConds, remainCond, rightSchema, leftSchema, nullSensitive)
+			joinConds, remainCond = expression.PropConstOverOuterJoin(join.ExprCtx(), joinConds, remainCond, rightSchema, leftSchema, nullSensitive)
 		} else {
-			joinConds, remainCond = expression.PropConstOverOuterJoin(join.SCtx(), joinConds, remainCond, leftSchema, rightSchema, nullSensitive)
+			joinConds, remainCond = expression.PropConstOverOuterJoin(join.ExprCtx(), joinConds, remainCond, leftSchema, rightSchema, nullSensitive)
 		}
 		eq, left, right, other := join.ExtractOnCondition(joinConds, leftSchema, rightSchema, false, false)
 		join.AppendJoinConds(eq, left, right, other)
@@ -913,7 +913,7 @@ func (*pushDownJoin) predicatePushDown(
 			return leftCond, rightCond, remainCond, dual
 		}
 		if join.JoinType == plannercore.RightOuterJoin {
-			remainCond = expression.ExtractFiltersFromDNFs(join.SCtx(), remainCond)
+			remainCond = expression.ExtractFiltersFromDNFs(join.ExprCtx(), remainCond)
 			// Only derive right where condition, because left where condition cannot be pushed down
 			equalCond, leftPushCond, rightPushCond, otherCond = join.ExtractOnCondition(remainCond, leftSchema, rightSchema, false, true)
 			rightCond = rightPushCond
@@ -924,7 +924,7 @@ func (*pushDownJoin) predicatePushDown(
 			remainCond = append(expression.ScalarFuncs2Exprs(equalCond), otherCond...)
 			remainCond = append(remainCond, leftPushCond...) // nozero
 		} else {
-			remainCond = expression.ExtractFiltersFromDNFs(join.SCtx(), remainCond)
+			remainCond = expression.ExtractFiltersFromDNFs(join.ExprCtx(), remainCond)
 			// Only derive left where condition, because right where condition cannot be pushed down
 			equalCond, leftPushCond, rightPushCond, otherCond = join.ExtractOnCondition(remainCond, leftSchema, rightSchema, true, false)
 			leftCond = leftPushCond
@@ -938,8 +938,8 @@ func (*pushDownJoin) predicatePushDown(
 	default:
 		// TODO: Enhance this rule to deal with Semi/SmiAnti Joins.
 	}
-	leftCond = expression.RemoveDupExprs(sctx, leftCond)
-	rightCond = expression.RemoveDupExprs(sctx, rightCond)
+	leftCond = expression.RemoveDupExprs(expression.NewExprContext(sctx), leftCond)
+	rightCond = expression.RemoveDupExprs(expression.NewExprContext(sctx), rightCond)
 
 	return
 }
@@ -1457,7 +1457,7 @@ func (*MergeAdjacentTopN) Match(expr *memo.ExprIter) bool {
 		return false
 	}
 	for i := 0; i < len(topN.ByItems); i++ {
-		if !topN.ByItems[i].Equal(topN.SCtx(), child.ByItems[i]) {
+		if !topN.ByItems[i].Equal(child.ByItems[i]) {
 			return false
 		}
 	}
@@ -1598,14 +1598,14 @@ func (r *EliminateSingleMaxMin) Match(expr *memo.ExprIter) bool {
 func (r *EliminateSingleMaxMin) OnTransform(old *memo.ExprIter) (newExprs []*memo.GroupExpr, eraseOld bool, eraseAll bool, err error) {
 	agg := old.GetExpr().ExprNode.(*plannercore.LogicalAggregation)
 	childGroup := old.GetExpr().Children[0]
-	ctx := agg.SCtx()
+	ctx := agg.ExprCtx()
 	f := agg.AggFuncs[0]
 
 	// If there's no column in f.GetArgs()[0], we still need limit and read data from real table because the result should be NULL if the input is empty.
 	if len(expression.ExtractColumns(f.Args[0])) > 0 {
 		// If it can be NULL, we need to filter NULL out first.
 		if !mysql.HasNotNullFlag(f.Args[0].GetType().GetFlag()) {
-			sel := plannercore.LogicalSelection{}.Init(ctx, agg.SelectBlockOffset())
+			sel := plannercore.LogicalSelection{}.Init(agg.SCtx(), agg.SelectBlockOffset())
 			isNullFunc := expression.NewFunctionInternal(ctx, ast.IsNull, types.NewFieldType(mysql.TypeTiny), f.Args[0])
 			notNullFunc := expression.NewFunctionInternal(ctx, ast.UnaryNot, types.NewFieldType(mysql.TypeTiny), isNullFunc)
 			sel.Conditions = []expression.Expression{notNullFunc}
@@ -1626,13 +1626,13 @@ func (r *EliminateSingleMaxMin) OnTransform(old *memo.ExprIter) (newExprs []*mem
 		top1 := plannercore.LogicalTopN{
 			ByItems: byItems,
 			Count:   1,
-		}.Init(ctx, agg.SelectBlockOffset())
+		}.Init(agg.SCtx(), agg.SelectBlockOffset())
 		top1Expr := memo.NewGroupExpr(top1)
 		top1Expr.SetChildren(childGroup)
 		top1Group := memo.NewGroupWithSchema(top1Expr, childGroup.Prop.Schema)
 		childGroup = top1Group
 	} else {
-		li := plannercore.LogicalLimit{Count: 1}.Init(ctx, agg.SelectBlockOffset())
+		li := plannercore.LogicalLimit{Count: 1}.Init(agg.SCtx(), agg.SelectBlockOffset())
 		liExpr := memo.NewGroupExpr(li)
 		liExpr.SetChildren(childGroup)
 		liGroup := memo.NewGroupWithSchema(liExpr, childGroup.Prop.Schema)
@@ -2092,7 +2092,7 @@ func (r *TransformAggregateCaseToSelection) transform(agg *plannercore.LogicalAg
 	var outputIdx int
 	if nullFlip || zeroFlip {
 		outputIdx = 2
-		newConditions = []expression.Expression{expression.NewFunctionInternal(ctx, ast.UnaryNot, types.NewFieldType(mysql.TypeTiny), conditionFromCase)}
+		newConditions = []expression.Expression{expression.NewFunctionInternal(agg.ExprCtx(), ast.UnaryNot, types.NewFieldType(mysql.TypeTiny), conditionFromCase)}
 	} else {
 		outputIdx = 1
 		newConditions = expression.SplitCNFItems(conditionFromCase)
@@ -2337,7 +2337,7 @@ func (*InjectProjectionBelowAgg) OnTransform(old *memo.ExprIter) (newExprs []*me
 	for _, aggFunc := range agg.AggFuncs {
 		copyFunc := aggFunc.Clone()
 		// WrapCastForAggArgs will modify AggFunc, so we should clone AggFunc.
-		copyFunc.WrapCastForAggArgs(agg.SCtx())
+		copyFunc.WrapCastForAggArgs(agg.ExprCtx())
 		copyFuncs = append(copyFuncs, copyFunc)
 		for _, arg := range copyFunc.Args {
 			_, isScalarFunc := arg.(*expression.ScalarFunction)

@@ -52,6 +52,10 @@ func (p *Plan) SCtx() sessionctx.Context {
 	return p.ctx
 }
 
+func (p *Plan) ExprCtx() *expression.ExprContext {
+	return expression.NewExprContext(p.ctx)
+}
+
 // SetSCtx is to set the sessionctx for the plan.
 func (p *Plan) SetSCtx(ctx sessionctx.Context) {
 	p.ctx = ctx

@@ -632,6 +632,7 @@ func newBatchPointGetPlan(
 	handleCol *model.ColumnInfo, tbl *model.TableInfo, schema *expression.Schema,
 	names []*types.FieldName, whereColNames []string, indexHints []*ast.IndexHint,
 ) *BatchPointGetPlan {
+	exprCtx := expression.NewExprContext(ctx)
 	stmtCtx := ctx.GetSessionVars().StmtCtx
 	statsInfo := &property.StatsInfo{RowCount: float64(len(patternInExpr.List))}
 	var partitionExpr *tables.PartitionExpr
@@ -667,7 +668,7 @@ func newBatchPointGetPlan(
 				d = x.Datum
 			case *driver.ParamMarkerExpr:
 				var err error
-				con, err = expression.ParamMarkerExpression(ctx, x, true)
+				con, err = expression.ParamMarkerExpression(exprCtx, x, true)
 				if err != nil {
 					return nil
 				}
@@ -813,7 +814,7 @@ func newBatchPointGetPlan(
 					values[permIndex] = innerX.Datum
 					pairs = append(pairs, nameValuePair{colName: whereColNames[index], value: innerX.Datum})
 				case *driver.ParamMarkerExpr:
-					con, err := expression.ParamMarkerExpression(ctx, innerX, true)
+					con, err := expression.ParamMarkerExpression(exprCtx, innerX, true)
 					if err != nil {
 						return nil
 					}
@@ -852,7 +853,7 @@ func newBatchPointGetPlan(
 			if len(whereColNames) != 1 {
 				return nil
 			}
-			con, err := expression.ParamMarkerExpression(ctx, x, true)
+			con, err := expression.ParamMarkerExpression(exprCtx, x, true)
 			if err != nil {
 				return nil
 			}
@@ -1371,6 +1372,7 @@ func getSingleTableNameAndAlias(tableRefs *ast.TableRefsClause) (tblName *ast.Ta
 func getNameValuePairs(ctx sessionctx.Context, tbl *model.TableInfo, tblName model.CIStr, nvPairs []nameValuePair, expr ast.ExprNode) (
 	pairs []nameValuePair, isTableDual bool) {
 	stmtCtx := ctx.GetSessionVars().StmtCtx
+	exprCtx := expression.NewExprContext(ctx)
 	binOp, ok := expr.(*ast.BinaryOperationExpr)
 	if !ok {
 		return nil, false
@@ -1398,7 +1400,7 @@ func getNameValuePairs(ctx sessionctx.Context, tbl *model.TableInfo, tblName mod
 			case *driver.ValueExpr:
 				d = x.Datum
 			case *driver.ParamMarkerExpr:
-				con, err = expression.ParamMarkerExpression(ctx, x, false)
+				con, err = expression.ParamMarkerExpression(exprCtx, x, false)
 				if err != nil {
 					return nil, false
 				}
@@ -1412,7 +1414,7 @@ func getNameValuePairs(ctx sessionctx.Context, tbl *model.TableInfo, tblName mod
 			case *driver.ValueExpr:
 				d = x.Datum
 			case *driver.ParamMarkerExpr:
-				con, err = expression.ParamMarkerExpression(ctx, x, false)
+				con, err = expression.ParamMarkerExpression(exprCtx, x, false)
 				if err != nil {
 					return nil, false
 				}
@@ -1662,11 +1664,12 @@ func buildOrderedList(ctx sessionctx.Context, plan Plan, list []*ast.Assignment,
 		if defaultExpr != nil {
 			defaultExpr.Name = assign.Column
 		}
-		expr, err := expression.RewriteSimpleExprWithNames(ctx, assign.Expr, plan.Schema(), plan.OutputNames())
+		exprCtx := expression.NewExprContext(ctx)
+		expr, err := expression.RewriteSimpleExprWithNames(exprCtx, assign.Expr, plan.Schema(), plan.OutputNames())
 		if err != nil {
 			return nil, true
 		}
-		expr = expression.BuildCastFunction(ctx, expr, col.GetType())
+		expr = expression.BuildCastFunction(exprCtx, expr, col.GetType())
 		if allAssignmentsAreConstant {
 			_, isConst := expr.(*expression.Constant)
 			allAssignmentsAreConstant = isConst

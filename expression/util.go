@@ -469,7 +469,7 @@ func ColumnSubstituteImpl(expr Expression, schema *Schema, newExprs []Expression
 		// cowExprRef is a copy-on-write util, args array allocation happens only
 		// when expr in args is changed
 		refExprArr := cowExprRef{v.GetArgs(), nil}
-		oldCollEt, err := CheckAndDeriveCollationFromExprs(NewExprContext(v.GetCtx()), v.FuncName.L, v.RetType.EvalType(), v.GetArgs()...)
+		oldCollEt, err := CheckAndDeriveCollationFromExprs(v.GetCtx(), v.FuncName.L, v.RetType.EvalType(), v.GetArgs()...)
 		if err != nil {
 			logutil.BgLogger().Error("Unexpected error happened during ColumnSubstitution", zap.Stack("stack"))
 			return false, false, v
@@ -489,7 +489,7 @@ func ColumnSubstituteImpl(expr Expression, schema *Schema, newExprs []Expression
 				changed = false
 				copy(tmpArgForCollCheck, refExprArr.Result())
 				tmpArgForCollCheck[idx] = newFuncExpr
-				newCollEt, err := CheckAndDeriveCollationFromExprs(NewExprContext(v.GetCtx()), v.FuncName.L, v.RetType.EvalType(), tmpArgForCollCheck...)
+				newCollEt, err := CheckAndDeriveCollationFromExprs(v.GetCtx(), v.FuncName.L, v.RetType.EvalType(), tmpArgForCollCheck...)
 				if err != nil {
 					logutil.BgLogger().Error("Unexpected error happened during ColumnSubstitution", zap.Stack("stack"))
 					return false, failed, v
@@ -709,7 +709,7 @@ var symmetricOp = map[opcode.Op]opcode.Op{
 	opcode.NullEQ: opcode.NullEQ,
 }
 
-func pushNotAcrossArgs(ctx sessionctx.Context, exprs []Expression, not bool) ([]Expression, bool) {
+func pushNotAcrossArgs(ctx *ExprContext, exprs []Expression, not bool) ([]Expression, bool) {
 	newExprs := make([]Expression, 0, len(exprs))
 	flag := false
 	for _, expr := range exprs {
@@ -751,7 +751,7 @@ func noPrecisionLossCastCompatible(cast, argCol *types.FieldType) bool {
 	return true
 }
 
-func unwrapCast(sctx sessionctx.Context, parentF *ScalarFunction, castOffset int) (Expression, bool) {
+func unwrapCast(sctx *ExprContext, parentF *ScalarFunction, castOffset int) (Expression, bool) {
 	_, collation := parentF.CharsetAndCollation()
 	cast, ok := parentF.GetArgs()[castOffset].(*ScalarFunction)
 	if !ok || cast.FuncName.L != ast.Cast {
@@ -787,7 +787,7 @@ func unwrapCast(sctx sessionctx.Context, parentF *ScalarFunction, castOffset int
 // eliminateCastFunction will detect the original arg before and the cast type after, once upon
 // there is no precision loss between them, current cast wrapper can be eliminated. For string
 // type, collation is also taken into consideration. (mainly used to build range or point)
-func eliminateCastFunction(sctx sessionctx.Context, expr Expression) (_ Expression, changed bool) {
+func eliminateCastFunction(sctx *ExprContext, expr Expression) (_ Expression, changed bool) {
 	f, ok := expr.(*ScalarFunction)
 	if !ok {
 		return expr, false
@@ -870,7 +870,7 @@ func eliminateCastFunction(sctx sessionctx.Context, expr Expression) (_ Expressi
 // Input `not` indicates whether there's a `NOT` be pushed down.
 // Output `changed` indicates whether the output expression differs from the
 // input `expr` because of the pushed-down-not.
-func pushNotAcrossExpr(ctx sessionctx.Context, expr Expression, not bool) (_ Expression, changed bool) {
+func pushNotAcrossExpr(ctx *ExprContext, expr Expression, not bool) (_ Expression, changed bool) {
 	if f, ok := expr.(*ScalarFunction); ok {
 		switch f.FuncName.L {
 		case ast.UnaryNot:
@@ -879,7 +879,7 @@ func pushNotAcrossExpr(ctx sessionctx.Context, expr Expression, not bool) (_ Exp
 				return expr, false
 			}
 			var childExpr Expression
-			childExpr, changed = pushNotAcrossExpr(f.GetCtx(), child, !not)
+			childExpr, changed = pushNotAcrossExpr(ctx, child, !not)
 			if !changed && !not {
 				return expr, false
 			}
@@ -892,7 +892,7 @@ func pushNotAcrossExpr(ctx sessionctx.Context, expr Expression, not bool) (_ Exp
 			if !changed {
 				return f, false
 			}
-			return NewFunctionInternal(f.GetCtx(), f.FuncName.L, f.GetType(), newArgs...), true
+			return NewFunctionInternal(ctx, f.FuncName.L, f.GetType(), newArgs...), true
 		case ast.LogicAnd, ast.LogicOr:
 			var (
 				newArgs []Expression
@@ -934,7 +934,7 @@ func GetExprInsideIsTruth(expr Expression) Expression {
 }
 
 // PushDownNot pushes the `not` function down to the expression's arguments.
-func PushDownNot(ctx sessionctx.Context, expr Expression) Expression {
+func PushDownNot(ctx *ExprContext, expr Expression) Expression {
 	newExpr, _ := pushNotAcrossExpr(ctx, expr, false)
 	return newExpr
 }
@@ -943,7 +943,7 @@ func PushDownNot(ctx sessionctx.Context, expr Expression) Expression {
 // 1: deeper cast embedded in other complicated function will not be considered.
 // 2: cast args should be one for original base column and one for constant.
 // 3: some collation compatibility and precision loss will be considered when remove this cast func.
-func EliminateNoPrecisionLossCast(sctx sessionctx.Context, expr Expression) Expression {
+func EliminateNoPrecisionLossCast(sctx *ExprContext, expr Expression) Expression {
 	newExpr, _ := eliminateCastFunction(sctx, expr)
 	return newExpr
 }
@@ -997,7 +997,7 @@ func Contains(exprs []Expression, e Expression) bool {
 // ExtractFiltersFromDNFs checks whether the cond is DNF. If so, it will get the extracted part and the remained part.
 // The original DNF will be replaced by the remained part or just be deleted if remained part is nil.
 // And the extracted part will be appended to the end of the orignal slice.
-func ExtractFiltersFromDNFs(ctx sessionctx.Context, conditions []Expression) []Expression {
+func ExtractFiltersFromDNFs(ctx *ExprContext, conditions []Expression) []Expression {
 	var allExtracted []Expression
 	for i := len(conditions) - 1; i >= 0; i-- {
 		if sf, ok := conditions[i].(*ScalarFunction); ok && sf.FuncName.L == ast.LogicOr {
@@ -1014,9 +1014,9 @@ func ExtractFiltersFromDNFs(ctx sessionctx.Context, conditions []Expression) []E
 }
 
 // extractFiltersFromDNF extracts the same condition that occurs in every DNF item and remove them from dnf leaves.
-func extractFiltersFromDNF(ctx sessionctx.Context, dnfFunc *ScalarFunction) ([]Expression, Expression) {
+func extractFiltersFromDNF(ctx *ExprContext, dnfFunc *ScalarFunction) ([]Expression, Expression) {
 	dnfItems := FlattenDNFConditions(dnfFunc)
-	sc := ctx.GetSessionVars().StmtCtx
+	sc := ctx.StmtCtx
 	codeMap := make(map[string]int)
 	hashcode2Expr := make(map[string]Expression)
 	for i, dnfItem := range dnfItems {
@@ -1145,7 +1145,7 @@ func GetFuncArg(e Expression, idx int) Expression {
 
 // PopRowFirstArg pops the first element and returns the rest of row.
 // e.g. After this function (1, 2, 3) becomes (2, 3).
-func PopRowFirstArg(ctx sessionctx.Context, e Expression) (ret Expression, err error) {
+func PopRowFirstArg(ctx *ExprContext, e Expression) (ret Expression, err error) {
 	if f, ok := e.(*ScalarFunction); ok && f.FuncName.L == ast.RowFunc {
 		args := f.GetArgs()
 		if len(args) == 2 {
@@ -1165,9 +1165,9 @@ func DatumToConstant(d types.Datum, tp byte, flag uint) *Constant {
 }
 
 // ParamMarkerExpression generate a getparam function expression.
-func ParamMarkerExpression(ctx sessionctx.Context, v *driver.ParamMarkerExpr, needParam bool) (*Constant, error) {
-	useCache := ctx.GetSessionVars().StmtCtx.UseCache
-	isPointExec := ctx.GetSessionVars().StmtCtx.PointExec
+func ParamMarkerExpression(ctx *ExprContext, v *driver.ParamMarkerExpr, needParam bool) (*Constant, error) {
+	useCache := ctx.StmtCtx.UseCache
+	isPointExec := ctx.StmtCtx.PointExec
 	tp := types.NewFieldType(mysql.TypeUnspecified)
 	types.InferParamTypeFromDatum(&v.Datum, tp)
 	value := &Constant{Value: v.Datum, RetType: tp}
@@ -1222,7 +1222,7 @@ func ConstructPositionExpr(p *driver.ParamMarkerExpr) *ast.PositionExpr {
 }
 
 // PosFromPositionExpr generates a position value from PositionExpr.
-func PosFromPositionExpr(ctx sessionctx.Context, v *ast.PositionExpr) (int, bool, error) {
+func PosFromPositionExpr(ctx *ExprContext, v *ast.PositionExpr) (int, bool, error) {
 	if v.P == nil {
 		return v.N, false, nil
 	}
@@ -1230,7 +1230,7 @@ func PosFromPositionExpr(ctx sessionctx.Context, v *ast.PositionExpr) (int, bool
 	if err != nil {
 		return 0, true, err
 	}
-	pos, isNull, err := GetIntFromConstant(ctx, value)
+	pos, isNull, err := GetIntFromConstant(value)
 	if err != nil || isNull {
 		return 0, true, err
 	}
@@ -1238,7 +1238,7 @@ func PosFromPositionExpr(ctx sessionctx.Context, v *ast.PositionExpr) (int, bool
 }
 
 // GetStringFromConstant gets a string value from the Constant expression.
-func GetStringFromConstant(ctx sessionctx.Context, value Expression) (string, bool, error) {
+func GetStringFromConstant(value Expression) (string, bool, error) {
 	con, ok := value.(*Constant)
 	if !ok {
 		err := errors.Errorf("Not a Constant expression %+v", value)
@@ -1252,8 +1252,8 @@ func GetStringFromConstant(ctx sessionctx.Context, value Expression) (string, bo
 }
 
 // GetIntFromConstant gets an interger value from the Constant expression.
-func GetIntFromConstant(ctx sessionctx.Context, value Expression) (int, bool, error) {
-	str, isNull, err := GetStringFromConstant(ctx, value)
+func GetIntFromConstant(value Expression) (int, bool, error) {
+	str, isNull, err := GetStringFromConstant(value)
 	if err != nil || isNull {
 		return 0, true, err
 	}
@@ -1265,7 +1265,7 @@ func GetIntFromConstant(ctx sessionctx.Context, value Expression) (int, bool, er
 }
 
 // BuildNotNullExpr wraps up `not(isnull())` for given expression.
-func BuildNotNullExpr(ctx sessionctx.Context, expr Expression) Expression {
+func BuildNotNullExpr(ctx *ExprContext, expr Expression) Expression {
 	isNull := NewFunctionInternal(ctx, ast.IsNull, types.NewFieldType(mysql.TypeTiny), expr)
 	notNull := NewFunctionInternal(ctx, ast.UnaryNot, types.NewFieldType(mysql.TypeTiny), isNull)
 	return notNull
@@ -1379,10 +1379,10 @@ func IsInmutableExpr(expr Expression) bool {
 // RemoveDupExprs removes identical exprs. Not that if expr contains functions which
 // are mutable or have side effects, we cannot remove it even if it has duplicates;
 // if the plan is going to be cached, we cannot remove expressions containing `?` neither.
-func RemoveDupExprs(ctx sessionctx.Context, exprs []Expression) []Expression {
+func RemoveDupExprs(ctx *ExprContext, exprs []Expression) []Expression {
 	res := make([]Expression, 0, len(exprs))
 	exists := make(map[string]struct{}, len(exprs))
-	sc := ctx.GetSessionVars().StmtCtx
+	sc := ctx.StmtCtx
 	for _, expr := range exprs {
 		key := string(expr.HashCode(sc))
 		if _, ok := exists[key]; !ok || IsMutableEffectsExpr(expr) {
@@ -1470,16 +1470,16 @@ func ContainCorrelatedColumn(exprs []Expression) bool {
 // 2. Whether the statement can be cached.
 // 3. Whether the expressions contain a lazy constant.
 // TODO: Do more careful check here.
-func MaybeOverOptimized4PlanCache(ctx sessionctx.Context, exprs []Expression) bool {
+func MaybeOverOptimized4PlanCache(ctx *ExprContext, exprs []Expression) bool {
 	// If we do not enable plan cache, all the optimization can work correctly.
-	if !ctx.GetSessionVars().StmtCtx.UseCache {
+	if !ctx.StmtCtx.UseCache {
 		return false
 	}
 	return containMutableConst(ctx, exprs)
 }
 
 // containMutableConst checks if the expressions contain a lazy constant.
-func containMutableConst(ctx sessionctx.Context, exprs []Expression) bool {
+func containMutableConst(ctx *ExprContext, exprs []Expression) bool {
 	for _, expr := range exprs {
 		switch v := expr.(type) {
 		case *Constant:
@@ -1496,7 +1496,7 @@ func containMutableConst(ctx sessionctx.Context, exprs []Expression) bool {
 }
 
 // RemoveMutableConst used to remove the `ParamMarker` and `DeferredExpr` in the `Constant` expr.
-func RemoveMutableConst(ctx sessionctx.Context, exprs []Expression) {
+func RemoveMutableConst(ctx *ExprContext, exprs []Expression) {
 	for _, expr := range exprs {
 		switch v := expr.(type) {
 		case *Constant:

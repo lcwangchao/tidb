@@ -1140,7 +1140,7 @@ func (e *LoadDataController) CreateColAssignExprs(sctx sessionctx.Context) ([]ex
 	res := make([]expression.Expression, 0, len(e.ColumnAssignments))
 	allWarnings := []stmtctx.SQLWarn{}
 	for _, assign := range e.ColumnAssignments {
-		newExpr, err := expression.RewriteAstExpr(sctx, assign.Expr, nil, nil, false)
+		newExpr, err := expression.RewriteAstExpr(expression.NewExprContext(sctx), assign.Expr, nil, nil, false)
 		// col assign expr warnings is static, we should generate it for each row processed.
 		// so we save it and clear it here.
 		allWarnings = append(allWarnings, sctx.GetSessionVars().StmtCtx.GetWarnings()...)

@@ -257,7 +257,7 @@ func (t *mergeJoinTable) fetchNextOuterGroup(ctx context.Context, exec *MergeJoi
 		}
 
 		t.childChunkIter.Begin()
-		t.filtersSelected, err = expression.VectorizedFilter(exec.Ctx(), t.filters, t.childChunkIter, t.filtersSelected)
+		t.filtersSelected, err = expression.VectorizedFilter(exec.ExprCtx(), t.filters, t.childChunkIter, t.filtersSelected)
 		if err != nil {
 			return err
 		}

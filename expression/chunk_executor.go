@@ -375,7 +375,7 @@ func executeToString(ctx sessionctx.Context, expr Expression, fieldType *types.F
 // VectorizedFilter applies a list of filters to a Chunk and
 // returns a bool slice, which indicates whether a row is passed the filters.
 // Filters is executed vectorized.
-func VectorizedFilter(ctx sessionctx.Context, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool) (_ []bool, err error) {
+func VectorizedFilter(ctx *ExprContext, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool) (_ []bool, err error) {
 	selected, _, err = VectorizedFilterConsiderNull(ctx, filters, iterator, selected, nil)
 	return selected, err
 }
@@ -384,7 +384,7 @@ func VectorizedFilter(ctx sessionctx.Context, filters []Expression, iterator *ch
 // returns two bool slices, `selected` indicates whether a row passed the
 // filters, `isNull` indicates whether the result of the filter is null.
 // Filters is executed vectorized.
-func VectorizedFilterConsiderNull(ctx sessionctx.Context, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool, isNull []bool) ([]bool, []bool, error) {
+func VectorizedFilterConsiderNull(ctx *ExprContext, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool, isNull []bool) ([]bool, []bool, error) {
 	// canVectorized used to check whether all of the filters can be vectorized evaluated
 	canVectorized := true
 	for _, filter := range filters {
@@ -397,7 +397,7 @@ func VectorizedFilterConsiderNull(ctx sessionctx.Context, filters []Expression, 
 	input := iterator.GetChunk()
 	sel := input.Sel()
 	var err error
-	if canVectorized && ctx.GetSessionVars().EnableVectorizedExpression {
+	if canVectorized && ctx.EnableVectorizedExpression {
 		selected, isNull, err = vectorizedFilter(ctx, filters, iterator, selected, isNull)
 	} else {
 		selected, isNull, err = rowBasedFilter(ctx, filters, iterator, selected, isNull)
@@ -427,7 +427,7 @@ func VectorizedFilterConsiderNull(ctx sessionctx.Context, filters []Expression, 
 }
 
 // rowBasedFilter filters by row.
-func rowBasedFilter(ctx sessionctx.Context, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool, isNull []bool) ([]bool, []bool, error) {
+func rowBasedFilter(ctx *ExprContext, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool, isNull []bool) ([]bool, []bool, error) {
 	// If input.Sel() != nil, we will call input.SetSel(nil) to clear the sel slice in input chunk.
 	// After the function finished, then we reset the sel in input chunk.
 	// Then the caller will handle the input.sel and selected slices.
@@ -485,7 +485,7 @@ func rowBasedFilter(ctx sessionctx.Context, filters []Expression, iterator *chun
 }
 
 // vectorizedFilter filters by vector.
-func vectorizedFilter(ctx sessionctx.Context, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool, isNull []bool) ([]bool, []bool, error) {
+func vectorizedFilter(ctx *ExprContext, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool, isNull []bool) ([]bool, []bool, error) {
 	selected, isNull, err := VecEvalBool(ctx, filters, iterator.GetChunk(), selected, isNull)
 	if err != nil {
 		return nil, nil, err

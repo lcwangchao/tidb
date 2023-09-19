@@ -58,7 +58,7 @@ func (ds *DataSource) generateIndexMergePath() error {
 	// We will create new Selection for exprs that cannot be pushed in convertToIndexMergeScan.
 	indexMergeConds := make([]expression.Expression, 0, len(ds.allConds))
 	for _, expr := range ds.allConds {
-		indexMergeConds = append(indexMergeConds, expression.PushDownNot(ds.SCtx(), expr))
+		indexMergeConds = append(indexMergeConds, expression.PushDownNot(expression.NewExprContext(ds.SCtx()), expr))
 	}
 
 	sessionAndStmtPermission := (ds.SCtx().GetSessionVars().GetEnableIndexMerge() || len(ds.indexMergeHints) > 0) && !stmtCtx.NoIndexMergeHint
@@ -173,10 +173,10 @@ func (ds *DataSource) generateIndexMergeOrPaths(filters []expression.Expression)
 				indexCondsForP := p.AccessConds[:]
 				indexCondsForP = append(indexCondsForP, p.IndexFilters...)
 				if len(indexCondsForP) > 0 {
-					accessConds = append(accessConds, expression.ComposeCNFCondition(ds.SCtx(), indexCondsForP...))
+					accessConds = append(accessConds, expression.ComposeCNFCondition(expression.NewExprContext(ds.SCtx()), indexCondsForP...))
 				}
 			}
-			accessDNF := expression.ComposeDNFCondition(ds.SCtx(), accessConds...)
+			accessDNF := expression.ComposeDNFCondition(expression.NewExprContext(ds.SCtx()), accessConds...)
 			sel, _, err := cardinality.Selectivity(ds.SCtx(), ds.tableStats.HistColl, []expression.Expression{accessDNF}, nil)
 			if err != nil {
 				logutil.BgLogger().Debug("something wrong happened, use the default selectivity", zap.Error(err))
@@ -367,7 +367,7 @@ func (ds *DataSource) buildIndexMergeOrPath(
 	}
 
 	// Keep this filter as a part of table filters for safety if it has any parameter.
-	if expression.MaybeOverOptimized4PlanCache(ds.SCtx(), filters[current:current+1]) {
+	if expression.MaybeOverOptimized4PlanCache(expression.NewExprContext(ds.SCtx()), filters[current:current+1]) {
 		shouldKeepCurrentFilter = true
 	}
 	if shouldKeepCurrentFilter {
@@ -458,7 +458,7 @@ func (ds *DataSource) generateIndexMergeAndPaths(normalPathCnt int) *util.Access
 	}
 
 	// Keep these partial filters as a part of table filters for safety if there is any parameter.
-	if expression.MaybeOverOptimized4PlanCache(ds.SCtx(), partialFilters) {
+	if expression.MaybeOverOptimized4PlanCache(expression.NewExprContext(ds.SCtx()), partialFilters) {
 		dedupedFinalFilters = append(dedupedFinalFilters, partialFilters...)
 	}
 
@@ -743,7 +743,7 @@ func (ds *DataSource) buildPartialPaths4MVIndex(accessFilters []expression.Expre
 
 	for _, v := range virColVals {
 		// rewrite json functions to EQ to calculate range, `(1 member of j)` -> `j=1`.
-		eq, err := expression.NewFunction(ds.SCtx(), ast.EQ, types.NewFieldType(mysql.TypeTiny), virCol, v)
+		eq, err := expression.NewFunction(expression.NewExprContext(ds.SCtx()), ast.EQ, types.NewFieldType(mysql.TypeTiny), virCol, v)
 		if err != nil {
 			return nil, false, false, err
 		}

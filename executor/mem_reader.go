@@ -131,7 +131,7 @@ func (m *memIndexReader) getMemRows(ctx context.Context) ([][]types.Datum, error
 		}
 
 		mutableRow.SetDatums(data...)
-		matched, _, err := expression.EvalBool(m.ctx, m.conditions, mutableRow.ToRow())
+		matched, _, err := expression.EvalBool(expression.NewExprContext(m.ctx), m.conditions, mutableRow.ToRow())
 		if err != nil || !matched {
 			return err
 		}
@@ -334,7 +334,7 @@ func (iter *txnMemBufferIter) next() ([]types.Datum, error) {
 
 			mutableRow := chunk.MutRowFromTypes(iter.retFieldTypes)
 			mutableRow.SetDatums(iter.datumRow...)
-			matched, _, err := expression.EvalBool(iter.ctx, iter.conditions, mutableRow.ToRow())
+			matched, _, err := expression.EvalBool(expression.NewExprContext(iter.ctx), iter.conditions, mutableRow.ToRow())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -350,7 +350,7 @@ func (iter *txnMemBufferIter) next() ([]types.Datum, error) {
 		}
 
 		row := iter.chk.GetRow(0)
-		matched, _, err := expression.EvalBool(iter.ctx, iter.conditions, row)
+		matched, _, err := expression.EvalBool(expression.NewExprContext(iter.ctx), iter.conditions, row)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -409,7 +409,7 @@ func (m *memTableReader) getMemRows(ctx context.Context) ([][]types.Datum, error
 		}
 
 		mutableRow.SetDatums(resultRows...)
-		matched, _, err := expression.EvalBool(m.ctx, m.conditions, mutableRow.ToRow())
+		matched, _, err := expression.EvalBool(expression.NewExprContext(m.ctx), m.conditions, mutableRow.ToRow())
 		if err != nil || !matched {
 			return err
 		}

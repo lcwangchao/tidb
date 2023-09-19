@@ -90,6 +90,7 @@ import (
 // The InfoSchema must not change during execution.
 type executorBuilder struct {
 	ctx     sessionctx.Context
+	exprCtx *expression.ExprContext
 	is      infoschema.InfoSchema
 	err     error // err is set when there is error happened during Executor building process.
 	hasLock bool
@@ -127,6 +128,7 @@ func newExecutorBuilder(ctx sessionctx.Context, is infoschema.InfoSchema, ti *Te
 	txnManager := sessiontxn.GetTxnManager(ctx)
 	return &executorBuilder{
 		ctx:              ctx,
+		exprCtx:          expression.NewExprContext(ctx),
 		is:               is,
 		Ti:               ti,
 		isStaleness:      staleread.IsStmtStaleness(ctx),
@@ -3085,7 +3087,7 @@ func (b *executorBuilder) buildAnalyze(v *plannercore.Analyze) exec.Executor {
 			if enableFastAnalyze {
 				b.buildAnalyzeFastColumn(e, task, v.Opts)
 			} else {
-				columns, _, err := expression.ColumnInfos2ColumnsAndNames(b.ctx, model.NewCIStr(task.AnalyzeInfo.DBName), task.TblInfo.Name, task.ColsInfo, task.TblInfo)
+				columns, _, err := expression.ColumnInfos2ColumnsAndNames(b.exprCtx, model.NewCIStr(task.AnalyzeInfo.DBName), task.TblInfo.Name, task.ColsInfo, task.TblInfo)
 				if err != nil {
 					b.err = err
 					return nil
@@ -4905,7 +4907,7 @@ func (b *executorBuilder) buildWindow(v *plannercore.PhysicalWindow) exec.Execut
 	partialResults := make([]aggfuncs.PartialResult, 0, len(v.WindowFuncDescs))
 	resultColIdx := v.Schema().Len() - len(v.WindowFuncDescs)
 	for _, desc := range v.WindowFuncDescs {
-		aggDesc, err := aggregation.NewAggFuncDescForWindowFunc(b.ctx, desc, false)
+		aggDesc, err := aggregation.NewAggFuncDescForWindowFunc(b.exprCtx, desc, false)
 		if err != nil {
 			b.err = err
 			return nil

@@ -22,7 +22,6 @@ import (
 	"github.com/pingcap/tidb/parser/ast"
 	"github.com/pingcap/tidb/parser/model"
 	"github.com/pingcap/tidb/parser/mysql"
-	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/sessionctx/stmtctx"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/chunk"
@@ -211,28 +210,28 @@ func TestPopRowFirstArg(t *testing.T) {
 
 func TestGetStrIntFromConstant(t *testing.T) {
 	col := &Column{}
-	_, _, err := GetStringFromConstant(mock.NewContext(), col)
+	_, _, err := GetStringFromConstant(col)
 	require.Error(t, err)
 
 	con := &Constant{RetType: types.NewFieldType(mysql.TypeNull)}
-	_, isNull, err := GetStringFromConstant(mock.NewContext(), con)
+	_, isNull, err := GetStringFromConstant(con)
 	require.NoError(t, err)
 	require.True(t, isNull)
 
 	con = &Constant{RetType: newIntFieldType(), Value: types.NewIntDatum(1)}
-	ret, _, _ := GetStringFromConstant(mock.NewContext(), con)
+	ret, _, _ := GetStringFromConstant(con)
 	require.Equal(t, "1", ret)
 
 	con = &Constant{RetType: types.NewFieldType(mysql.TypeNull)}
-	_, isNull, _ = GetIntFromConstant(mock.NewContext(), con)
+	_, isNull, _ = GetIntFromConstant(con)
 	require.True(t, isNull)
 
 	con = &Constant{RetType: newStringFieldType(), Value: types.NewStringDatum("abc")}
-	_, isNull, _ = GetIntFromConstant(mock.NewContext(), con)
+	_, isNull, _ = GetIntFromConstant(con)
 	require.True(t, isNull)
 
 	con = &Constant{RetType: newStringFieldType(), Value: types.NewStringDatum("123")}
-	num, _, _ := GetIntFromConstant(mock.NewContext(), con)
+	num, _, _ := GetIntFromConstant(con)
 	require.Equal(t, 123, num)
 }
 

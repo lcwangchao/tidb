@@ -20,7 +20,6 @@ import (
 	"github.com/pingcap/tidb/parser/ast"
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/parser/terror"
-	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/chunk"
 	"github.com/pingcap/tidb/util/collate"
@@ -38,7 +37,7 @@ type basePropConstSolver struct {
 	eqList    []*Constant         // if eqList[i] != nil, it means col_i = eqList[i]
 	unionSet  *disjointset.IntSet // unionSet stores the relations like col_i = col_j
 	columns   []*Column           // columns stores all columns appearing in the conditions
-	ctx       sessionctx.Context
+	ctx       *ExprContext
 }
 
 func (s *basePropConstSolver) getColID(col *Column) int {
@@ -56,13 +55,13 @@ func (s *basePropConstSolver) insertCol(col *Column) {
 // tryToUpdateEQList tries to update the eqList. When the eqList has store this column with a different constant, like
 // a = 1 and a = 2, we set the second return value to false.
 func (s *basePropConstSolver) tryToUpdateEQList(col *Column, con *Constant) (bool, bool) {
-	if con.ConstItem(s.ctx.GetSessionVars().StmtCtx) && con.Value.IsNull() {
+	if con.ConstItem(s.ctx.StmtCtx) && con.Value.IsNull() {
 		return false, true
 	}
 	id := s.getColID(col)
 	oldCon := s.eqList[id]
 	if oldCon != nil {
-		res, err := oldCon.Value.Compare(s.ctx.GetSessionVars().StmtCtx, &con.Value, collate.GetCollator(col.GetType().GetCollate()))
+		res, err := oldCon.Value.Compare(s.ctx.StmtCtx, &con.Value, collate.GetCollator(col.GetType().GetCollate()))
 		return false, res != 0 || err != nil
 	}
 	s.eqList[id] = con
@@ -124,7 +123,7 @@ func validEqualCond(cond Expression) (*Column, *Constant) {
 //	for 'a, b, a < 3', it returns 'true, false, b < 3'
 //	for 'a, b, sin(a) + cos(a) = 5', it returns 'true, false, returns sin(b) + cos(b) = 5'
 //	for 'a, b, cast(a) < rand()', it returns 'false, true, cast(a) < rand()'
-func tryToReplaceCond(ctx sessionctx.Context, src *Column, tgt *Column, cond Expression, nullAware bool) (bool, bool, Expression) {
+func tryToReplaceCond(ctx *ExprContext, src *Column, tgt *Column, cond Expression, nullAware bool) (bool, bool, Expression) {
 	if src.RetType.GetType() != tgt.RetType.GetType() {
 		return false, false, cond
 	}
@@ -282,7 +281,7 @@ func (s *propConstSolver) propagateColumnEQ() {
 
 func (s *propConstSolver) setConds2ConstFalse() {
 	if MaybeOverOptimized4PlanCache(s.ctx, s.conditions) {
-		s.ctx.GetSessionVars().StmtCtx.SetSkipPlanCache(errors.New("some parameters may be overwritten when constant propagation"))
+		s.ctx.StmtCtx.SetSkipPlanCache(errors.New("some parameters may be overwritten when constant propagation"))
 	}
 	s.conditions = []Expression{&Constant{
 		Value:   types.NewDatum(false),
@@ -359,7 +358,7 @@ func (s *propConstSolver) solve(conditions []Expression) []Expression {
 
 // PropagateConstant propagate constant values of deterministic predicates in a condition.
 // This is a constant propagation logic for expression list such as ['a=1', 'a=b']
-func PropagateConstant(ctx sessionctx.Context, conditions []Expression) []Expression {
+func PropagateConstant(ctx *ExprContext, conditions []Expression) []Expression {
 	return newPropConstSolver().PropagateConstant(ctx, conditions)
 }
 
@@ -613,7 +612,7 @@ func (s *propOuterJoinConstSolver) solve(joinConds, filterConds []Expression) ([
 }
 
 // propagateConstantDNF find DNF item from CNF, and propagate constant inside DNF.
-func propagateConstantDNF(ctx sessionctx.Context, conds []Expression) []Expression {
+func propagateConstantDNF(ctx *ExprContext, conds []Expression) []Expression {
 	for i, cond := range conds {
 		if dnf, ok := cond.(*ScalarFunction); ok && dnf.FuncName.L == ast.LogicOr {
 			dnfItems := SplitDNFItems(cond)
@@ -632,7 +631,7 @@ func propagateConstantDNF(ctx sessionctx.Context, conds []Expression) []Expressi
 // Second step is to extract `outerCol = innerCol` from join conditions, and derive new join
 // conditions based on this column equal condition and `outerCol` related
 // expressions in join conditions and filter conditions;
-func PropConstOverOuterJoin(ctx sessionctx.Context, joinConds, filterConds []Expression,
+func PropConstOverOuterJoin(ctx *ExprContext, joinConds, filterConds []Expression,
 	outerSchema, innerSchema *Schema, nullSensitive bool) ([]Expression, []Expression) {
 	solver := &propOuterJoinConstSolver{
 		outerSchema:   outerSchema,
@@ -646,7 +645,7 @@ func PropConstOverOuterJoin(ctx sessionctx.Context, joinConds, filterConds []Exp
 
 // PropagateConstantSolver is a constant propagate solver.
 type PropagateConstantSolver interface {
-	PropagateConstant(ctx sessionctx.Context, conditions []Expression) []Expression
+	PropagateConstant(ctx *ExprContext, conditions []Expression) []Expression
 }
 
 // newPropConstSolver returns a PropagateConstantSolver.
@@ -657,7 +656,7 @@ func newPropConstSolver() PropagateConstantSolver {
 }
 
 // PropagateConstant propagate constant values of deterministic predicates in a condition.
-func (s *propConstSolver) PropagateConstant(ctx sessionctx.Context, conditions []Expression) []Expression {
+func (s *propConstSolver) PropagateConstant(ctx *ExprContext, conditions []Expression) []Expression {
 	s.ctx = ctx
 	return s.solve(conditions)
 }

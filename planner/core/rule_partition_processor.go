@@ -783,7 +783,7 @@ func (s *partitionProcessor) prune(ds *DataSource, opt *logicalOptimizeOp) (Logi
 	// like 'not (a != 1)' would not be handled so we need to convert it to 'a = 1', which can be handled when building range.
 	// TODO: there may be a better way to push down Not once for all.
 	for i, cond := range ds.allConds {
-		ds.allConds[i] = expression.PushDownNot(ds.SCtx(), cond)
+		ds.allConds[i] = expression.PushDownNot(ds.ExprCtx(), cond)
 	}
 	// Try to locate partition directly for hash partition.
 	switch pi.Type {
@@ -1347,7 +1347,7 @@ func partitionRangeColumnForInExpr(sctx sessionctx.Context, args []expression.Ex
 		}
 
 		// convert all elements to EQ-exprs and prune them one by one
-		sf, err := expression.NewFunction(sctx, ast.EQ, types.NewFieldType(types.KindInt64), []expression.Expression{col, args[i]}...)
+		sf, err := expression.NewFunction(expression.NewExprContext(sctx), ast.EQ, types.NewFieldType(types.KindInt64), []expression.Expression{col, args[i]}...)
 		if err != nil {
 			return pruner.fullRange()
 		}
@@ -1913,7 +1913,7 @@ func (p *rangeColumnsPruner) pruneUseBinarySearch(sctx sessionctx.Context, op st
 			if p.lessThan[ith][i] == nil { // MAXVALUE
 				return true
 			}
-			expr, err := expression.NewFunctionBase(sctx, op, types.NewFieldType(mysql.TypeLonglong), *p.lessThan[ith][i], v)
+			expr, err := expression.NewFunctionBase(expression.NewExprContext(sctx), op, types.NewFieldType(mysql.TypeLonglong), *p.lessThan[ith][i], v)
 			if err != nil {
 				savedError = err
 				return true

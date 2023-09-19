@@ -460,7 +460,7 @@ func (ow *outerWorker) buildTask(ctx context.Context) (*lookUpJoinTask, error) {
 			chk := task.outerResult.GetChunk(i)
 			outerMatch := make([]bool, 0, chk.NumRows())
 			task.memTracker.Consume(int64(cap(outerMatch)))
-			task.outerMatch[i], err = expression.VectorizedFilter(ow.ctx, ow.filter, chunk.NewIterator4Chunk(chk), outerMatch)
+			task.outerMatch[i], err = expression.VectorizedFilter(expression.NewExprContext(ow.ctx), ow.filter, chunk.NewIterator4Chunk(chk), outerMatch)
 			if err != nil {
 				return task, err
 			}

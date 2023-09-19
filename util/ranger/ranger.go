@@ -743,7 +743,7 @@ func points2EqOrInCond(ctx sessionctx.Context, points []*point, col *expression.
 	if len(args) > 2 {
 		funcName = ast.In
 	}
-	return expression.NewFunctionInternal(ctx, funcName, col.GetType(), args...)
+	return expression.NewFunctionInternal(expression.NewExprContext(ctx), funcName, col.GetType(), args...)
 }
 
 // RangesToString print a list of Ranges into a string which can appear in an SQL as a condition.

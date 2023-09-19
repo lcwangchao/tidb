@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	"github.com/pingcap/tidb/expression"
-	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/util/size"
 )
 
@@ -42,7 +41,7 @@ func (by *ByItems) Clone() *ByItems {
 }
 
 // Equal checks whether two ByItems are equal.
-func (by *ByItems) Equal(ctx sessionctx.Context, other *ByItems) bool {
+func (by *ByItems) Equal(other *ByItems) bool {
 	return by.Expr.Equal(other.Expr) && by.Desc == other.Desc
 }
 

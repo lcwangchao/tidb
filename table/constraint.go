@@ -72,7 +72,7 @@ func removeInvalidCheckConstraintsInfo(tblInfo *model.TableInfo) {
 func ToConstraint(constraintInfo *model.ConstraintInfo, tblInfo *model.TableInfo) (*Constraint, error) {
 	ctx := mock.NewContext()
 	dbName := model.NewCIStr(ctx.GetSessionVars().CurrentDB)
-	columns, names, err := expression.ColumnInfos2ColumnsAndNames(ctx, dbName, tblInfo.Name, tblInfo.Columns, tblInfo)
+	columns, names, err := expression.ColumnInfos2ColumnsAndNames(expression.NewExprContext(ctx), dbName, tblInfo.Name, tblInfo.Columns, tblInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

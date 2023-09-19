@@ -47,7 +47,7 @@ func detachColumnCNFConditions(sctx sessionctx.Context, conditions []expression.
 			if len(columnDNFItems) == 0 {
 				continue
 			}
-			rebuildDNF := expression.ComposeDNFCondition(sctx, columnDNFItems...)
+			rebuildDNF := expression.ComposeDNFCondition(expression.NewExprContext(sctx), columnDNFItems...)
 			accessConditions = append(accessConditions, rebuildDNF)
 			continue
 		}
@@ -82,7 +82,7 @@ func detachColumnDNFConditions(sctx sessionctx.Context, conditions []expression.
 			if len(columnCNFItems) == 0 {
 				return nil, true
 			}
-			rebuildCNF := expression.ComposeCNFCondition(sctx, columnCNFItems...)
+			rebuildCNF := expression.ComposeCNFCondition(expression.NewExprContext(sctx), columnCNFItems...)
 			accessConditions = append(accessConditions, rebuildCNF)
 		} else {
 			isAccessCond, shouldReserve := checker.check(cond)
@@ -634,7 +634,7 @@ func ExtractEqAndInCondition(sctx sessionctx.Context, conditions []expression.Ex
 		}
 		points[offset] = rb.intersection(points[offset], rb.build(cond, collator), collator)
 		if len(points[offset]) == 0 { // Early termination if false expression found
-			if expression.MaybeOverOptimized4PlanCache(sctx, conditions) {
+			if expression.MaybeOverOptimized4PlanCache(expression.NewExprContext(sctx), conditions) {
 				// `a>@x and a<@y` --> `invalid-range if @x>=@y`
 				sctx.GetSessionVars().StmtCtx.SetSkipPlanCache(errors.Errorf("some parameters may be overwritten"))
 			}
@@ -658,7 +658,7 @@ func ExtractEqAndInCondition(sctx sessionctx.Context, conditions []expression.Ex
 			// There exists an interval whose length is larger than 0
 			accesses[i] = nil
 		} else if len(points[i]) == 0 { // Early termination if false expression found
-			if expression.MaybeOverOptimized4PlanCache(sctx, conditions) {
+			if expression.MaybeOverOptimized4PlanCache(expression.NewExprContext(sctx), conditions) {
 				// `a>@x and a<@y` --> `invalid-range if @x>=@y`
 				sctx.GetSessionVars().StmtCtx.SetSkipPlanCache(errors.Errorf("some parameters may be overwritten"))
 			}
@@ -672,7 +672,7 @@ func ExtractEqAndInCondition(sctx sessionctx.Context, conditions []expression.Ex
 				// Maybe we can improve it later.
 				columnValues[i] = &valueInfo{mutable: true}
 			}
-			if expression.MaybeOverOptimized4PlanCache(sctx, conditions) {
+			if expression.MaybeOverOptimized4PlanCache(expression.NewExprContext(sctx), conditions) {
 				// `a=@x and a=@y` --> `a=@x if @x==@y`
 				sctx.GetSessionVars().StmtCtx.SetSkipPlanCache(errors.Errorf("some parameters may be overwritten"))
 			}
@@ -744,7 +744,7 @@ func (d *rangeDetacher) detachDNFCondAndBuildRangeForIndex(condition *expression
 				d.sctx.GetSessionVars().StmtCtx.RecordRangeFallback(d.rangeMaxSize)
 				return FullRange(), nil, nil, true, nil
 			}
-			newAccessItems = append(newAccessItems, expression.ComposeCNFCondition(d.sctx, accesses...))
+			newAccessItems = append(newAccessItems, expression.ComposeCNFCondition(expression.NewExprContext(d.sctx), accesses...))
 			if res.ColumnValues != nil {
 				if i == 0 {
 					columnValues = res.ColumnValues
@@ -813,7 +813,7 @@ func (d *rangeDetacher) detachDNFCondAndBuildRangeForIndex(condition *expression
 		return nil, nil, nil, false, errors.Trace(err)
 	}
 
-	return totalRanges, []expression.Expression{expression.ComposeDNFCondition(d.sctx, newAccessItems...)}, columnValues, hasResidual, nil
+	return totalRanges, []expression.Expression{expression.ComposeDNFCondition(expression.NewExprContext(d.sctx), newAccessItems...)}, columnValues, hasResidual, nil
 }
 
 // valueInfo is used for recording the constant column value in DetachCondAndBuildRangeForIndex.
@@ -1037,7 +1037,7 @@ func MergeDNFItems4Col(ctx sessionctx.Context, dnfItems []expression.Expression)
 		col2DNFItems[uniqueID] = append(col2DNFItems[uniqueID], dnfItem)
 	}
 	for _, items := range col2DNFItems {
-		mergedDNFItems = append(mergedDNFItems, expression.ComposeDNFCondition(ctx, items...))
+		mergedDNFItems = append(mergedDNFItems, expression.ComposeDNFCondition(expression.NewExprContext(ctx), items...))
 	}
 	return mergedDNFItems
 }
@@ -1111,17 +1111,17 @@ func AddGcColumn4InCond(sctx sessionctx.Context,
 
 		// tmpArg1 is like `tidb_shard(a) = 8`, tmpArg2 is like `a = 100`
 		exprCon := &expression.Constant{Value: exprVal, RetType: cols[0].RetType}
-		tmpArg1, err := expression.NewFunction(sctx, ast.EQ, cols[0].RetType, cols[0], exprCon)
+		tmpArg1, err := expression.NewFunction(expression.NewExprContext(sctx), ast.EQ, cols[0].RetType, cols[0], exprCon)
 		if err != nil {
 			return accessesCond, err
 		}
-		tmpArg2, err := expression.NewFunction(sctx, ast.EQ, c.RetType, c.Clone(), arg)
+		tmpArg2, err := expression.NewFunction(expression.NewExprContext(sctx), ast.EQ, c.RetType, c.Clone(), arg)
 		if err != nil {
 			return accessesCond, err
 		}
 
 		// make a LogicAnd, e.g. `tidb_shard(a) = 8 AND a = 100`
-		andExpr, err := expression.NewFunction(sctx, ast.LogicAnd, andType, tmpArg1, tmpArg2)
+		andExpr, err := expression.NewFunction(expression.NewExprContext(sctx), ast.LogicAnd, andType, tmpArg1, tmpArg2)
 		if err != nil {
 			return accessesCond, err
 		}
@@ -1131,7 +1131,7 @@ func AddGcColumn4InCond(sctx sessionctx.Context,
 		} else {
 			// if the LogicAnd more than one, make a LogicOr,
 			// e.g. `(tidb_shard(a) = 8 AND a = 100) OR (tidb_shard(a) = 161 AND a = 200)`
-			andOrExpr, errRes = expression.NewFunction(sctx, ast.LogicOr, andType, andOrExpr, andExpr)
+			andOrExpr, errRes = expression.NewFunction(expression.NewExprContext(sctx), ast.LogicOr, andType, andOrExpr, andExpr)
 			if errRes != nil {
 				return accessesCond, errRes
 			}
@@ -1172,7 +1172,7 @@ func AddGcColumn4EqCond(sctx sessionctx.Context,
 	vi := &valueInfo{&evaluated, false}
 	con := &expression.Constant{Value: evaluated, RetType: cols[0].RetType}
 	// make a tidb_shard() function, e.g. `tidb_shard(a) = 8`
-	cond, err := expression.NewFunction(sctx, ast.EQ, cols[0].RetType, cols[0], con)
+	cond, err := expression.NewFunction(expression.NewExprContext(sctx), ast.EQ, cols[0].RetType, cols[0], con)
 	if err != nil {
 		return accessesCond, err
 	}
