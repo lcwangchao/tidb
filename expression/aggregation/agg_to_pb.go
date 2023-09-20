@@ -101,7 +101,7 @@ func (desc *baseFuncDesc) GetTiPBExpr(tryWindowDesc bool) (tp tipb.ExprType) {
 
 // AggFuncToPBExpr converts aggregate function to pb.
 func AggFuncToPBExpr(sctx sessionctx.Context, client kv.Client, aggFunc *AggFuncDesc, storeType kv.StoreType) (*tipb.Expr, error) {
-	pc := expression.NewPBConverter(client, sctx.GetSessionVars().StmtCtx)
+	pc := expression.NewPBConverter(client, sctx)
 	tp := aggFunc.GetTiPBExpr(false)
 	if !client.IsRequestTypeSupported(kv.ReqTypeSelect, int64(tp)) {
 		return nil, errors.New("select request is not supported by client")
@@ -214,7 +214,7 @@ func PBExprToAggFuncDesc(ctx *expression.ExprContext, aggFunc *tipb.Expr, fieldT
 		return nil, errors.Errorf("unknown aggregation function type: %v", aggFunc.Tp)
 	}
 
-	args, err := expression.PBToExprs(aggFunc.Children, fieldTps, ctx.StmtCtx)
+	args, err := expression.PBToExprs(aggFunc.Children, fieldTps, ctx.StmtCtx())
 	if err != nil {
 		return nil, err
 	}

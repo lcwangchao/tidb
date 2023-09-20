@@ -15,6 +15,7 @@
 package aggfuncs
 
 import (
+	"github.com/pingcap/tidb/expression"
 	"unsafe"
 
 	"github.com/pingcap/errors"
@@ -136,7 +137,7 @@ func (e *firstRow4Int) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup 
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalInt(rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalInt(expression.NewEvalContext(sctx), rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -182,7 +183,7 @@ func (e *firstRow4Float32) UpdatePartialResult(sctx sessionctx.Context, rowsInGr
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalReal(rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalReal(expression.NewEvalContext(sctx), rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -228,7 +229,7 @@ func (e *firstRow4Float64) UpdatePartialResult(sctx sessionctx.Context, rowsInGr
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalReal(rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalReal(expression.NewEvalContext(sctx), rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -274,7 +275,7 @@ func (e *firstRow4String) UpdatePartialResult(sctx sessionctx.Context, rowsInGro
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalString(rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalString(expression.NewEvalContext(sctx), rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -321,7 +322,7 @@ func (e *firstRow4Time) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalTime(rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalTime(expression.NewEvalContext(sctx), rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -367,7 +368,7 @@ func (e *firstRow4Duration) UpdatePartialResult(sctx sessionctx.Context, rowsInG
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalDuration(rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalDuration(expression.NewEvalContext(sctx), rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -413,7 +414,7 @@ func (e *firstRow4JSON) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalJSON(rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalJSON(expression.NewEvalContext(sctx), rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -459,7 +460,7 @@ func (e *firstRow4Decimal) UpdatePartialResult(sctx sessionctx.Context, rowsInGr
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		input, isNull, err := e.args[0].EvalDecimal(rowsInGroup[0])
+		input, isNull, err := e.args[0].EvalDecimal(expression.NewEvalContext(sctx), rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -513,13 +514,13 @@ func (*firstRow4Enum) ResetPartialResult(pr PartialResult) {
 	p.isNull, p.gotFirstRow = false, false
 }
 
-func (e *firstRow4Enum) UpdatePartialResult(_ sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
+func (e *firstRow4Enum) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4FirstRowEnum)(pr)
 	if p.gotFirstRow {
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		d, err := e.args[0].Eval(rowsInGroup[0])
+		d, err := e.args[0].Eval(expression.NewEvalContext(sctx), rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}
@@ -560,13 +561,13 @@ func (*firstRow4Set) ResetPartialResult(pr PartialResult) {
 	p.isNull, p.gotFirstRow = false, false
 }
 
-func (e *firstRow4Set) UpdatePartialResult(_ sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
+func (e *firstRow4Set) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4FirstRowSet)(pr)
 	if p.gotFirstRow {
 		return memDelta, nil
 	}
 	if len(rowsInGroup) > 0 {
-		d, err := e.args[0].Eval(rowsInGroup[0])
+		d, err := e.args[0].Eval(expression.NewEvalContext(sctx), rowsInGroup[0])
 		if err != nil {
 			return memDelta, err
 		}

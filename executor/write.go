@@ -157,7 +157,7 @@ func updateRecord(
 	// Fill values into on-update-now fields, only if they are really changed.
 	for i, col := range t.Cols() {
 		if mysql.HasOnUpdateNowFlag(col.GetFlag()) && !modified[i] && !onUpdateSpecified[i] {
-			v, err := expression.GetTimeValue(expression.NewExprContext(sctx), strings.ToUpper(ast.CurrentTimestamp), col.GetType(), col.GetDecimal(), nil)
+			v, err := expression.GetTimeValue(expression.NewExprContext(sctx), expression.NewEvalContext(sctx), strings.ToUpper(ast.CurrentTimestamp), col.GetType(), col.GetDecimal())
 			if err != nil {
 				return false, err
 			}

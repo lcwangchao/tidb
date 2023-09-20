@@ -358,6 +358,7 @@ func getTopNInfo(ctx *evalContext, topN *tipb.TopN) (heap *topNHeap, conds []exp
 }
 
 type evalContext struct {
+	evalCtx     *expression.EvalContext
 	columnInfos []*tipb.ColumnInfo
 	fieldTps    []*types.FieldType
 	primaryCols []int64

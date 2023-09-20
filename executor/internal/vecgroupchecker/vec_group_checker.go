@@ -29,6 +29,7 @@ import (
 // It is usually used for streamAgg
 type VecGroupChecker struct {
 	ctx           sessionctx.Context
+	evalCtx       *expression.EvalContext
 	releaseBuffer func(buf *chunk.Column)
 
 	// set these functions for testing
@@ -64,6 +65,7 @@ type VecGroupChecker struct {
 func NewVecGroupChecker(ctx sessionctx.Context, items []expression.Expression) *VecGroupChecker {
 	return &VecGroupChecker{
 		ctx:          ctx,
+		evalCtx:      expression.NewEvalContext(ctx),
 		GroupByItems: items,
 		groupCount:   0,
 		nextGroupID:  0,
@@ -158,11 +160,11 @@ func (e *VecGroupChecker) getFirstAndLastRowDatum(
 	eType := tp.EvalType()
 	switch eType {
 	case types.ETInt:
-		firstRowVal, firstRowIsNull, err := item.EvalInt(chk.GetRow(0))
+		firstRowVal, firstRowIsNull, err := item.EvalInt(e.evalCtx, chk.GetRow(0))
 		if err != nil {
 			return err
 		}
-		lastRowVal, lastRowIsNull, err := item.EvalInt(chk.GetRow(numRows - 1))
+		lastRowVal, lastRowIsNull, err := item.EvalInt(e.evalCtx, chk.GetRow(numRows-1))
 		if err != nil {
 			return err
 		}
@@ -177,11 +179,11 @@ func (e *VecGroupChecker) getFirstAndLastRowDatum(
 			lastRowDatum.SetNull()
 		}
 	case types.ETReal:
-		firstRowVal, firstRowIsNull, err := item.EvalReal(chk.GetRow(0))
+		firstRowVal, firstRowIsNull, err := item.EvalReal(e.evalCtx, chk.GetRow(0))
 		if err != nil {
 			return err
 		}
-		lastRowVal, lastRowIsNull, err := item.EvalReal(chk.GetRow(numRows - 1))
+		lastRowVal, lastRowIsNull, err := item.EvalReal(e.evalCtx, chk.GetRow(numRows-1))
 		if err != nil {
 			return err
 		}
@@ -196,11 +198,11 @@ func (e *VecGroupChecker) getFirstAndLastRowDatum(
 			lastRowDatum.SetNull()
 		}
 	case types.ETDecimal:
-		firstRowVal, firstRowIsNull, err := item.EvalDecimal(chk.GetRow(0))
+		firstRowVal, firstRowIsNull, err := item.EvalDecimal(e.evalCtx, chk.GetRow(0))
 		if err != nil {
 			return err
 		}
-		lastRowVal, lastRowIsNull, err := item.EvalDecimal(chk.GetRow(numRows - 1))
+		lastRowVal, lastRowIsNull, err := item.EvalDecimal(e.evalCtx, chk.GetRow(numRows-1))
 		if err != nil {
 			return err
 		}
@@ -227,11 +229,11 @@ func (e *VecGroupChecker) getFirstAndLastRowDatum(
 			lastRowDatum.SetNull()
 		}
 	case types.ETDatetime, types.ETTimestamp:
-		firstRowVal, firstRowIsNull, err := item.EvalTime(chk.GetRow(0))
+		firstRowVal, firstRowIsNull, err := item.EvalTime(e.evalCtx, chk.GetRow(0))
 		if err != nil {
 			return err
 		}
-		lastRowVal, lastRowIsNull, err := item.EvalTime(chk.GetRow(numRows - 1))
+		lastRowVal, lastRowIsNull, err := item.EvalTime(e.evalCtx, chk.GetRow(numRows-1))
 		if err != nil {
 			return err
 		}
@@ -246,11 +248,11 @@ func (e *VecGroupChecker) getFirstAndLastRowDatum(
 			lastRowDatum.SetNull()
 		}
 	case types.ETDuration:
-		firstRowVal, firstRowIsNull, err := item.EvalDuration(chk.GetRow(0))
+		firstRowVal, firstRowIsNull, err := item.EvalDuration(e.evalCtx, chk.GetRow(0))
 		if err != nil {
 			return err
 		}
-		lastRowVal, lastRowIsNull, err := item.EvalDuration(chk.GetRow(numRows - 1))
+		lastRowVal, lastRowIsNull, err := item.EvalDuration(e.evalCtx, chk.GetRow(numRows-1))
 		if err != nil {
 			return err
 		}
@@ -265,11 +267,11 @@ func (e *VecGroupChecker) getFirstAndLastRowDatum(
 			lastRowDatum.SetNull()
 		}
 	case types.ETJson:
-		firstRowVal, firstRowIsNull, err := item.EvalJSON(chk.GetRow(0))
+		firstRowVal, firstRowIsNull, err := item.EvalJSON(e.evalCtx, chk.GetRow(0))
 		if err != nil {
 			return err
 		}
-		lastRowVal, lastRowIsNull, err := item.EvalJSON(chk.GetRow(numRows - 1))
+		lastRowVal, lastRowIsNull, err := item.EvalJSON(e.evalCtx, chk.GetRow(numRows-1))
 		if err != nil {
 			return err
 		}
@@ -286,11 +288,11 @@ func (e *VecGroupChecker) getFirstAndLastRowDatum(
 			lastRowDatum.SetNull()
 		}
 	case types.ETString:
-		firstRowVal, firstRowIsNull, err := item.EvalString(chk.GetRow(0))
+		firstRowVal, firstRowIsNull, err := item.EvalString(e.evalCtx, chk.GetRow(0))
 		if err != nil {
 			return err
 		}
-		lastRowVal, lastRowIsNull, err := item.EvalString(chk.GetRow(numRows - 1))
+		lastRowVal, lastRowIsNull, err := item.EvalString(e.evalCtx, chk.GetRow(numRows-1))
 		if err != nil {
 			return err
 		}
@@ -335,7 +337,7 @@ func (e *VecGroupChecker) evalGroupItemsAndResolveGroups(
 		return err
 	}
 	defer e.releaseBuffer(col)
-	err = expression.EvalExpr(expression.NewExprContext(e.ctx), item, eType, chk, col)
+	err = expression.EvalExpr(expression.NewEvalContext(e.ctx), item, eType, chk, col)
 	if err != nil {
 		return err
 	}

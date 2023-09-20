@@ -404,9 +404,9 @@ func (e *selectionExec) Counts() []int64 {
 }
 
 // evalBool evaluates expression to a boolean value.
-func evalBool(exprs []expression.Expression, row []types.Datum, ctx *stmtctx.StatementContext) (bool, error) {
+func evalBool(exprs []expression.Expression, row []types.Datum, evalCtx *evalContext) (bool, error) {
 	for _, expr := range exprs {
-		data, err := expr.Eval(chunk.MutRowFromDatums(row).ToRow())
+		data, err := expr.Eval(evalCtx.evalCtx, chunk.MutRowFromDatums(row).ToRow())
 		if err != nil {
 			return false, errors.Trace(err)
 		}
@@ -414,8 +414,8 @@ func evalBool(exprs []expression.Expression, row []types.Datum, ctx *stmtctx.Sta
 			return false, nil
 		}
 
-		isBool, err := data.ToBool(ctx)
-		isBool, err = expression.HandleOverflowOnSelection(ctx, isBool, err)
+		isBool, err := data.ToBool(evalCtx.sc)
+		isBool, err = expression.HandleOverflowOnSelection(evalCtx.sc, isBool, err)
 		if err != nil {
 			return false, errors.Trace(err)
 		}
@@ -443,7 +443,7 @@ func (e *selectionExec) Next(ctx context.Context) (value [][]byte, err error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		match, err := evalBool(e.conditions, e.row, e.evalCtx.sc)
+		match, err := evalBool(e.conditions, e.row, e.evalCtx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -542,7 +542,7 @@ func (e *topNExec) evalTopN(value [][]byte) error {
 		return errors.Trace(err)
 	}
 	for i, expr := range e.orderByExprs {
-		newRow.key[i], err = expr.Eval(chunk.MutRowFromDatums(e.row).ToRow())
+		newRow.key[i], err = expr.Eval(e.evalCtx.evalCtx, chunk.MutRowFromDatums(e.row).ToRow())
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -68,7 +68,7 @@ var (
 )
 
 // handleInvalidTimeError reports error or warning depend on the context.
-func handleInvalidTimeError(ctx *ExprContext, err error) error {
+func handleInvalidTimeError(ctx *EvalContext, err error) error {
 	if err == nil || !(types.ErrWrongValue.Equal(err) || types.ErrWrongValueForType.Equal(err) ||
 		types.ErrTruncatedWrongVal.Equal(err) || types.ErrInvalidWeekModeFormat.Equal(err) ||
 		types.ErrDatetimeFunctionOverflow.Equal(err) || types.ErrIncorrectDatetimeValue.Equal(err)) {
@@ -83,7 +83,7 @@ func handleInvalidTimeError(ctx *ExprContext, err error) error {
 }
 
 // handleDivisionByZeroError reports error or warning depend on the context.
-func handleDivisionByZeroError(ctx *ExprContext) error {
+func handleDivisionByZeroError(ctx *EvalContext) error {
 	sc := ctx.StmtCtx
 	if sc.InInsertStmt || sc.InUpdateStmt || sc.InDeleteStmt {
 		if !ctx.SQLMode.HasErrorForDivisionByZeroMode() {
@@ -98,7 +98,7 @@ func handleDivisionByZeroError(ctx *ExprContext) error {
 }
 
 // handleAllowedPacketOverflowed reports error or warning depend on the context.
-func handleAllowedPacketOverflowed(ctx *ExprContext, exprName string, maxAllowedPacketSize uint64) error {
+func handleAllowedPacketOverflowed(ctx *EvalContext, exprName string, maxAllowedPacketSize uint64) error {
 	err := errWarnAllowedPacketOverflowed.GenWithStackByArgs(exprName, maxAllowedPacketSize)
 	sc := ctx.StmtCtx
 

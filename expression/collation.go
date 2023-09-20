@@ -315,14 +315,14 @@ func CheckAndDeriveCollationFromExprs(ctx *ExprContext, funcName string, evalTyp
 		ec.Repe = ASCII
 	}
 
-	if !safeConvert(ec, args...) {
+	if !safeConvert(ctx.EvalCtx(), ec, args...) {
 		return nil, illegalMixCollationErr(funcName, args)
 	}
 
 	return ec, nil
 }
 
-func safeConvert(ec *ExprCollation, args ...Expression) bool {
+func safeConvert(ctx *EvalContext, ec *ExprCollation, args ...Expression) bool {
 	enc := charset.FindEncodingTakeUTF8AsNoop(ec.Charset)
 	for _, arg := range args {
 		if arg.GetType().GetCharset() == ec.Charset {
@@ -335,7 +335,7 @@ func safeConvert(ec *ExprCollation, args ...Expression) bool {
 		}
 
 		if c, ok := arg.(*Constant); ok {
-			str, isNull, err := c.EvalString(chunk.Row{})
+			str, isNull, err := c.EvalString(ctx, chunk.Row{})
 			if err != nil {
 				return false
 			}

@@ -46,38 +46,38 @@ type ScalarFunction struct {
 }
 
 // VecEvalInt evaluates this expression in a vectorized manner.
-func (sf *ScalarFunction) VecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
-	return sf.Function.vecEvalInt(input, result)
+func (sf *ScalarFunction) VecEvalInt(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
+	return sf.Function.vecEvalInt(ctx, input, result)
 }
 
 // VecEvalReal evaluates this expression in a vectorized manner.
-func (sf *ScalarFunction) VecEvalReal(input *chunk.Chunk, result *chunk.Column) error {
-	return sf.Function.vecEvalReal(input, result)
+func (sf *ScalarFunction) VecEvalReal(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
+	return sf.Function.vecEvalReal(ctx, input, result)
 }
 
 // VecEvalString evaluates this expression in a vectorized manner.
-func (sf *ScalarFunction) VecEvalString(input *chunk.Chunk, result *chunk.Column) error {
-	return sf.Function.vecEvalString(input, result)
+func (sf *ScalarFunction) VecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
+	return sf.Function.vecEvalString(ctx, input, result)
 }
 
 // VecEvalDecimal evaluates this expression in a vectorized manner.
-func (sf *ScalarFunction) VecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error {
-	return sf.Function.vecEvalDecimal(input, result)
+func (sf *ScalarFunction) VecEvalDecimal(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
+	return sf.Function.vecEvalDecimal(ctx, input, result)
 }
 
 // VecEvalTime evaluates this expression in a vectorized manner.
-func (sf *ScalarFunction) VecEvalTime(input *chunk.Chunk, result *chunk.Column) error {
-	return sf.Function.vecEvalTime(input, result)
+func (sf *ScalarFunction) VecEvalTime(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
+	return sf.Function.vecEvalTime(ctx, input, result)
 }
 
 // VecEvalDuration evaluates this expression in a vectorized manner.
-func (sf *ScalarFunction) VecEvalDuration(input *chunk.Chunk, result *chunk.Column) error {
-	return sf.Function.vecEvalDuration(input, result)
+func (sf *ScalarFunction) VecEvalDuration(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
+	return sf.Function.vecEvalDuration(ctx, input, result)
 }
 
 // VecEvalJSON evaluates this expression in a vectorized manner.
-func (sf *ScalarFunction) VecEvalJSON(input *chunk.Chunk, result *chunk.Column) error {
-	return sf.Function.vecEvalJSON(input, result)
+func (sf *ScalarFunction) VecEvalJSON(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
+	return sf.Function.vecEvalJSON(ctx, input, result)
 }
 
 // GetArgs gets arguments of function.
@@ -224,7 +224,7 @@ func newFunctionImpl(ctx *ExprContext, fold int, funcName string, retType *types
 				return nil, err
 			}
 			// NoopFuncsMode is Warn, append an error
-			ctx.StmtCtx.AppendWarning(err)
+			ctx.AppendWarning(err)
 		}
 	}
 	funcArgs := make([]Expression, len(args))
@@ -252,12 +252,11 @@ func newFunctionImpl(ctx *ExprContext, fold int, funcName string, retType *types
 		return FoldConstant(sf), nil
 	} else if fold == -1 {
 		// try to fold constants, and return the original function if errors/warnings occur
-		sc := ctx.StmtCtx
-		beforeWarns := sc.WarningCount()
+		beforeWarns := ctx.WarningCount()
 		newSf := FoldConstant(sf)
-		afterWarns := sc.WarningCount()
+		afterWarns := ctx.WarningCount()
 		if afterWarns > beforeWarns {
-			sc.TruncateWarnings(int(beforeWarns))
+			ctx.TruncateWarnings(int(beforeWarns))
 			return sf, nil
 		}
 		return newSf, nil
@@ -388,7 +387,7 @@ func (sf *ScalarFunction) Traverse(action TraverseAction) Expression {
 }
 
 // Eval implements Expression interface.
-func (sf *ScalarFunction) Eval(row chunk.Row) (d types.Datum, err error) {
+func (sf *ScalarFunction) Eval(ctx *EvalContext, row chunk.Row) (d types.Datum, err error) {
 	var (
 		res    interface{}
 		isNull bool
@@ -396,30 +395,30 @@ func (sf *ScalarFunction) Eval(row chunk.Row) (d types.Datum, err error) {
 	switch tp, evalType := sf.GetType(), sf.GetType().EvalType(); evalType {
 	case types.ETInt:
 		var intRes int64
-		intRes, isNull, err = sf.EvalInt(row)
+		intRes, isNull, err = sf.EvalInt(ctx, row)
 		if mysql.HasUnsignedFlag(tp.GetFlag()) {
 			res = uint64(intRes)
 		} else {
 			res = intRes
 		}
 	case types.ETReal:
-		res, isNull, err = sf.EvalReal(row)
+		res, isNull, err = sf.EvalReal(ctx, row)
 	case types.ETDecimal:
-		res, isNull, err = sf.EvalDecimal(row)
+		res, isNull, err = sf.EvalDecimal(ctx, row)
 	case types.ETDatetime, types.ETTimestamp:
-		res, isNull, err = sf.EvalTime(row)
+		res, isNull, err = sf.EvalTime(ctx, row)
 	case types.ETDuration:
-		res, isNull, err = sf.EvalDuration(row)
+		res, isNull, err = sf.EvalDuration(ctx, row)
 	case types.ETJson:
-		res, isNull, err = sf.EvalJSON(row)
+		res, isNull, err = sf.EvalJSON(ctx, row)
 	case types.ETString:
 		var str string
-		str, isNull, err = sf.EvalString(row)
+		str, isNull, err = sf.EvalString(ctx, row)
 		if !isNull && err == nil && tp.GetType() == mysql.TypeEnum {
 			res, err = types.ParseEnum(tp.GetElems(), str, tp.GetCollate())
 			if ctx := sf.GetCtx(); ctx != nil {
 				if sc := ctx.StmtCtx; sc != nil {
-					err = sc.HandleTruncate(err)
+					err = ctx.HandleTruncate(err)
 				}
 			}
 		} else {
@@ -436,43 +435,41 @@ func (sf *ScalarFunction) Eval(row chunk.Row) (d types.Datum, err error) {
 }
 
 // EvalInt implements Expression interface.
-func (sf *ScalarFunction) EvalInt(row chunk.Row) (int64, bool, error) {
+func (sf *ScalarFunction) EvalInt(ctx *EvalContext, row chunk.Row) (int64, bool, error) {
 	if f, ok := sf.Function.(builtinFuncNew); ok {
-		// TODO: think how to pass ctx here
-		ctx := sf.Function.getCtx()
-		return f.evalIntWithCtx(ctx, row)
+		return f.evalIntWithCtx(sf.GetCtx().EvalCtx(), row)
 	}
-	return sf.Function.evalInt(row)
+	return sf.Function.evalInt(sf.GetCtx().EvalCtx(), row)
 }
 
 // EvalReal implements Expression interface.
-func (sf *ScalarFunction) EvalReal(row chunk.Row) (float64, bool, error) {
-	return sf.Function.evalReal(row)
+func (sf *ScalarFunction) EvalReal(ctx *EvalContext, row chunk.Row) (float64, bool, error) {
+	return sf.Function.evalReal(sf.GetCtx().EvalCtx(), row)
 }
 
 // EvalDecimal implements Expression interface.
-func (sf *ScalarFunction) EvalDecimal(row chunk.Row) (*types.MyDecimal, bool, error) {
-	return sf.Function.evalDecimal(row)
+func (sf *ScalarFunction) EvalDecimal(ctx *EvalContext, row chunk.Row) (*types.MyDecimal, bool, error) {
+	return sf.Function.evalDecimal(ctx, row)
 }
 
 // EvalString implements Expression interface.
-func (sf *ScalarFunction) EvalString(row chunk.Row) (string, bool, error) {
-	return sf.Function.evalString(row)
+func (sf *ScalarFunction) EvalString(ctx *EvalContext, row chunk.Row) (string, bool, error) {
+	return sf.Function.evalString(ctx, row)
 }
 
 // EvalTime implements Expression interface.
-func (sf *ScalarFunction) EvalTime(row chunk.Row) (types.Time, bool, error) {
-	return sf.Function.evalTime(row)
+func (sf *ScalarFunction) EvalTime(ctx *EvalContext, row chunk.Row) (types.Time, bool, error) {
+	return sf.Function.evalTime(ctx, row)
 }
 
 // EvalDuration implements Expression interface.
-func (sf *ScalarFunction) EvalDuration(row chunk.Row) (types.Duration, bool, error) {
-	return sf.Function.evalDuration(row)
+func (sf *ScalarFunction) EvalDuration(ctx *EvalContext, row chunk.Row) (types.Duration, bool, error) {
+	return sf.Function.evalDuration(ctx, row)
 }
 
 // EvalJSON implements Expression interface.
-func (sf *ScalarFunction) EvalJSON(row chunk.Row) (types.BinaryJSON, bool, error) {
-	return sf.Function.evalJSON(row)
+func (sf *ScalarFunction) EvalJSON(ctx *EvalContext, row chunk.Row) (types.BinaryJSON, bool, error) {
+	return sf.Function.evalJSON(ctx, row)
 }
 
 // HashCode implements Expression interface.

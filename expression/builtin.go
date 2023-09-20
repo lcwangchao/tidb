@@ -111,7 +111,7 @@ func adjustNullFlagForReturnType(funcName string, args []Expression, bf baseBuil
 
 func newBaseBuiltinFunc(ctx *ExprContext, funcName string, args []Expression, tp *types.FieldType) (baseBuiltinFunc, error) {
 	if ctx == nil {
-		return baseBuiltinFunc{}, errors.New("unexpected nil session ctx")
+		return baseBuiltinFunc{}, errors.New("unexpected nil session exprCtx")
 	}
 	retType := tp.EvalType()
 	ec, err := deriveCollation(ctx, funcName, args, retType, retType)
@@ -144,7 +144,7 @@ func newBaseBuiltinFuncWithTp(ctx *ExprContext, funcName string, args []Expressi
 		panic("unexpected length of args and argTps")
 	}
 	if ctx == nil {
-		return baseBuiltinFunc{}, errors.New("unexpected nil session ctx")
+		return baseBuiltinFunc{}, errors.New("unexpected nil session exprCtx")
 	}
 
 	// derive collation information for string function, and we must do it
@@ -224,7 +224,7 @@ func newBaseBuiltinFuncWithTp(ctx *ExprContext, funcName string, args []Expressi
 // do not check and compute collation.
 func newBaseBuiltinFuncWithFieldType(ctx sessionctx.Context, tp *types.FieldType, args []Expression) (baseBuiltinFunc, error) {
 	if ctx == nil {
-		return baseBuiltinFunc{}, errors.New("unexpected nil session ctx")
+		return baseBuiltinFunc{}, errors.New("unexpected nil session exprCtx")
 	}
 	bf := baseBuiltinFunc{
 		bufAllocator:           newLocalColumnPool(),
@@ -244,59 +244,59 @@ func (b *baseBuiltinFunc) getArgs() []Expression {
 	return b.args
 }
 
-func (*baseBuiltinFunc) vecEvalInt(*chunk.Chunk, *chunk.Column) error {
+func (*baseBuiltinFunc) vecEvalInt(*EvalContext, *chunk.Chunk, *chunk.Column) error {
 	return errors.Errorf("baseBuiltinFunc.vecEvalInt() should never be called, please contact the TiDB team for help")
 }
 
-func (*baseBuiltinFunc) vecEvalReal(*chunk.Chunk, *chunk.Column) error {
+func (*baseBuiltinFunc) vecEvalReal(*EvalContext, *chunk.Chunk, *chunk.Column) error {
 	return errors.Errorf("baseBuiltinFunc.vecEvalReal() should never be called, please contact the TiDB team for help")
 }
 
-func (*baseBuiltinFunc) vecEvalString(*chunk.Chunk, *chunk.Column) error {
+func (*baseBuiltinFunc) vecEvalString(*EvalContext, *chunk.Chunk, *chunk.Column) error {
 	return errors.Errorf("baseBuiltinFunc.vecEvalString() should never be called, please contact the TiDB team for help")
 }
 
-func (*baseBuiltinFunc) vecEvalDecimal(*chunk.Chunk, *chunk.Column) error {
+func (*baseBuiltinFunc) vecEvalDecimal(*EvalContext, *chunk.Chunk, *chunk.Column) error {
 	return errors.Errorf("baseBuiltinFunc.vecEvalDecimal() should never be called, please contact the TiDB team for help")
 }
 
-func (*baseBuiltinFunc) vecEvalTime(*chunk.Chunk, *chunk.Column) error {
+func (*baseBuiltinFunc) vecEvalTime(*EvalContext, *chunk.Chunk, *chunk.Column) error {
 	return errors.Errorf("baseBuiltinFunc.vecEvalTime() should never be called, please contact the TiDB team for help")
 }
 
-func (*baseBuiltinFunc) vecEvalDuration(*chunk.Chunk, *chunk.Column) error {
+func (*baseBuiltinFunc) vecEvalDuration(*EvalContext, *chunk.Chunk, *chunk.Column) error {
 	return errors.Errorf("baseBuiltinFunc.vecEvalDuration() should never be called, please contact the TiDB team for help")
 }
 
-func (*baseBuiltinFunc) vecEvalJSON(*chunk.Chunk, *chunk.Column) error {
+func (*baseBuiltinFunc) vecEvalJSON(*EvalContext, *chunk.Chunk, *chunk.Column) error {
 	return errors.Errorf("baseBuiltinFunc.vecEvalJSON() should never be called, please contact the TiDB team for help")
 }
 
-func (*baseBuiltinFunc) evalInt(chunk.Row) (int64, bool, error) {
+func (*baseBuiltinFunc) evalInt(*EvalContext, chunk.Row) (int64, bool, error) {
 	return 0, false, errors.Errorf("baseBuiltinFunc.evalInt() should never be called, please contact the TiDB team for help")
 }
 
-func (*baseBuiltinFunc) evalReal(chunk.Row) (float64, bool, error) {
+func (*baseBuiltinFunc) evalReal(*EvalContext, chunk.Row) (float64, bool, error) {
 	return 0, false, errors.Errorf("baseBuiltinFunc.evalReal() should never be called, please contact the TiDB team for help")
 }
 
-func (*baseBuiltinFunc) evalString(chunk.Row) (string, bool, error) {
+func (*baseBuiltinFunc) evalString(*EvalContext, chunk.Row) (string, bool, error) {
 	return "", false, errors.Errorf("baseBuiltinFunc.evalString() should never be called, please contact the TiDB team for help")
 }
 
-func (*baseBuiltinFunc) evalDecimal(chunk.Row) (*types.MyDecimal, bool, error) {
+func (*baseBuiltinFunc) evalDecimal(*EvalContext, chunk.Row) (*types.MyDecimal, bool, error) {
 	return nil, false, errors.Errorf("baseBuiltinFunc.evalDecimal() should never be called, please contact the TiDB team for help")
 }
 
-func (*baseBuiltinFunc) evalTime(chunk.Row) (types.Time, bool, error) {
+func (*baseBuiltinFunc) evalTime(*EvalContext, chunk.Row) (types.Time, bool, error) {
 	return types.ZeroTime, false, errors.Errorf("baseBuiltinFunc.evalTime() should never be called, please contact the TiDB team for help")
 }
 
-func (*baseBuiltinFunc) evalDuration(chunk.Row) (types.Duration, bool, error) {
+func (*baseBuiltinFunc) evalDuration(*EvalContext, chunk.Row) (types.Duration, bool, error) {
 	return types.Duration{}, false, errors.Errorf("baseBuiltinFunc.evalDuration() should never be called, please contact the TiDB team for help")
 }
 
-func (*baseBuiltinFunc) evalJSON(chunk.Row) (types.BinaryJSON, bool, error) {
+func (*baseBuiltinFunc) evalJSON(*EvalContext, chunk.Row) (types.BinaryJSON, bool, error) {
 	return types.BinaryJSON{}, false, errors.Errorf("baseBuiltinFunc.evalJSON() should never be called, please contact the TiDB team for help")
 }
 
@@ -426,25 +426,25 @@ type vecBuiltinFunc interface {
 	isChildrenVectorized() bool
 
 	// vecEvalInt evaluates this builtin function in a vectorized manner.
-	vecEvalInt(input *chunk.Chunk, result *chunk.Column) error
+	vecEvalInt(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 
 	// vecEvalReal evaluates this builtin function in a vectorized manner.
-	vecEvalReal(input *chunk.Chunk, result *chunk.Column) error
+	vecEvalReal(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 
 	// vecEvalString evaluates this builtin function in a vectorized manner.
-	vecEvalString(input *chunk.Chunk, result *chunk.Column) error
+	vecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 
 	// vecEvalDecimal evaluates this builtin function in a vectorized manner.
-	vecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error
+	vecEvalDecimal(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 
 	// vecEvalTime evaluates this builtin function in a vectorized manner.
-	vecEvalTime(input *chunk.Chunk, result *chunk.Column) error
+	vecEvalTime(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 
 	// vecEvalDuration evaluates this builtin function in a vectorized manner.
-	vecEvalDuration(input *chunk.Chunk, result *chunk.Column) error
+	vecEvalDuration(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 
 	// vecEvalJSON evaluates this builtin function in a vectorized manner.
-	vecEvalJSON(input *chunk.Chunk, result *chunk.Column) error
+	vecEvalJSON(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 }
 
 // reverseBuiltinFunc evaluates the exactly one column value in the function when given a result for expression.
@@ -465,19 +465,19 @@ type builtinFunc interface {
 	reverseBuiltinFunc
 
 	// evalInt evaluates int result of builtinFunc by given row.
-	evalInt(row chunk.Row) (val int64, isNull bool, err error)
+	evalInt(ctx *EvalContext, row chunk.Row) (val int64, isNull bool, err error)
 	// evalReal evaluates real representation of builtinFunc by given row.
-	evalReal(row chunk.Row) (val float64, isNull bool, err error)
+	evalReal(ctx *EvalContext, row chunk.Row) (val float64, isNull bool, err error)
 	// evalString evaluates string representation of builtinFunc by given row.
-	evalString(row chunk.Row) (val string, isNull bool, err error)
+	evalString(ctx *EvalContext, row chunk.Row) (val string, isNull bool, err error)
 	// evalDecimal evaluates decimal representation of builtinFunc by given row.
-	evalDecimal(row chunk.Row) (val *types.MyDecimal, isNull bool, err error)
+	evalDecimal(ctx *EvalContext, row chunk.Row) (val *types.MyDecimal, isNull bool, err error)
 	// evalTime evaluates DATE/DATETIME/TIMESTAMP representation of builtinFunc by given row.
-	evalTime(row chunk.Row) (val types.Time, isNull bool, err error)
+	evalTime(ctx *EvalContext, row chunk.Row) (val types.Time, isNull bool, err error)
 	// evalDuration evaluates duration representation of builtinFunc by given row.
-	evalDuration(row chunk.Row) (val types.Duration, isNull bool, err error)
+	evalDuration(ctx *EvalContext, row chunk.Row) (val types.Duration, isNull bool, err error)
 	// evalJSON evaluates JSON representation of builtinFunc by given row.
-	evalJSON(row chunk.Row) (val types.BinaryJSON, isNull bool, err error)
+	evalJSON(ctx *EvalContext, row chunk.Row) (val types.BinaryJSON, isNull bool, err error)
 	// getArgs returns the arguments expressions.
 	getArgs() []Expression
 	// equal check if this function equals to another function.
@@ -507,7 +507,7 @@ type builtinFunc interface {
 }
 
 type builtinFuncNew interface {
-	evalIntWithCtx(ctx *ExprContext, row chunk.Row) (val int64, isNull bool, err error)
+	evalIntWithCtx(ctx *EvalContext, row chunk.Row) (val int64, isNull bool, err error)
 }
 
 // baseFunctionClass will be contained in every struct that implement functionClass interface.

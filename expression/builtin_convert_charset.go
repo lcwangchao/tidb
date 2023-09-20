@@ -89,8 +89,8 @@ func (b *builtinInternalToBinarySig) Clone() builtinFunc {
 	return newSig
 }
 
-func (b *builtinInternalToBinarySig) evalString(row chunk.Row) (res string, isNull bool, err error) {
-	val, isNull, err := b.args[0].EvalString(row)
+func (b *builtinInternalToBinarySig) evalString(ctx *EvalContext, row chunk.Row) (res string, isNull bool, err error) {
+	val, isNull, err := b.args[0].EvalString(ctx, row)
 	if isNull || err != nil {
 		return res, isNull, err
 	}
@@ -104,14 +104,14 @@ func (b *builtinInternalToBinarySig) vectorized() bool {
 	return true
 }
 
-func (b *builtinInternalToBinarySig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinInternalToBinarySig) vecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf, err := b.bufAllocator.get()
 	if err != nil {
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(input, buf); err != nil {
+	if err := b.args[0].VecEvalString(ctx, input, buf); err != nil {
 		return err
 	}
 	enc := charset.FindEncoding(b.args[0].GetType().GetCharset())
@@ -168,8 +168,8 @@ func (b *builtinInternalFromBinarySig) Clone() builtinFunc {
 	return newSig
 }
 
-func (b *builtinInternalFromBinarySig) evalString(row chunk.Row) (res string, isNull bool, err error) {
-	val, isNull, err := b.args[0].EvalString(row)
+func (b *builtinInternalFromBinarySig) evalString(ctx *EvalContext, row chunk.Row) (res string, isNull bool, err error) {
+	val, isNull, err := b.args[0].EvalString(ctx, row)
 	if isNull || err != nil {
 		return val, isNull, err
 	}
@@ -187,14 +187,14 @@ func (b *builtinInternalFromBinarySig) vectorized() bool {
 	return true
 }
 
-func (b *builtinInternalFromBinarySig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinInternalFromBinarySig) vecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf, err := b.bufAllocator.get()
 	if err != nil {
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(input, buf); err != nil {
+	if err := b.args[0].VecEvalString(ctx, input, buf); err != nil {
 		return err
 	}
 	enc := charset.FindEncoding(b.tp.GetCharset())

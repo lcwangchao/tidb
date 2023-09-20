@@ -1017,7 +1017,7 @@ func checkColumnDefaultValue(ctx sessionctx.Context, col *table.Column, value in
 	if value != nil && ctx.GetSessionVars().SQLMode.HasNoZeroDateMode() &&
 		ctx.GetSessionVars().SQLMode.HasStrictMode() && types.IsTypeTime(col.GetType()) {
 		if vv, ok := value.(string); ok {
-			timeValue, err := expression.GetTimeValue(expression.NewExprContext(ctx), vv, col.GetType(), col.GetDecimal(), nil)
+			timeValue, err := expression.GetTimeValue(expression.NewExprContext(ctx), expression.NewEvalContext(ctx), vv, col.GetType(), col.GetDecimal())
 			if err != nil {
 				return hasDefaultValue, value, errors.Trace(err)
 			}
@@ -1306,7 +1306,7 @@ func getDefaultValue(ctx sessionctx.Context, col *table.Column, option *ast.Colu
 	}
 
 	if tp == mysql.TypeTimestamp || tp == mysql.TypeDatetime || tp == mysql.TypeDate {
-		vd, err := expression.GetTimeValue(expression.NewExprContext(ctx), option.Expr, tp, fsp, nil)
+		vd, err := expression.GetTimeValue(expression.NewExprContext(ctx), expression.NewEvalContext(ctx), option.Expr, tp, fsp)
 		value := vd.GetValue()
 		if err != nil {
 			return nil, false, dbterror.ErrInvalidDefaultValue.GenWithStackByArgs(col.Name.O)
@@ -3178,7 +3178,7 @@ func parseAndEvalBoolExpr(ctx sessionctx.Context, l, r string, colInfo *model.Co
 		return false, err
 	}
 	e.SetCharsetAndCollation(colInfo.GetCharset(), colInfo.GetCollate())
-	res, _, err1 := e.EvalInt(chunk.Row{})
+	res, _, err1 := e.EvalInt(expression.NewEvalContext(ctx), chunk.Row{})
 	if err1 != nil {
 		return false, err1
 	}

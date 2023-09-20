@@ -15,6 +15,7 @@
 package aggfuncs
 
 import (
+	"github.com/pingcap/tidb/expression"
 	"unsafe"
 
 	"github.com/pingcap/errors"
@@ -75,7 +76,7 @@ func calculateIntermediate(count int64, sum float64, input float64, variance flo
 func (e *varPop4Float64) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4VarPopFloat64)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalReal(row)
+		input, isNull, err := e.args[0].EvalReal(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, errors.Trace(err)
 		}
@@ -162,7 +163,7 @@ func (e *varPop4DistinctFloat64) AppendFinalResult2Chunk(_ sessionctx.Context, p
 func (e *varPop4DistinctFloat64) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4VarPopDistinctFloat64)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalReal(row)
+		input, isNull, err := e.args[0].EvalReal(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return memDelta, errors.Trace(err)
 		}

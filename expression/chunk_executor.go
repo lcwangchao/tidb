@@ -17,7 +17,6 @@ package expression
 import (
 	"github.com/pingcap/tidb/parser/ast"
 	"github.com/pingcap/tidb/parser/mysql"
-	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/types"
 	"github.com/pingcap/tidb/util/chunk"
 )
@@ -104,7 +103,7 @@ func HasAssignSetVarFunc(expr Expression) bool {
 }
 
 // VectorizedExecute evaluates a list of expressions column by column and append their results to "output" Chunk.
-func VectorizedExecute(ctx sessionctx.Context, exprs []Expression, iterator *chunk.Iterator4Chunk, output *chunk.Chunk) error {
+func VectorizedExecute(ctx *EvalContext, exprs []Expression, iterator *chunk.Iterator4Chunk, output *chunk.Chunk) error {
 	for colID, expr := range exprs {
 		err := evalOneColumn(ctx, expr, iterator, output, colID)
 		if err != nil {
@@ -114,12 +113,12 @@ func VectorizedExecute(ctx sessionctx.Context, exprs []Expression, iterator *chu
 	return nil
 }
 
-func evalOneVec(ctx sessionctx.Context, expr Expression, input *chunk.Chunk, output *chunk.Chunk, colIdx int) error {
+func evalOneVec(ctx *EvalContext, expr Expression, input *chunk.Chunk, output *chunk.Chunk, colIdx int) error {
 	ft := expr.GetType()
 	result := output.Column(colIdx)
 	switch ft.EvalType() {
 	case types.ETInt:
-		if err := expr.VecEvalInt(input, result); err != nil {
+		if err := expr.VecEvalInt(ctx, input, result); err != nil {
 			return err
 		}
 		if ft.GetType() == mysql.TypeBit {
@@ -141,7 +140,7 @@ func evalOneVec(ctx sessionctx.Context, expr Expression, input *chunk.Chunk, out
 		// so we can do a no-op here.
 		// }
 	case types.ETReal:
-		if err := expr.VecEvalReal(input, result); err != nil {
+		if err := expr.VecEvalReal(ctx, input, result); err != nil {
 			return err
 		}
 		if ft.GetType() == mysql.TypeFloat {
@@ -160,15 +159,15 @@ func evalOneVec(ctx sessionctx.Context, expr Expression, input *chunk.Chunk, out
 			output.SetCol(colIdx, buf)
 		}
 	case types.ETDecimal:
-		return expr.VecEvalDecimal(input, result)
+		return expr.VecEvalDecimal(ctx, input, result)
 	case types.ETDatetime, types.ETTimestamp:
-		return expr.VecEvalTime(input, result)
+		return expr.VecEvalTime(ctx, input, result)
 	case types.ETDuration:
-		return expr.VecEvalDuration(input, result)
+		return expr.VecEvalDuration(ctx, input, result)
 	case types.ETJson:
-		return expr.VecEvalJSON(input, result)
+		return expr.VecEvalJSON(ctx, input, result)
 	case types.ETString:
-		if err := expr.VecEvalString(input, result); err != nil {
+		if err := expr.VecEvalString(ctx, input, result); err != nil {
 			return err
 		}
 		if ft.GetType() == mysql.TypeEnum {
@@ -200,7 +199,7 @@ func evalOneVec(ctx sessionctx.Context, expr Expression, input *chunk.Chunk, out
 	return nil
 }
 
-func evalOneColumn(ctx sessionctx.Context, expr Expression, iterator *chunk.Iterator4Chunk, output *chunk.Chunk, colID int) (err error) {
+func evalOneColumn(ctx *EvalContext, expr Expression, iterator *chunk.Iterator4Chunk, output *chunk.Chunk, colID int) (err error) {
 	switch fieldType, evalType := expr.GetType(), expr.GetType().EvalType(); evalType {
 	case types.ETInt:
 		for row := iterator.Begin(); err == nil && row != iterator.End(); row = iterator.Next() {
@@ -234,7 +233,7 @@ func evalOneColumn(ctx sessionctx.Context, expr Expression, iterator *chunk.Iter
 	return err
 }
 
-func evalOneCell(ctx sessionctx.Context, expr Expression, row chunk.Row, output *chunk.Chunk, colID int) (err error) {
+func evalOneCell(ctx *EvalContext, expr Expression, row chunk.Row, output *chunk.Chunk, colID int) (err error) {
 	switch fieldType, evalType := expr.GetType(), expr.GetType().EvalType(); evalType {
 	case types.ETInt:
 		err = executeToInt(ctx, expr, fieldType, row, output, colID)
@@ -254,8 +253,8 @@ func evalOneCell(ctx sessionctx.Context, expr Expression, row chunk.Row, output 
 	return err
 }
 
-func executeToInt(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalInt(row)
+func executeToInt(ctx *EvalContext, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
+	res, isNull, err := expr.EvalInt(ctx, row)
 	if err != nil {
 		return err
 	}
@@ -284,8 +283,8 @@ func executeToInt(ctx sessionctx.Context, expr Expression, fieldType *types.Fiel
 	return nil
 }
 
-func executeToReal(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalReal(row)
+func executeToReal(ctx *EvalContext, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
+	res, isNull, err := expr.EvalReal(ctx, row)
 	if err != nil {
 		return err
 	}
@@ -301,8 +300,8 @@ func executeToReal(ctx sessionctx.Context, expr Expression, fieldType *types.Fie
 	return nil
 }
 
-func executeToDecimal(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalDecimal(row)
+func executeToDecimal(ctx *EvalContext, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
+	res, isNull, err := expr.EvalDecimal(ctx, row)
 	if err != nil {
 		return err
 	}
@@ -314,8 +313,8 @@ func executeToDecimal(ctx sessionctx.Context, expr Expression, fieldType *types.
 	return nil
 }
 
-func executeToDatetime(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalTime(row)
+func executeToDatetime(ctx *EvalContext, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
+	res, isNull, err := expr.EvalTime(ctx, row)
 	if err != nil {
 		return err
 	}
@@ -327,8 +326,8 @@ func executeToDatetime(ctx sessionctx.Context, expr Expression, fieldType *types
 	return nil
 }
 
-func executeToDuration(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalDuration(row)
+func executeToDuration(ctx *EvalContext, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
+	res, isNull, err := expr.EvalDuration(ctx, row)
 	if err != nil {
 		return err
 	}
@@ -340,8 +339,8 @@ func executeToDuration(ctx sessionctx.Context, expr Expression, fieldType *types
 	return nil
 }
 
-func executeToJSON(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalJSON(row)
+func executeToJSON(ctx *EvalContext, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
+	res, isNull, err := expr.EvalJSON(ctx, row)
 	if err != nil {
 		return err
 	}
@@ -353,8 +352,8 @@ func executeToJSON(ctx sessionctx.Context, expr Expression, fieldType *types.Fie
 	return nil
 }
 
-func executeToString(ctx sessionctx.Context, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
-	res, isNull, err := expr.EvalString(row)
+func executeToString(ctx *EvalContext, expr Expression, fieldType *types.FieldType, row chunk.Row, output *chunk.Chunk, colID int) error {
+	res, isNull, err := expr.EvalString(ctx, row)
 	if err != nil {
 		return err
 	}
@@ -375,7 +374,7 @@ func executeToString(ctx sessionctx.Context, expr Expression, fieldType *types.F
 // VectorizedFilter applies a list of filters to a Chunk and
 // returns a bool slice, which indicates whether a row is passed the filters.
 // Filters is executed vectorized.
-func VectorizedFilter(ctx *ExprContext, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool) (_ []bool, err error) {
+func VectorizedFilter(ctx *EvalContext, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool) (_ []bool, err error) {
 	selected, _, err = VectorizedFilterConsiderNull(ctx, filters, iterator, selected, nil)
 	return selected, err
 }
@@ -384,7 +383,7 @@ func VectorizedFilter(ctx *ExprContext, filters []Expression, iterator *chunk.It
 // returns two bool slices, `selected` indicates whether a row passed the
 // filters, `isNull` indicates whether the result of the filter is null.
 // Filters is executed vectorized.
-func VectorizedFilterConsiderNull(ctx *ExprContext, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool, isNull []bool) ([]bool, []bool, error) {
+func VectorizedFilterConsiderNull(ctx *EvalContext, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool, isNull []bool) ([]bool, []bool, error) {
 	// canVectorized used to check whether all of the filters can be vectorized evaluated
 	canVectorized := true
 	for _, filter := range filters {
@@ -427,7 +426,7 @@ func VectorizedFilterConsiderNull(ctx *ExprContext, filters []Expression, iterat
 }
 
 // rowBasedFilter filters by row.
-func rowBasedFilter(ctx *ExprContext, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool, isNull []bool) ([]bool, []bool, error) {
+func rowBasedFilter(ctx *EvalContext, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool, isNull []bool) ([]bool, []bool, error) {
 	// If input.Sel() != nil, we will call input.SetSel(nil) to clear the sel slice in input chunk.
 	// After the function finished, then we reset the sel in input chunk.
 	// Then the caller will handle the input.sel and selected slices.
@@ -463,7 +462,7 @@ func rowBasedFilter(ctx *ExprContext, filters []Expression, iterator *chunk.Iter
 				continue
 			}
 			if isIntType {
-				filterResult, isNullResult, err = filter.EvalInt(row)
+				filterResult, isNullResult, err = filter.EvalInt(ctx, row)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -485,7 +484,7 @@ func rowBasedFilter(ctx *ExprContext, filters []Expression, iterator *chunk.Iter
 }
 
 // vectorizedFilter filters by vector.
-func vectorizedFilter(ctx *ExprContext, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool, isNull []bool) ([]bool, []bool, error) {
+func vectorizedFilter(ctx *EvalContext, filters []Expression, iterator *chunk.Iterator4Chunk, selected []bool, isNull []bool) ([]bool, []bool, error) {
 	selected, isNull, err := VecEvalBool(ctx, filters, iterator.GetChunk(), selected, isNull)
 	if err != nil {
 		return nil, nil, err

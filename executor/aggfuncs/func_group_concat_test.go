@@ -128,7 +128,7 @@ func groupConcatOrderMultiArgsUpdateMemDeltaGens(srcChk *chunk.Chunk, dataType [
 		}
 		memDelta := int64(buffer.Cap() - oldMemSize)
 		for _, byItem := range byItems {
-			fdt, _ := byItem.Expr.Eval(row)
+			fdt, _ := byItem.Expr.Eval(ctx, row)
 			datumMem := aggfuncs.GetDatumMemSize(&fdt)
 			memDelta += datumMem
 		}
@@ -201,7 +201,7 @@ func groupConcatDistinctOrderMultiArgsUpdateMemDeltaGens(srcChk *chunk.Chunk, da
 		valSet.Insert(joinedVal)
 		memDelta := int64(len(joinedVal) + (valsBuf.Cap() + cap(encodeBytesBuffer) - oldMemSize))
 		for _, byItem := range byItems {
-			fdt, _ := byItem.Expr.Eval(row)
+			fdt, _ := byItem.Expr.Eval(ctx, row)
 			datumMem := aggfuncs.GetDatumMemSize(&fdt)
 			memDelta += datumMem
 		}

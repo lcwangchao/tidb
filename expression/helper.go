@@ -59,9 +59,9 @@ func IsValidCurrentTimestampExpr(exprNode ast.ExprNode, fieldType *types.FieldTy
 }
 
 // GetTimeCurrentTimestamp is used for generating a timestamp for some special cases: cast null value to timestamp type with not null flag.
-func GetTimeCurrentTimestamp(ctx *ExprContext, tp byte, fsp int) (d types.Datum, err error) {
+func GetTimeCurrentTimestamp(ctx *ExprContext, evalCtx *EvalContext, tp byte, fsp int) (d types.Datum, err error) {
 	var t types.Time
-	t, err = getTimeCurrentTimeStamp(ctx, tp, fsp)
+	t, err = getTimeCurrentTimeStamp(ctx, evalCtx, tp, fsp)
 	if err != nil {
 		return d, err
 	}
@@ -69,15 +69,15 @@ func GetTimeCurrentTimestamp(ctx *ExprContext, tp byte, fsp int) (d types.Datum,
 	return d, nil
 }
 
-func getTimeCurrentTimeStamp(ctx *ExprContext, tp byte, fsp int) (t types.Time, err error) {
+func getTimeCurrentTimeStamp(ctx *ExprContext, evalCtx *EvalContext, tp byte, fsp int) (t types.Time, err error) {
 	value := types.NewTime(types.ZeroCoreTime, tp, fsp)
-	defaultTime, err := getStmtTimestamp(ctx)
+	defaultTime, err := getStmtTimestamp(ctx, evalCtx)
 	if err != nil {
 		return value, err
 	}
 	value.SetCoreTime(types.FromGoTime(defaultTime.Truncate(time.Duration(math.Pow10(9-fsp)) * time.Nanosecond)))
 	if tp == mysql.TypeTimestamp || tp == mysql.TypeDatetime || tp == mysql.TypeDate {
-		err = value.ConvertTimeZone(time.Local, ctx.Location())
+		err = value.ConvertTimeZone(time.Local, evalCtx.Location)
 		if err != nil {
 			return value, err
 		}
@@ -86,22 +86,22 @@ func getTimeCurrentTimeStamp(ctx *ExprContext, tp byte, fsp int) (t types.Time, 
 }
 
 // GetTimeValue gets the time value with type tp.
-func GetTimeValue(ctx *ExprContext, v interface{}, tp byte, fsp int, explicitTz *time.Location) (d types.Datum, err error) {
+func GetTimeValue(ctx *ExprContext, evalCtx *EvalContext, v interface{}, tp byte, fsp int) (d types.Datum, err error) {
 	var value types.Time
 
-	sc := ctx.StmtCtx
+	sc := evalCtx.StmtCtx
 	switch x := v.(type) {
 	case string:
 		lowerX := strings.ToLower(x)
 		if lowerX == ast.CurrentTimestamp || lowerX == ast.CurrentDate {
-			if value, err = getTimeCurrentTimeStamp(ctx, tp, fsp); err != nil {
+			if value, err = getTimeCurrentTimeStamp(ctx, evalCtx, tp, fsp); err != nil {
 				return d, err
 			}
 		} else if lowerX == types.ZeroDatetimeStr {
 			value, err = types.ParseTimeFromNum(sc, 0, tp, fsp)
 			terror.Log(err)
 		} else {
-			value, err = types.ParseTime(sc, x, tp, fsp, explicitTz)
+			value, err = types.ParseTime(sc, x, tp, fsp, evalCtx.Location)
 			if err != nil {
 				return d, err
 			}
@@ -136,7 +136,7 @@ func GetTimeValue(ctx *ExprContext, v interface{}, tp byte, fsp int, explicitTz 
 			return d, err
 		}
 		ft := types.NewFieldType(mysql.TypeLonglong)
-		xval, err := v.ConvertTo(ctx.StmtCtx, ft)
+		xval, err := v.ConvertTo(evalCtx.StmtCtx, ft)
 		if err != nil {
 			return d, err
 		}
@@ -154,14 +154,14 @@ func GetTimeValue(ctx *ExprContext, v interface{}, tp byte, fsp int, explicitTz 
 
 // if timestamp session variable set, use session variable as current time, otherwise use cached time
 // during one sql statement, the "current_time" should be the same
-func getStmtTimestamp(ctx *ExprContext) (time.Time, error) {
+func getStmtTimestamp(ctx *ExprContext, evalCtx *EvalContext) (time.Time, error) {
 	failpoint.Inject("injectNow", func(val failpoint.Value) {
 		v := time.Unix(int64(val.(int)), 0)
 		failpoint.Return(v, nil)
 	})
 
 	if ctx != nil {
-		staleTSO, err := ctx.StmtCtx.GetStaleTSO()
+		staleTSO, err := ctx.GetStaleTSO()
 		if staleTSO != 0 && err == nil {
 			return oracle.GetTimeFromTS(staleTSO), nil
 		} else if err != nil {
@@ -180,7 +180,7 @@ func getStmtTimestamp(ctx *ExprContext) (time.Time, error) {
 		return now, err
 	}
 
-	timestamp, err := types.StrToFloat(ctx.StmtCtx, timestampStr, false)
+	timestamp, err := types.StrToFloat(evalCtx.StmtCtx, timestampStr, false)
 	if err != nil {
 		return time.Time{}, err
 	}

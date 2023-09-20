@@ -16,6 +16,7 @@ package aggfuncs
 
 import (
 	"cmp"
+	"github.com/pingcap/tidb/expression"
 	"unsafe"
 
 	"github.com/pingcap/errors"
@@ -267,7 +268,7 @@ func (e *maxMin4Int) AppendFinalResult2Chunk(_ sessionctx.Context, pr PartialRes
 func (e *maxMin4Int) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinInt)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalInt(row)
+		input, isNull, err := e.args[0].EvalInt(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -322,7 +323,7 @@ func (e *maxMin4IntSliding) AllocPartialResult() (pr PartialResult, memDelta int
 func (e *maxMin4IntSliding) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinInt)(pr)
 	for i, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalInt(row)
+		input, isNull, err := e.args[0].EvalInt(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -351,7 +352,7 @@ var _ SlidingWindowAggFunc = &maxMin4IntSliding{}
 func (e *maxMin4IntSliding) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.Row, lastStart, lastEnd uint64, shiftStart, shiftEnd uint64, pr PartialResult) error {
 	p := (*partialResult4MaxMinInt)(pr)
 	for i := uint64(0); i < shiftEnd; i++ {
-		input, isNull, err := e.args[0].EvalInt(getRow(lastEnd + i))
+		input, isNull, err := e.args[0].EvalInt(expression.NewEvalContext(sctx), getRow(lastEnd+i))
 		if err != nil {
 			return err
 		}
@@ -408,7 +409,7 @@ func (e *maxMin4Uint) AppendFinalResult2Chunk(_ sessionctx.Context, pr PartialRe
 func (e *maxMin4Uint) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinUint)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalInt(row)
+		input, isNull, err := e.args[0].EvalInt(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -464,7 +465,7 @@ func (e *maxMin4UintSliding) ResetPartialResult(pr PartialResult) {
 func (e *maxMin4UintSliding) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinUint)(pr)
 	for i, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalInt(row)
+		input, isNull, err := e.args[0].EvalInt(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -490,7 +491,7 @@ var _ SlidingWindowAggFunc = &maxMin4UintSliding{}
 func (e *maxMin4UintSliding) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.Row, lastStart, lastEnd uint64, shiftStart, shiftEnd uint64, pr PartialResult) error {
 	p := (*partialResult4MaxMinUint)(pr)
 	for i := uint64(0); i < shiftEnd; i++ {
-		input, isNull, err := e.args[0].EvalInt(getRow(lastEnd + i))
+		input, isNull, err := e.args[0].EvalInt(expression.NewEvalContext(sctx), getRow(lastEnd+i))
 		if err != nil {
 			return err
 		}
@@ -547,7 +548,7 @@ func (e *maxMin4Float32) AppendFinalResult2Chunk(_ sessionctx.Context, pr Partia
 func (e *maxMin4Float32) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinFloat32)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalReal(row)
+		input, isNull, err := e.args[0].EvalReal(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -603,7 +604,7 @@ func (e *maxMin4Float32Sliding) ResetPartialResult(pr PartialResult) {
 func (e *maxMin4Float32Sliding) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinFloat32)(pr)
 	for i, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalReal(row)
+		input, isNull, err := e.args[0].EvalReal(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -629,7 +630,7 @@ var _ SlidingWindowAggFunc = &maxMin4Float32Sliding{}
 func (e *maxMin4Float32Sliding) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.Row, lastStart, lastEnd uint64, shiftStart, shiftEnd uint64, pr PartialResult) error {
 	p := (*partialResult4MaxMinFloat32)(pr)
 	for i := uint64(0); i < shiftEnd; i++ {
-		input, isNull, err := e.args[0].EvalReal(getRow(lastEnd + i))
+		input, isNull, err := e.args[0].EvalReal(expression.NewEvalContext(sctx), getRow(lastEnd+i))
 		if err != nil {
 			return err
 		}
@@ -685,7 +686,7 @@ func (e *maxMin4Float64) AppendFinalResult2Chunk(_ sessionctx.Context, pr Partia
 func (e *maxMin4Float64) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinFloat64)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalReal(row)
+		input, isNull, err := e.args[0].EvalReal(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -740,7 +741,7 @@ func (e *maxMin4Float64Sliding) ResetPartialResult(pr PartialResult) {
 func (e *maxMin4Float64Sliding) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinFloat64)(pr)
 	for i, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalReal(row)
+		input, isNull, err := e.args[0].EvalReal(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -766,7 +767,7 @@ var _ SlidingWindowAggFunc = &maxMin4Float64Sliding{}
 func (e *maxMin4Float64Sliding) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.Row, lastStart, lastEnd uint64, shiftStart, shiftEnd uint64, pr PartialResult) error {
 	p := (*partialResult4MaxMinFloat64)(pr)
 	for i := uint64(0); i < shiftEnd; i++ {
-		input, isNull, err := e.args[0].EvalReal(getRow(lastEnd + i))
+		input, isNull, err := e.args[0].EvalReal(expression.NewEvalContext(sctx), getRow(lastEnd+i))
 		if err != nil {
 			return err
 		}
@@ -832,7 +833,7 @@ func (e *maxMin4Decimal) AppendFinalResult2Chunk(_ sessionctx.Context, pr Partia
 func (e *maxMin4Decimal) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinDecimal)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalDecimal(row)
+		input, isNull, err := e.args[0].EvalDecimal(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -901,7 +902,7 @@ func (e *maxMin4DecimalSliding) ResetPartialResult(pr PartialResult) {
 func (e *maxMin4DecimalSliding) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinDecimal)(pr)
 	for i, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalDecimal(row)
+		input, isNull, err := e.args[0].EvalDecimal(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -927,7 +928,7 @@ var _ SlidingWindowAggFunc = &maxMin4DecimalSliding{}
 func (e *maxMin4DecimalSliding) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.Row, lastStart, lastEnd uint64, shiftStart, shiftEnd uint64, pr PartialResult) error {
 	p := (*partialResult4MaxMinDecimal)(pr)
 	for i := uint64(0); i < shiftEnd; i++ {
-		input, isNull, err := e.args[0].EvalDecimal(getRow(lastEnd + i))
+		input, isNull, err := e.args[0].EvalDecimal(expression.NewEvalContext(sctx), getRow(lastEnd+i))
 		if err != nil {
 			return err
 		}
@@ -984,7 +985,7 @@ func (e *maxMin4String) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup
 	p := (*partialResult4MaxMinString)(pr)
 	tp := e.args[0].GetType()
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalString(row)
+		input, isNull, err := e.args[0].EvalString(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -1051,7 +1052,7 @@ func (e *maxMin4StringSliding) ResetPartialResult(pr PartialResult) {
 func (e *maxMin4StringSliding) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinString)(pr)
 	for i, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalString(row)
+		input, isNull, err := e.args[0].EvalString(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -1077,7 +1078,7 @@ var _ SlidingWindowAggFunc = &maxMin4StringSliding{}
 func (e *maxMin4StringSliding) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.Row, lastStart, lastEnd uint64, shiftStart, shiftEnd uint64, pr PartialResult) error {
 	p := (*partialResult4MaxMinString)(pr)
 	for i := uint64(0); i < shiftEnd; i++ {
-		input, isNull, err := e.args[0].EvalString(getRow(lastEnd + i))
+		input, isNull, err := e.args[0].EvalString(expression.NewEvalContext(sctx), getRow(lastEnd+i))
 		if err != nil {
 			return err
 		}
@@ -1132,7 +1133,7 @@ func (e *maxMin4Time) AppendFinalResult2Chunk(_ sessionctx.Context, pr PartialRe
 func (e *maxMin4Time) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinTime)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalTime(row)
+		input, isNull, err := e.args[0].EvalTime(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -1191,7 +1192,7 @@ func (e *maxMin4TimeSliding) ResetPartialResult(pr PartialResult) {
 func (e *maxMin4TimeSliding) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinTime)(pr)
 	for i, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalTime(row)
+		input, isNull, err := e.args[0].EvalTime(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -1217,7 +1218,7 @@ var _ SlidingWindowAggFunc = &maxMin4DurationSliding{}
 func (e *maxMin4TimeSliding) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.Row, lastStart, lastEnd uint64, shiftStart, shiftEnd uint64, pr PartialResult) error {
 	p := (*partialResult4MaxMinTime)(pr)
 	for i := uint64(0); i < shiftEnd; i++ {
-		input, isNull, err := e.args[0].EvalTime(getRow(lastEnd + i))
+		input, isNull, err := e.args[0].EvalTime(expression.NewEvalContext(sctx), getRow(lastEnd+i))
 		if err != nil {
 			return err
 		}
@@ -1272,7 +1273,7 @@ func (e *maxMin4Duration) AppendFinalResult2Chunk(_ sessionctx.Context, pr Parti
 func (e *maxMin4Duration) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinDuration)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalDuration(row)
+		input, isNull, err := e.args[0].EvalDuration(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -1331,7 +1332,7 @@ func (e *maxMin4DurationSliding) ResetPartialResult(pr PartialResult) {
 func (e *maxMin4DurationSliding) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinDuration)(pr)
 	for i, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalDuration(row)
+		input, isNull, err := e.args[0].EvalDuration(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -1357,7 +1358,7 @@ var _ SlidingWindowAggFunc = &maxMin4DurationSliding{}
 func (e *maxMin4DurationSliding) Slide(sctx sessionctx.Context, getRow func(uint64) chunk.Row, lastStart, lastEnd uint64, shiftStart, shiftEnd uint64, pr PartialResult) error {
 	p := (*partialResult4MaxMinDuration)(pr)
 	for i := uint64(0); i < shiftEnd; i++ {
-		input, isNull, err := e.args[0].EvalDuration(getRow(lastEnd + i))
+		input, isNull, err := e.args[0].EvalDuration(expression.NewEvalContext(sctx), getRow(lastEnd+i))
 		if err != nil {
 			return err
 		}
@@ -1412,7 +1413,7 @@ func (e *maxMin4JSON) AppendFinalResult2Chunk(_ sessionctx.Context, pr PartialRe
 func (e *maxMin4JSON) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinJSON)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalJSON(row)
+		input, isNull, err := e.args[0].EvalJSON(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -1478,10 +1479,10 @@ func (e *maxMin4Enum) AppendFinalResult2Chunk(_ sessionctx.Context, pr PartialRe
 	return nil
 }
 
-func (e *maxMin4Enum) UpdatePartialResult(_ sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
+func (e *maxMin4Enum) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinEnum)(pr)
 	for _, row := range rowsInGroup {
-		d, err := e.args[0].Eval(row)
+		d, err := e.args[0].Eval(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -1545,10 +1546,10 @@ func (e *maxMin4Set) AppendFinalResult2Chunk(_ sessionctx.Context, pr PartialRes
 	return nil
 }
 
-func (e *maxMin4Set) UpdatePartialResult(_ sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
+func (e *maxMin4Set) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4MaxMinSet)(pr)
 	for _, row := range rowsInGroup {
-		d, err := e.args[0].Eval(row)
+		d, err := e.args[0].Eval(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return memDelta, err
 		}

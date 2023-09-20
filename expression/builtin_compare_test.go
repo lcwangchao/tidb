@@ -143,7 +143,7 @@ func TestCompare(t *testing.T) {
 		args := bf.getArgs()
 		require.Equal(t, test.tp, args[0].GetType().GetType())
 		require.Equal(t, test.tp, args[1].GetType().GetType())
-		res, isNil, err := bf.evalInt(chunk.Row{})
+		res, isNil, err := bf.evalInt(nil, chunk.Row{})
 		require.NoError(t, err)
 		require.False(t, isNil)
 		require.Equal(t, test.expected, res)
@@ -207,7 +207,7 @@ func TestCoalesce(t *testing.T) {
 		f, err := newFunctionForTest(ctx, ast.Coalesce, primitiveValsToConstants(ctx, test.args)...)
 		require.NoError(t, err)
 
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 
 		if test.getErr {
 			require.Error(t, err)
@@ -375,7 +375,7 @@ func TestGreatestLeastFunc(t *testing.T) {
 	} {
 		f0, err := newFunctionForTest(ctx, ast.Greatest, primitiveValsToConstants(ctx, test.args)...)
 		require.NoError(t, err)
-		d, err := f0.Eval(chunk.Row{})
+		d, err := f0.Eval(ctx, chunk.Row{})
 		if test.getErr {
 			require.Error(t, err)
 		} else {
@@ -389,7 +389,7 @@ func TestGreatestLeastFunc(t *testing.T) {
 
 		f1, err := newFunctionForTest(ctx, ast.Least, primitiveValsToConstants(ctx, test.args)...)
 		require.NoError(t, err)
-		d, err = f1.Eval(chunk.Row{})
+		d, err = f1.Eval(ctx, chunk.Row{})
 		if test.getErr {
 			require.Error(t, err)
 		} else {

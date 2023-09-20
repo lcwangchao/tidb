@@ -57,24 +57,24 @@ func evalBuiltinFunc(f builtinFunc, row chunk.Row) (d types.Datum, err error) {
 	switch f.getRetTp().EvalType() {
 	case types.ETInt:
 		var intRes int64
-		intRes, isNull, err = f.evalInt(row)
+		intRes, isNull, err = f.evalInt(nil, row)
 		if mysql.HasUnsignedFlag(f.getRetTp().GetFlag()) {
 			res = uint64(intRes)
 		} else {
 			res = intRes
 		}
 	case types.ETReal:
-		res, isNull, err = f.evalReal(row)
+		res, isNull, err = f.evalReal(nil, row)
 	case types.ETDecimal:
-		res, isNull, err = f.evalDecimal(row)
+		res, isNull, err = f.evalDecimal(ctx, row)
 	case types.ETDatetime, types.ETTimestamp:
-		res, isNull, err = f.evalTime(row)
+		res, isNull, err = f.evalTime(ctx, row)
 	case types.ETDuration:
-		res, isNull, err = f.evalDuration(row)
+		res, isNull, err = f.evalDuration(ctx, row)
 	case types.ETJson:
-		res, isNull, err = f.evalJSON(row)
+		res, isNull, err = f.evalJSON(ctx, row)
 	case types.ETString:
-		res, isNull, err = f.evalString(row)
+		res, isNull, err = f.evalString(ctx, row)
 	}
 
 	if isNull || err != nil {

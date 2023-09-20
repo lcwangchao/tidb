@@ -46,7 +46,7 @@ func BenchmarkCastIntAsIntRow(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for row := it.Begin(); row != it.End(); row = it.Next() {
-			if _, _, err := cast.evalInt(row); err != nil {
+			if _, _, err := cast.evalInt(nil, row); err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -57,7 +57,7 @@ func BenchmarkCastIntAsIntVec(b *testing.B) {
 	cast, input, result := genCastIntAsInt()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := cast.vecEvalInt(input, result); err != nil {
+		if err := cast.vecEvalInt(ctx, input, result); err != nil {
 			b.Fatal(err)
 		}
 	}

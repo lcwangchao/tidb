@@ -144,10 +144,10 @@ func (a *baseFuncDesc) typeInfer4ApproxPercentile(ctx *expression.ExprContext) e
 		return errors.New("APPROX_PERCENTILE should take 2 arguments")
 	}
 
-	if !a.Args[1].ConstItem(ctx.StmtCtx) {
+	if !a.Args[1].ConstItem(ctx.ConstItemCtx()) {
 		return errors.New("APPROX_PERCENTILE should take a constant expression as percentage argument")
 	}
-	percent, isNull, err := a.Args[1].EvalInt(chunk.Row{})
+	percent, isNull, err := a.Args[1].EvalInt(ctx.EvalCtx(), chunk.Row{})
 	if err != nil {
 		return fmt.Errorf("APPROX_PERCENTILE: Invalid argument %s", a.Args[1].String())
 	}

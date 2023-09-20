@@ -213,13 +213,13 @@ func (s *builtinArithmeticPlusIntSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticPlusIntSig) evalInt(row chunk.Row) (val int64, isNull bool, err error) {
-	a, isNull, err := s.args[0].EvalInt(row)
+func (s *builtinArithmeticPlusIntSig) evalInt(ctx *EvalContext, row chunk.Row) (val int64, isNull bool, err error) {
+	a, isNull, err := s.args[0].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 
-	b, isNull, err := s.args[1].EvalInt(row)
+	b, isNull, err := s.args[1].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -265,12 +265,12 @@ func (s *builtinArithmeticPlusDecimalSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticPlusDecimalSig) evalDecimal(row chunk.Row) (*types.MyDecimal, bool, error) {
-	a, isNull, err := s.args[0].EvalDecimal(row)
+func (s *builtinArithmeticPlusDecimalSig) evalDecimal(ctx *EvalContext, row chunk.Row) (*types.MyDecimal, bool, error) {
+	a, isNull, err := s.args[0].EvalDecimal(ctx, row)
 	if isNull || err != nil {
 		return nil, isNull, err
 	}
-	b, isNull, err := s.args[1].EvalDecimal(row)
+	b, isNull, err := s.args[1].EvalDecimal(ctx, row)
 	if isNull || err != nil {
 		return nil, isNull, err
 	}
@@ -295,12 +295,12 @@ func (s *builtinArithmeticPlusRealSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticPlusRealSig) evalReal(row chunk.Row) (float64, bool, error) {
-	a, isLHSNull, err := s.args[0].EvalReal(row)
+func (s *builtinArithmeticPlusRealSig) evalReal(ctx *EvalContext, row chunk.Row) (float64, bool, error) {
+	a, isLHSNull, err := s.args[0].EvalReal(ctx, row)
 	if err != nil {
 		return 0, isLHSNull, err
 	}
-	b, isRHSNull, err := s.args[1].EvalReal(row)
+	b, isRHSNull, err := s.args[1].EvalReal(ctx, row)
 	if err != nil {
 		return 0, isRHSNull, err
 	}
@@ -345,7 +345,7 @@ func (c *arithmeticMinusFunctionClass) getFunction(ctx *ExprContext, args []Expr
 		if err != nil {
 			return nil, err
 		}
-		if (mysql.HasUnsignedFlag(args[0].GetType().GetFlag()) || mysql.HasUnsignedFlag(args[1].GetType().GetFlag())) && !ctx.SQLMode.HasNoUnsignedSubtractionMode() {
+		if (mysql.HasUnsignedFlag(args[0].GetType().GetFlag()) || mysql.HasUnsignedFlag(args[1].GetType().GetFlag())) && !ctx.SQLMode().HasNoUnsignedSubtractionMode() {
 			bf.tp.AddFlag(mysql.UnsignedFlag)
 		}
 		sig := &builtinArithmeticMinusIntSig{baseBuiltinFunc: bf}
@@ -364,12 +364,12 @@ func (s *builtinArithmeticMinusRealSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticMinusRealSig) evalReal(row chunk.Row) (float64, bool, error) {
-	a, isNull, err := s.args[0].EvalReal(row)
+func (s *builtinArithmeticMinusRealSig) evalReal(ctx *EvalContext, row chunk.Row) (float64, bool, error) {
+	a, isNull, err := s.args[0].EvalReal(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
-	b, isNull, err := s.args[1].EvalReal(row)
+	b, isNull, err := s.args[1].EvalReal(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -389,12 +389,12 @@ func (s *builtinArithmeticMinusDecimalSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticMinusDecimalSig) evalDecimal(row chunk.Row) (*types.MyDecimal, bool, error) {
-	a, isNull, err := s.args[0].EvalDecimal(row)
+func (s *builtinArithmeticMinusDecimalSig) evalDecimal(ctx *EvalContext, row chunk.Row) (*types.MyDecimal, bool, error) {
+	a, isNull, err := s.args[0].EvalDecimal(ctx, row)
 	if isNull || err != nil {
 		return nil, isNull, err
 	}
-	b, isNull, err := s.args[1].EvalDecimal(row)
+	b, isNull, err := s.args[1].EvalDecimal(ctx, row)
 	if isNull || err != nil {
 		return nil, isNull, err
 	}
@@ -419,17 +419,17 @@ func (s *builtinArithmeticMinusIntSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticMinusIntSig) evalInt(row chunk.Row) (val int64, isNull bool, err error) {
-	a, isNull, err := s.args[0].EvalInt(row)
+func (s *builtinArithmeticMinusIntSig) evalInt(ctx *EvalContext, row chunk.Row) (val int64, isNull bool, err error) {
+	a, isNull, err := s.args[0].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 
-	b, isNull, err := s.args[1].EvalInt(row)
+	b, isNull, err := s.args[1].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
-	forceToSigned := s.ctx.SQLMode.HasNoUnsignedSubtractionMode()
+	forceToSigned := ctx.SQLMode.HasNoUnsignedSubtractionMode()
 	isLHSUnsigned := mysql.HasUnsignedFlag(s.args[0].GetType().GetFlag())
 	isRHSUnsigned := mysql.HasUnsignedFlag(s.args[1].GetType().GetFlag())
 
@@ -574,12 +574,12 @@ func (s *builtinArithmeticMultiplyIntSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticMultiplyRealSig) evalReal(row chunk.Row) (float64, bool, error) {
-	a, isNull, err := s.args[0].EvalReal(row)
+func (s *builtinArithmeticMultiplyRealSig) evalReal(ctx *EvalContext, row chunk.Row) (float64, bool, error) {
+	a, isNull, err := s.args[0].EvalReal(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
-	b, isNull, err := s.args[1].EvalReal(row)
+	b, isNull, err := s.args[1].EvalReal(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -590,12 +590,12 @@ func (s *builtinArithmeticMultiplyRealSig) evalReal(row chunk.Row) (float64, boo
 	return result, false, nil
 }
 
-func (s *builtinArithmeticMultiplyDecimalSig) evalDecimal(row chunk.Row) (*types.MyDecimal, bool, error) {
-	a, isNull, err := s.args[0].EvalDecimal(row)
+func (s *builtinArithmeticMultiplyDecimalSig) evalDecimal(ctx *EvalContext, row chunk.Row) (*types.MyDecimal, bool, error) {
+	a, isNull, err := s.args[0].EvalDecimal(ctx, row)
 	if isNull || err != nil {
 		return nil, isNull, err
 	}
-	b, isNull, err := s.args[1].EvalDecimal(row)
+	b, isNull, err := s.args[1].EvalDecimal(ctx, row)
 	if isNull || err != nil {
 		return nil, isNull, err
 	}
@@ -610,13 +610,13 @@ func (s *builtinArithmeticMultiplyDecimalSig) evalDecimal(row chunk.Row) (*types
 	return c, false, nil
 }
 
-func (s *builtinArithmeticMultiplyIntUnsignedSig) evalInt(row chunk.Row) (val int64, isNull bool, err error) {
-	a, isNull, err := s.args[0].EvalInt(row)
+func (s *builtinArithmeticMultiplyIntUnsignedSig) evalInt(ctx *EvalContext, row chunk.Row) (val int64, isNull bool, err error) {
+	a, isNull, err := s.args[0].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 	unsignedA := uint64(a)
-	b, isNull, err := s.args[1].EvalInt(row)
+	b, isNull, err := s.args[1].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -628,12 +628,12 @@ func (s *builtinArithmeticMultiplyIntUnsignedSig) evalInt(row chunk.Row) (val in
 	return int64(result), false, nil
 }
 
-func (s *builtinArithmeticMultiplyIntSig) evalInt(row chunk.Row) (val int64, isNull bool, err error) {
-	a, isNull, err := s.args[0].EvalInt(row)
+func (s *builtinArithmeticMultiplyIntSig) evalInt(ctx *EvalContext, row chunk.Row) (val int64, isNull bool, err error) {
+	a, isNull, err := s.args[0].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
-	b, isNull, err := s.args[1].EvalInt(row)
+	b, isNull, err := s.args[1].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -690,17 +690,17 @@ func (s *builtinArithmeticDivideDecimalSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticDivideRealSig) evalReal(row chunk.Row) (float64, bool, error) {
-	a, isNull, err := s.args[0].EvalReal(row)
+func (s *builtinArithmeticDivideRealSig) evalReal(ctx *EvalContext, row chunk.Row) (float64, bool, error) {
+	a, isNull, err := s.args[0].EvalReal(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
-	b, isNull, err := s.args[1].EvalReal(row)
+	b, isNull, err := s.args[1].EvalReal(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 	if b == 0 {
-		return 0, true, handleDivisionByZeroError(s.ctx)
+		return 0, true, handleDivisionByZeroError(ctx)
 	}
 	result := a / b
 	if math.IsInf(result, 0) {
@@ -709,13 +709,13 @@ func (s *builtinArithmeticDivideRealSig) evalReal(row chunk.Row) (float64, bool,
 	return result, false, nil
 }
 
-func (s *builtinArithmeticDivideDecimalSig) evalDecimal(row chunk.Row) (*types.MyDecimal, bool, error) {
-	a, isNull, err := s.args[0].EvalDecimal(row)
+func (s *builtinArithmeticDivideDecimalSig) evalDecimal(ctx *EvalContext, row chunk.Row) (*types.MyDecimal, bool, error) {
+	a, isNull, err := s.args[0].EvalDecimal(ctx, row)
 	if isNull || err != nil {
 		return nil, isNull, err
 	}
 
-	b, isNull, err := s.args[1].EvalDecimal(row)
+	b, isNull, err := s.args[1].EvalDecimal(ctx, row)
 	if isNull || err != nil {
 		return nil, isNull, err
 	}
@@ -723,9 +723,9 @@ func (s *builtinArithmeticDivideDecimalSig) evalDecimal(row chunk.Row) (*types.M
 	c := &types.MyDecimal{}
 	err = types.DecimalDiv(a, b, c, types.DivFracIncr)
 	if err == types.ErrDivByZero {
-		return c, true, handleDivisionByZeroError(s.ctx)
+		return c, true, handleDivisionByZeroError(ctx)
 	} else if err == types.ErrTruncated {
-		sc := s.ctx.StmtCtx
+		sc := ctx.StmtCtx
 		err = sc.HandleTruncate(errTruncatedWrongValue.GenWithStackByArgs("DECIMAL", c))
 	} else if err == nil {
 		_, frac := c.PrecisionAndFrac()
@@ -788,16 +788,16 @@ func (s *builtinArithmeticIntDivideDecimalSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticIntDivideIntSig) evalInt(row chunk.Row) (int64, bool, error) {
-	return s.evalIntWithCtx(s.ctx, row)
+func (s *builtinArithmeticIntDivideIntSig) evalInt(ctx *EvalContext, row chunk.Row) (int64, bool, error) {
+	return s.evalIntWithCtx(ctx, row)
 }
 
-func (s *builtinArithmeticIntDivideIntSig) evalIntWithCtx(ctx *ExprContext, row chunk.Row) (int64, bool, error) {
-	b, bIsNull, err := s.args[1].EvalInt(row)
+func (s *builtinArithmeticIntDivideIntSig) evalIntWithCtx(ctx *EvalContext, row chunk.Row) (int64, bool, error) {
+	b, bIsNull, err := s.args[1].EvalInt(ctx, row)
 	if bIsNull || err != nil {
 		return 0, bIsNull, err
 	}
-	a, aIsNull, err := s.args[0].EvalInt(row)
+	a, aIsNull, err := s.args[0].EvalInt(ctx, row)
 	if aIsNull || err != nil {
 		return 0, aIsNull, err
 	}
@@ -829,11 +829,11 @@ func (s *builtinArithmeticIntDivideIntSig) evalIntWithCtx(ctx *ExprContext, row 
 	return ret, err != nil, err
 }
 
-func (s *builtinArithmeticIntDivideDecimalSig) evalInt(row chunk.Row) (ret int64, isNull bool, err error) {
-	sc := s.ctx.StmtCtx
+func (s *builtinArithmeticIntDivideDecimalSig) evalInt(ctx *EvalContext, row chunk.Row) (ret int64, isNull bool, err error) {
+	sc := ctx.StmtCtx
 	var num [2]*types.MyDecimal
 	for i, arg := range s.args {
-		num[i], isNull, err = arg.EvalDecimal(row)
+		num[i], isNull, err = arg.EvalDecimal(ctx, row)
 		if isNull || err != nil {
 			return 0, isNull, err
 		}
@@ -842,7 +842,7 @@ func (s *builtinArithmeticIntDivideDecimalSig) evalInt(row chunk.Row) (ret int64
 	c := &types.MyDecimal{}
 	err = types.DecimalDiv(num[0], num[1], c, types.DivFracIncr)
 	if err == types.ErrDivByZero {
-		return 0, true, handleDivisionByZeroError(s.ctx)
+		return 0, true, handleDivisionByZeroError(ctx)
 	}
 	if err == types.ErrTruncated {
 		err = sc.HandleTruncate(errTruncatedWrongValue.GenWithStackByArgs("DECIMAL", c))
@@ -977,17 +977,17 @@ func (s *builtinArithmeticModRealSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticModRealSig) evalReal(row chunk.Row) (float64, bool, error) {
-	b, isNull, err := s.args[1].EvalReal(row)
+func (s *builtinArithmeticModRealSig) evalReal(ctx *EvalContext, row chunk.Row) (float64, bool, error) {
+	b, isNull, err := s.args[1].EvalReal(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 
 	if b == 0 {
-		return 0, true, handleDivisionByZeroError(s.ctx)
+		return 0, true, handleDivisionByZeroError(ctx)
 	}
 
-	a, isNull, err := s.args[0].EvalReal(row)
+	a, isNull, err := s.args[0].EvalReal(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -1005,19 +1005,19 @@ func (s *builtinArithmeticModDecimalSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticModDecimalSig) evalDecimal(row chunk.Row) (*types.MyDecimal, bool, error) {
-	a, isNull, err := s.args[0].EvalDecimal(row)
+func (s *builtinArithmeticModDecimalSig) evalDecimal(ctx *EvalContext, row chunk.Row) (*types.MyDecimal, bool, error) {
+	a, isNull, err := s.args[0].EvalDecimal(ctx, row)
 	if isNull || err != nil {
 		return nil, isNull, err
 	}
-	b, isNull, err := s.args[1].EvalDecimal(row)
+	b, isNull, err := s.args[1].EvalDecimal(ctx, row)
 	if isNull || err != nil {
 		return nil, isNull, err
 	}
 	c := &types.MyDecimal{}
 	err = types.DecimalMod(a, b, c)
 	if err == types.ErrDivByZero {
-		return c, true, handleDivisionByZeroError(s.ctx)
+		return c, true, handleDivisionByZeroError(ctx)
 	}
 	return c, err != nil, err
 }
@@ -1032,17 +1032,17 @@ func (s *builtinArithmeticModIntUnsignedUnsignedSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticModIntUnsignedUnsignedSig) evalInt(row chunk.Row) (val int64, isNull bool, err error) {
-	b, isNull, err := s.args[1].EvalInt(row)
+func (s *builtinArithmeticModIntUnsignedUnsignedSig) evalInt(ctx *EvalContext, row chunk.Row) (val int64, isNull bool, err error) {
+	b, isNull, err := s.args[1].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 
 	if b == 0 {
-		return 0, true, handleDivisionByZeroError(s.ctx)
+		return 0, true, handleDivisionByZeroError(ctx)
 	}
 
-	a, isNull, err := s.args[0].EvalInt(row)
+	a, isNull, err := s.args[0].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -1062,15 +1062,15 @@ func (s *builtinArithmeticModIntUnsignedSignedSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticModIntUnsignedSignedSig) evalInt(row chunk.Row) (val int64, isNull bool, err error) {
-	b, isNull, err := s.args[1].EvalInt(row)
+func (s *builtinArithmeticModIntUnsignedSignedSig) evalInt(ctx *EvalContext, row chunk.Row) (val int64, isNull bool, err error) {
+	b, isNull, err := s.args[1].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 	if b == 0 {
-		return 0, true, handleDivisionByZeroError(s.ctx)
+		return 0, true, handleDivisionByZeroError(ctx)
 	}
-	a, isNull, err := s.args[0].EvalInt(row)
+	a, isNull, err := s.args[0].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -1095,17 +1095,17 @@ func (s *builtinArithmeticModIntSignedUnsignedSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticModIntSignedUnsignedSig) evalInt(row chunk.Row) (val int64, isNull bool, err error) {
-	b, isNull, err := s.args[1].EvalInt(row)
+func (s *builtinArithmeticModIntSignedUnsignedSig) evalInt(ctx *EvalContext, row chunk.Row) (val int64, isNull bool, err error) {
+	b, isNull, err := s.args[1].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 
 	if b == 0 {
-		return 0, true, handleDivisionByZeroError(s.ctx)
+		return 0, true, handleDivisionByZeroError(ctx)
 	}
 
-	a, isNull, err := s.args[0].EvalInt(row)
+	a, isNull, err := s.args[0].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -1130,17 +1130,17 @@ func (s *builtinArithmeticModIntSignedSignedSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (s *builtinArithmeticModIntSignedSignedSig) evalInt(row chunk.Row) (val int64, isNull bool, err error) {
-	b, isNull, err := s.args[1].EvalInt(row)
+func (s *builtinArithmeticModIntSignedSignedSig) evalInt(ctx *EvalContext, row chunk.Row) (val int64, isNull bool, err error) {
+	b, isNull, err := s.args[1].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 
 	if b == 0 {
-		return 0, true, handleDivisionByZeroError(s.ctx)
+		return 0, true, handleDivisionByZeroError(ctx)
 	}
 
-	a, isNull, err := s.args[0].EvalInt(row)
+	a, isNull, err := s.args[0].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}

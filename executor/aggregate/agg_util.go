@@ -105,7 +105,7 @@ func GetGroupKey(ctx sessionctx.Context, input *chunk.Chunk, groupKey [][]byte, 
 			tp = &newTp
 		}
 
-		if err := expression.EvalExpr(expression.NewExprContext(ctx), item, tp.EvalType(), input, buf); err != nil {
+		if err := expression.EvalExpr(expression.NewEvalContext(ctx), item, tp.EvalType(), input, buf); err != nil {
 			expression.PutColumn(buf)
 			return nil, err
 		}

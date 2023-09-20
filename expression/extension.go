@@ -139,7 +139,27 @@ func (c *extensionFuncClass) checkPrivileges(ctx *ExprContext) error {
 	return nil
 }
 
-var _ extension.FunctionContext = &extensionFuncSig{}
+type extensionFunctionContext struct {
+	*extensionFuncSig
+	evalCtx *EvalContext
+}
+
+func (ctx extensionFunctionContext) EvalArgs(row chunk.Row) ([]types.Datum, error) {
+	if len(ctx.args) == 0 {
+		return nil, nil
+	}
+
+	result := make([]types.Datum, 0, len(ctx.args))
+	for _, arg := range ctx.args {
+		val, err := arg.Eval(ctx.evalCtx, row)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, val)
+	}
+
+	return result, nil
+}
 
 type extensionFuncSig struct {
 	context.Context
@@ -154,35 +174,22 @@ func (b *extensionFuncSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (b *extensionFuncSig) evalString(row chunk.Row) (string, bool, error) {
+func (b *extensionFuncSig) funcCtx(ctx *EvalContext) extensionFunctionContext {
+	return extensionFunctionContext{b, ctx}
+}
+
+func (b *extensionFuncSig) evalString(ctx *EvalContext, row chunk.Row) (string, bool, error) {
 	if b.EvalTp == types.ETString {
-		return b.EvalStringFunc(b, row)
+		return b.EvalStringFunc(b.funcCtx(ctx), row)
 	}
-	return b.baseBuiltinFunc.evalString(row)
+	return b.baseBuiltinFunc.evalString(ctx, row)
 }
 
-func (b *extensionFuncSig) evalInt(row chunk.Row) (int64, bool, error) {
+func (b *extensionFuncSig) evalInt(ctx *EvalContext, row chunk.Row) (int64, bool, error) {
 	if b.EvalTp == types.ETInt {
-		return b.EvalIntFunc(b, row)
+		return b.EvalIntFunc(b.funcCtx(ctx), row)
 	}
-	return b.baseBuiltinFunc.evalInt(row)
-}
-
-func (b *extensionFuncSig) EvalArgs(row chunk.Row) ([]types.Datum, error) {
-	if len(b.args) == 0 {
-		return nil, nil
-	}
-
-	result := make([]types.Datum, 0, len(b.args))
-	for _, arg := range b.args {
-		val, err := arg.Eval(row)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, val)
-	}
-
-	return result, nil
+	return b.baseBuiltinFunc.evalInt(nil, row)
 }
 
 func (b *extensionFuncSig) ConnectionInfo() *variable.ConnectionInfo {

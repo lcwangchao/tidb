@@ -651,6 +651,7 @@ func getPartitionIntervalFromTable(ctx sessionctx.Context, tbInfo *model.TableIn
 		endIdx    = len(tbInfo.Partition.Definitions) - 1
 		isIntType = true
 		minVal    = "0"
+		evalCtx   = expression.NewEvalContext(ctx)
 	)
 	if len(tbInfo.Partition.Columns) > 0 {
 		partCol := findColumnByName(tbInfo.Partition.Columns[0].L, tbInfo)
@@ -696,7 +697,7 @@ func getPartitionIntervalFromTable(ctx sessionctx.Context, tbInfo *model.TableIn
 		if err != nil {
 			return nil
 		}
-		val, isNull, err := exprs[0].EvalInt(chunk.Row{})
+		val, isNull, err := exprs[0].EvalInt(evalCtx, chunk.Row{})
 		if isNull || err != nil || val < 1 {
 			// If NULL, error or interval < 1 then cannot be an INTERVAL partitioned table
 			return nil
@@ -719,7 +720,7 @@ func getPartitionIntervalFromTable(ctx sessionctx.Context, tbInfo *model.TableIn
 		if err != nil {
 			return nil
 		}
-		val, isNull, err := exprs[0].EvalInt(chunk.Row{})
+		val, isNull, err := exprs[0].EvalInt(evalCtx, chunk.Row{})
 		if isNull || err != nil || val < 1 {
 			// If NULL, error or interval < 1 then cannot be an INTERVAL partitioned table
 			return nil
@@ -1640,6 +1641,7 @@ func checkListPartitionValue(ctx sessionctx.Context, tblInfo *model.TableInfo) e
 }
 
 func formatListPartitionValue(ctx sessionctx.Context, tblInfo *model.TableInfo) ([]string, error) {
+	evalCtx := expression.NewEvalContext(ctx)
 	defs := tblInfo.Partition.Definitions
 	pi := tblInfo.Partition
 	var colTps []*types.FieldType
@@ -1686,7 +1688,7 @@ func formatListPartitionValue(ctx sessionctx.Context, tblInfo *model.TableInfo) 
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				eval, err := expr.Eval(chunk.Row{})
+				eval, err := expr.Eval(evalCtx, chunk.Row{})
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -1717,6 +1719,7 @@ func formatListPartitionValue(ctx sessionctx.Context, tblInfo *model.TableInfo) 
 // The returned boolean value indicates whether the input string is a constant expression.
 func getRangeValue(ctx sessionctx.Context, str string, unsigned bool) (interface{}, bool, error) {
 	// Unsigned bigint was converted to uint64 handle.
+	evalCtx := expression.NewEvalContext(ctx)
 	if unsigned {
 		if value, err := strconv.ParseUint(str, 10, 64); err == nil {
 			return value, false, nil
@@ -1726,7 +1729,7 @@ func getRangeValue(ctx sessionctx.Context, str string, unsigned bool) (interface
 		if err1 != nil {
 			return 0, false, err1
 		}
-		res, isNull, err2 := e.EvalInt(chunk.Row{})
+		res, isNull, err2 := e.EvalInt(evalCtx, chunk.Row{})
 		if err2 == nil && !isNull {
 			return uint64(res), true, nil
 		}
@@ -1742,7 +1745,7 @@ func getRangeValue(ctx sessionctx.Context, str string, unsigned bool) (interface
 		if err1 != nil {
 			return 0, false, err1
 		}
-		res, isNull, err2 := e.EvalInt(chunk.Row{})
+		res, isNull, err2 := e.EvalInt(evalCtx, chunk.Row{})
 		if err2 == nil && !isNull {
 			return res, true, nil
 		}

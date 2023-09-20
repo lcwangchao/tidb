@@ -165,66 +165,66 @@ func (c *Constant) GetType() *types.FieldType {
 }
 
 // VecEvalInt evaluates this expression in a vectorized manner.
-func (c *Constant) VecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (c *Constant) VecEvalInt(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	if c.DeferredExpr == nil {
-		return genVecFromConstExpr(c, types.ETInt, input, result)
+		return genVecFromConstExpr(ctx, c, types.ETInt, input, result)
 	}
-	return c.DeferredExpr.VecEvalInt(input, result)
+	return c.DeferredExpr.VecEvalInt(ctx, input, result)
 }
 
 // VecEvalReal evaluates this expression in a vectorized manner.
-func (c *Constant) VecEvalReal(input *chunk.Chunk, result *chunk.Column) error {
+func (c *Constant) VecEvalReal(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	if c.DeferredExpr == nil {
-		return genVecFromConstExpr(c, types.ETReal, input, result)
+		return genVecFromConstExpr(ctx, c, types.ETReal, input, result)
 	}
-	return c.DeferredExpr.VecEvalReal(input, result)
+	return c.DeferredExpr.VecEvalReal(ctx, input, result)
 }
 
 // VecEvalString evaluates this expression in a vectorized manner.
-func (c *Constant) VecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (c *Constant) VecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	if c.DeferredExpr == nil {
-		return genVecFromConstExpr(c, types.ETString, input, result)
+		return genVecFromConstExpr(ctx, c, types.ETString, input, result)
 	}
-	return c.DeferredExpr.VecEvalString(input, result)
+	return c.DeferredExpr.VecEvalString(ctx, input, result)
 }
 
 // VecEvalDecimal evaluates this expression in a vectorized manner.
-func (c *Constant) VecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error {
+func (c *Constant) VecEvalDecimal(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	if c.DeferredExpr == nil {
-		return genVecFromConstExpr(c, types.ETDecimal, input, result)
+		return genVecFromConstExpr(ctx, c, types.ETDecimal, input, result)
 	}
-	return c.DeferredExpr.VecEvalDecimal(input, result)
+	return c.DeferredExpr.VecEvalDecimal(ctx, input, result)
 }
 
 // VecEvalTime evaluates this expression in a vectorized manner.
-func (c *Constant) VecEvalTime(input *chunk.Chunk, result *chunk.Column) error {
+func (c *Constant) VecEvalTime(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	if c.DeferredExpr == nil {
-		return genVecFromConstExpr(c, types.ETTimestamp, input, result)
+		return genVecFromConstExpr(ctx, c, types.ETTimestamp, input, result)
 	}
-	return c.DeferredExpr.VecEvalTime(input, result)
+	return c.DeferredExpr.VecEvalTime(ctx, input, result)
 }
 
 // VecEvalDuration evaluates this expression in a vectorized manner.
-func (c *Constant) VecEvalDuration(input *chunk.Chunk, result *chunk.Column) error {
+func (c *Constant) VecEvalDuration(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	if c.DeferredExpr == nil {
-		return genVecFromConstExpr(c, types.ETDuration, input, result)
+		return genVecFromConstExpr(ctx, c, types.ETDuration, input, result)
 	}
-	return c.DeferredExpr.VecEvalDuration(input, result)
+	return c.DeferredExpr.VecEvalDuration(ctx, input, result)
 }
 
 // VecEvalJSON evaluates this expression in a vectorized manner.
-func (c *Constant) VecEvalJSON(input *chunk.Chunk, result *chunk.Column) error {
+func (c *Constant) VecEvalJSON(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	if c.DeferredExpr == nil {
-		return genVecFromConstExpr(c, types.ETJson, input, result)
+		return genVecFromConstExpr(ctx, c, types.ETJson, input, result)
 	}
-	return c.DeferredExpr.VecEvalJSON(input, result)
+	return c.DeferredExpr.VecEvalJSON(ctx, input, result)
 }
 
-func (c *Constant) getLazyDatum(row chunk.Row) (dt types.Datum, isLazy bool, err error) {
+func (c *Constant) getLazyDatum(ctx *EvalContext, row chunk.Row) (dt types.Datum, isLazy bool, err error) {
 	if c.ParamMarker != nil {
 		return c.ParamMarker.GetUserVar(), true, nil
 	} else if c.DeferredExpr != nil {
-		dt, err = c.DeferredExpr.Eval(row)
+		dt, err = c.DeferredExpr.Eval(ctx, row)
 		return dt, true, err
 	}
 	return types.Datum{}, false, nil
@@ -236,8 +236,8 @@ func (c *Constant) Traverse(action TraverseAction) Expression {
 }
 
 // Eval implements Expression interface.
-func (c *Constant) Eval(row chunk.Row) (types.Datum, error) {
-	if dt, lazy, err := c.getLazyDatum(row); lazy {
+func (c *Constant) Eval(ctx *EvalContext, row chunk.Row) (types.Datum, error) {
+	if dt, lazy, err := c.getLazyDatum(ctx, row); lazy {
 		if err != nil {
 			return c.Value, err
 		}
@@ -246,10 +246,10 @@ func (c *Constant) Eval(row chunk.Row) (types.Datum, error) {
 			return c.Value, nil
 		}
 		if c.DeferredExpr != nil {
-			sf, sfOk := c.DeferredExpr.(*ScalarFunction)
+			_, sfOk := c.DeferredExpr.(*ScalarFunction)
 			if sfOk {
 				if dt.Kind() != types.KindMysqlDecimal {
-					val, err := dt.ConvertTo(sf.GetCtx().StmtCtx, c.RetType)
+					val, err := dt.ConvertTo(ctx.StmtCtx, c.RetType)
 					if err != nil {
 						return dt, err
 					}
@@ -266,8 +266,8 @@ func (c *Constant) Eval(row chunk.Row) (types.Datum, error) {
 }
 
 // EvalInt returns int representation of Constant.
-func (c *Constant) EvalInt(row chunk.Row) (int64, bool, error) {
-	dt, lazy, err := c.getLazyDatum(row)
+func (c *Constant) EvalInt(ctx *EvalContext, row chunk.Row) (int64, bool, error) {
+	dt, lazy, err := c.getLazyDatum(ctx, row)
 	if err != nil {
 		return 0, false, err
 	}
@@ -290,8 +290,8 @@ func (c *Constant) EvalInt(row chunk.Row) (int64, bool, error) {
 }
 
 // EvalReal returns real representation of Constant.
-func (c *Constant) EvalReal(row chunk.Row) (float64, bool, error) {
-	dt, lazy, err := c.getLazyDatum(row)
+func (c *Constant) EvalReal(ctx *EvalContext, row chunk.Row) (float64, bool, error) {
+	dt, lazy, err := c.getLazyDatum(ctx, row)
 	if err != nil {
 		return 0, false, err
 	}
@@ -309,8 +309,8 @@ func (c *Constant) EvalReal(row chunk.Row) (float64, bool, error) {
 }
 
 // EvalString returns string representation of Constant.
-func (c *Constant) EvalString(row chunk.Row) (string, bool, error) {
-	dt, lazy, err := c.getLazyDatum(row)
+func (c *Constant) EvalString(ctx *EvalContext, row chunk.Row) (string, bool, error) {
+	dt, lazy, err := c.getLazyDatum(ctx, row)
 	if err != nil {
 		return "", false, err
 	}
@@ -325,8 +325,8 @@ func (c *Constant) EvalString(row chunk.Row) (string, bool, error) {
 }
 
 // EvalDecimal returns decimal representation of Constant.
-func (c *Constant) EvalDecimal(row chunk.Row) (*types.MyDecimal, bool, error) {
-	dt, lazy, err := c.getLazyDatum(row)
+func (c *Constant) EvalDecimal(ctx *EvalContext, row chunk.Row) (*types.MyDecimal, bool, error) {
+	dt, lazy, err := c.getLazyDatum(ctx, row)
 	if err != nil {
 		return nil, false, err
 	}
@@ -356,8 +356,8 @@ func (c *Constant) adjustDecimal(d *types.MyDecimal) error {
 }
 
 // EvalTime returns DATE/DATETIME/TIMESTAMP representation of Constant.
-func (c *Constant) EvalTime(row chunk.Row) (val types.Time, isNull bool, err error) {
-	dt, lazy, err := c.getLazyDatum(row)
+func (c *Constant) EvalTime(ctx *EvalContext, row chunk.Row) (val types.Time, isNull bool, err error) {
+	dt, lazy, err := c.getLazyDatum(ctx, row)
 	if err != nil {
 		return types.ZeroTime, false, err
 	}
@@ -371,8 +371,8 @@ func (c *Constant) EvalTime(row chunk.Row) (val types.Time, isNull bool, err err
 }
 
 // EvalDuration returns Duration representation of Constant.
-func (c *Constant) EvalDuration(row chunk.Row) (val types.Duration, isNull bool, err error) {
-	dt, lazy, err := c.getLazyDatum(row)
+func (c *Constant) EvalDuration(ctx *EvalContext, row chunk.Row) (val types.Duration, isNull bool, err error) {
+	dt, lazy, err := c.getLazyDatum(ctx, row)
 	if err != nil {
 		return types.Duration{}, false, err
 	}
@@ -386,8 +386,8 @@ func (c *Constant) EvalDuration(row chunk.Row) (val types.Duration, isNull bool,
 }
 
 // EvalJSON returns JSON representation of Constant.
-func (c *Constant) EvalJSON(row chunk.Row) (types.BinaryJSON, bool, error) {
-	dt, lazy, err := c.getLazyDatum(row)
+func (c *Constant) EvalJSON(ctx *EvalContext, row chunk.Row) (types.BinaryJSON, bool, error) {
+	dt, lazy, err := c.getLazyDatum(ctx, row)
 	if err != nil {
 		return types.BinaryJSON{}, false, err
 	}
@@ -406,8 +406,8 @@ func (c *Constant) Equal(b Expression) bool {
 	if !ok {
 		return false
 	}
-	_, err1 := y.Eval(chunk.Row{})
-	_, err2 := c.Eval(chunk.Row{})
+	_, err1 := y.Eval(NewDefaultEvalContext(), chunk.Row{})
+	_, err2 := c.Eval(NewDefaultEvalContext(), chunk.Row{})
 	if err1 != nil || err2 != nil {
 		return false
 	}
@@ -450,7 +450,7 @@ func (c *Constant) HashCode(sc *stmtctx.StatementContext) []byte {
 		return c.hashcode
 	}
 
-	_, err := c.Eval(chunk.Row{})
+	_, err := c.Eval(NewDefaultEvalContext(), chunk.Row{})
 	if err != nil {
 		terror.Log(err)
 	}

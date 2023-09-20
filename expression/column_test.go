@@ -53,7 +53,7 @@ func TestColumn(t *testing.T) {
 
 	intCorCol := &CorrelatedColumn{Column: Column{RetType: types.NewFieldType(mysql.TypeLonglong)},
 		Data: &intDatum}
-	intVal, isNull, err := intCorCol.EvalInt(chunk.Row{})
+	intVal, isNull, err := intCorCol.EvalInt(ctx, chunk.Row{})
 	require.Equal(t, int64(1), intVal)
 	require.False(t, isNull)
 	require.NoError(t, err)
@@ -61,7 +61,7 @@ func TestColumn(t *testing.T) {
 	realDatum := types.NewFloat64Datum(1.2)
 	realCorCol := &CorrelatedColumn{Column: Column{RetType: types.NewFieldType(mysql.TypeDouble)},
 		Data: &realDatum}
-	realVal, isNull, err := realCorCol.EvalReal(chunk.Row{})
+	realVal, isNull, err := realCorCol.EvalReal(ctx, chunk.Row{})
 	require.Equal(t, float64(1.2), realVal)
 	require.False(t, isNull)
 	require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestColumn(t *testing.T) {
 	decimalDatum := types.NewDecimalDatum(types.NewDecFromStringForTest("1.2"))
 	decimalCorCol := &CorrelatedColumn{Column: Column{RetType: types.NewFieldType(mysql.TypeNewDecimal)},
 		Data: &decimalDatum}
-	decVal, isNull, err := decimalCorCol.EvalDecimal(chunk.Row{})
+	decVal, isNull, err := decimalCorCol.EvalDecimal(ctx, chunk.Row{})
 	require.Zero(t, decVal.Compare(types.NewDecFromStringForTest("1.2")))
 	require.False(t, isNull)
 	require.NoError(t, err)
@@ -77,14 +77,14 @@ func TestColumn(t *testing.T) {
 	stringDatum := types.NewStringDatum("abc")
 	stringCorCol := &CorrelatedColumn{Column: Column{RetType: types.NewFieldType(mysql.TypeVarchar)},
 		Data: &stringDatum}
-	strVal, isNull, err := stringCorCol.EvalString(chunk.Row{})
+	strVal, isNull, err := stringCorCol.EvalString(ctx, chunk.Row{})
 	require.Equal(t, "abc", strVal)
 	require.False(t, isNull)
 	require.NoError(t, err)
 
 	durationCorCol := &CorrelatedColumn{Column: Column{RetType: types.NewFieldType(mysql.TypeDuration)},
 		Data: &durationDatum}
-	durationVal, isNull, err := durationCorCol.EvalDuration(chunk.Row{})
+	durationVal, isNull, err := durationCorCol.EvalDuration(ctx, chunk.Row{})
 	require.Zero(t, durationVal.Compare(duration))
 	require.False(t, isNull)
 	require.NoError(t, err)
@@ -92,7 +92,7 @@ func TestColumn(t *testing.T) {
 	timeDatum := types.NewTimeDatum(tm)
 	timeCorCol := &CorrelatedColumn{Column: Column{RetType: types.NewFieldType(mysql.TypeDatetime)},
 		Data: &timeDatum}
-	timeVal, isNull, err := timeCorCol.EvalTime(chunk.Row{})
+	timeVal, isNull, err := timeCorCol.EvalTime(ctx, chunk.Row{})
 	require.Zero(t, timeVal.Compare(tm))
 	require.False(t, isNull)
 	require.NoError(t, err)
@@ -177,20 +177,20 @@ func TestColHybird(t *testing.T) {
 		input.AppendBytes(0, num)
 	}
 	result := chunk.NewColumn(types.NewFieldType(mysql.TypeLonglong), 1024)
-	require.Nil(t, col.VecEvalInt(input, result))
+	require.Nil(t, col.VecEvalInt(ctx, input, result))
 
 	it := chunk.NewIterator4Chunk(input)
 	for row, i := it.Begin(), 0; row != it.End(); row, i = it.Next(), i+1 {
-		v, _, err := col.EvalInt(row)
+		v, _, err := col.EvalInt(ctx, row)
 		require.NoError(t, err)
 		require.Equal(t, result.GetInt64(i), v)
 	}
 
 	// use a container which has the different field type with bit
 	result = chunk.NewColumn(types.NewFieldType(mysql.TypeString), 1024)
-	require.Nil(t, col.VecEvalInt(input, result))
+	require.Nil(t, col.VecEvalInt(ctx, input, result))
 	for row, i := it.Begin(), 0; row != it.End(); row, i = it.Next(), i+1 {
-		v, _, err := col.EvalInt(row)
+		v, _, err := col.EvalInt(ctx, row)
 		require.NoError(t, err)
 		require.Equal(t, result.GetInt64(i), v)
 	}
@@ -203,11 +203,11 @@ func TestColHybird(t *testing.T) {
 		input.AppendEnum(0, types.Enum{Name: fmt.Sprintf("%v", i), Value: uint64(i)})
 	}
 	result = chunk.NewColumn(types.NewFieldType(mysql.TypeString), 1024)
-	require.Nil(t, col.VecEvalString(input, result))
+	require.Nil(t, col.VecEvalString(ctx, input, result))
 
 	it = chunk.NewIterator4Chunk(input)
 	for row, i := it.Begin(), 0; row != it.End(); row, i = it.Next(), i+1 {
-		v, _, err := col.EvalString(row)
+		v, _, err := col.EvalString(ctx, row)
 		require.NoError(t, err)
 		require.Equal(t, result.GetString(i), v)
 	}
@@ -220,11 +220,11 @@ func TestColHybird(t *testing.T) {
 		input.AppendSet(0, types.Set{Name: fmt.Sprintf("%v", i), Value: uint64(i)})
 	}
 	result = chunk.NewColumn(types.NewFieldType(mysql.TypeString), 1024)
-	require.Nil(t, col.VecEvalString(input, result))
+	require.Nil(t, col.VecEvalString(ctx, input, result))
 
 	it = chunk.NewIterator4Chunk(input)
 	for row, i := it.Begin(), 0; row != it.End(); row, i = it.Next(), i+1 {
-		v, _, err := col.EvalString(row)
+		v, _, err := col.EvalString(ctx, row)
 		require.NoError(t, err)
 		require.Equal(t, result.GetString(i), v)
 	}

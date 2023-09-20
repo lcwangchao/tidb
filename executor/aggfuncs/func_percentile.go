@@ -15,6 +15,7 @@
 package aggfuncs
 
 import (
+	"github.com/pingcap/tidb/expression"
 	"math"
 	"sort"
 	"unsafe"
@@ -144,7 +145,7 @@ func (e *percentileOriginal4Int) UpdatePartialResult(sctx sessionctx.Context, ro
 	p := (*partialResult4PercentileInt)(pr)
 	startMem := p.MemSize()
 	for _, row := range rowsInGroup {
-		v, isNull, err := e.args[0].EvalInt(row)
+		v, isNull, err := e.args[0].EvalInt(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -197,7 +198,7 @@ func (e *percentileOriginal4Real) UpdatePartialResult(sctx sessionctx.Context, r
 	p := (*partialResult4PercentileReal)(pr)
 	startMem := p.MemSize()
 	for _, row := range rowsInGroup {
-		v, isNull, err := e.args[0].EvalReal(row)
+		v, isNull, err := e.args[0].EvalReal(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -250,7 +251,7 @@ func (e *percentileOriginal4Decimal) UpdatePartialResult(sctx sessionctx.Context
 	p := (*partialResult4PercentileDecimal)(pr)
 	startMem := p.MemSize()
 	for _, row := range rowsInGroup {
-		v, isNull, err := e.args[0].EvalDecimal(row)
+		v, isNull, err := e.args[0].EvalDecimal(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -303,7 +304,7 @@ func (e *percentileOriginal4Time) UpdatePartialResult(sctx sessionctx.Context, r
 	p := (*partialResult4PercentileTime)(pr)
 	startMem := p.MemSize()
 	for _, row := range rowsInGroup {
-		v, isNull, err := e.args[0].EvalTime(row)
+		v, isNull, err := e.args[0].EvalTime(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}
@@ -356,7 +357,7 @@ func (e *percentileOriginal4Duration) UpdatePartialResult(sctx sessionctx.Contex
 	p := (*partialResult4PercentileDuration)(pr)
 	startMem := p.MemSize()
 	for _, row := range rowsInGroup {
-		v, isNull, err := e.args[0].EvalDuration(row)
+		v, isNull, err := e.args[0].EvalDuration(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, err
 		}

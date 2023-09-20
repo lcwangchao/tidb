@@ -15,6 +15,7 @@
 package expression
 
 import (
+	"github.com/pingcap/tidb/sessionctx"
 	"strconv"
 
 	"github.com/gogo/protobuf/proto"
@@ -48,13 +49,14 @@ func ExpressionsToPBList(sc *stmtctx.StatementContext, exprs []Expression, clien
 
 // PbConverter supplies methods to convert TiDB expressions to TiPB.
 type PbConverter struct {
-	client kv.Client
-	sc     *stmtctx.StatementContext
+	client  kv.Client
+	evalCtx *EvalContext
+	sc      *stmtctx.StatementContext
 }
 
 // NewPBConverter creates a PbConverter.
-func NewPBConverter(client kv.Client, sc *stmtctx.StatementContext) PbConverter {
-	return PbConverter{client: client, sc: sc}
+func NewPBConverter(client kv.Client, sctx sessionctx.Context) PbConverter {
+	return PbConverter{client: client, sc: sctx.GetSessionVars().StmtCtx, evalCtx: NewEvalContext(sctx)}
 }
 
 // ExprToPB converts Expression to TiPB.
@@ -78,7 +80,7 @@ func (pc PbConverter) ExprToPB(expr Expression) *tipb.Expr {
 
 func (pc PbConverter) conOrCorColToPBExpr(expr Expression) *tipb.Expr {
 	ft := expr.GetType()
-	d, err := expr.Eval(chunk.Row{})
+	d, err := expr.Eval(pc.evalCtx, chunk.Row{})
 	if err != nil {
 		logutil.BgLogger().Error("eval constant or correlated column", zap.String("expression", expr.ExplainInfo()), zap.Error(err))
 		return nil

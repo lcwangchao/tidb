@@ -69,18 +69,18 @@ func (b *builtinIlikeSig) Clone() builtinFunc {
 }
 
 // evalInt evals a builtinIlikeSig.
-func (b *builtinIlikeSig) evalInt(row chunk.Row) (int64, bool, error) {
-	valStr, isNull, err := b.args[0].EvalString(row)
+func (b *builtinIlikeSig) evalInt(ctx *EvalContext, row chunk.Row) (int64, bool, error) {
+	valStr, isNull, err := b.args[0].EvalString(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 
-	patternStr, isNull, err := b.args[1].EvalString(row)
+	patternStr, isNull, err := b.args[1].EvalString(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 
-	escape, isNull, err := b.args[2].EvalInt(row)
+	escape, isNull, err := b.args[2].EvalInt(ctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -101,7 +101,7 @@ func (b *builtinIlikeSig) evalInt(row chunk.Row) (int64, bool, error) {
 	memorization := func() {
 		if b.pattern == nil {
 			b.pattern = collate.ConvertAndGetBinCollation(b.collation).Pattern()
-			if b.args[1].ConstItem(b.ctx.StmtCtx) && b.args[2].ConstItem(b.ctx.StmtCtx) {
+			if b.args[1].ConstItem(ctx.StmtCtx) && b.args[2].ConstItem(ctx.StmtCtx) {
 				b.pattern.Compile(patternStr, byte(escape))
 				b.isMemorizedPattern = true
 			}

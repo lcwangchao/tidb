@@ -403,7 +403,7 @@ func (e *InsertExec) doDupRowUpdate(ctx context.Context, handle kv.Handle, oldRo
 		if col.LazyErr != nil {
 			return col.LazyErr
 		}
-		val, err1 := col.Expr.Eval(e.evalBuffer4Dup.ToRow())
+		val, err1 := col.Expr.Eval(e.EvalCtx(), e.evalBuffer4Dup.ToRow())
 		if err1 != nil {
 			return err1
 		}

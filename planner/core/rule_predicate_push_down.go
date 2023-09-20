@@ -433,7 +433,7 @@ func isNullRejected(ctx *expression.ExprContext, schema *expression.Schema, expr
 	if expression.ContainOuterNot(expr) {
 		return false
 	}
-	sc := ctx.StmtCtx
+	sc := ctx.StmtCtx()
 	sc.InNullRejectCheck = true
 	defer func() {
 		sc.InNullRejectCheck = false

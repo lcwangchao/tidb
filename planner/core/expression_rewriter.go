@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/pingcap/tidb/sessionctx/stmtctx"
 	"strconv"
 	"strings"
 	"time"
@@ -58,7 +59,7 @@ func evalAstExpr(sctx *expression.ExprContext, expr ast.ExprNode) (types.Datum, 
 	if err != nil {
 		return types.Datum{}, err
 	}
-	return newExpr.Eval(chunk.Row{})
+	return newExpr.Eval(sctx.EvalCtx(), chunk.Row{})
 }
 
 // rewriteAstExpr rewrites ast expression directly.
@@ -176,6 +177,7 @@ func (b *PlanBuilder) getExpressionRewriter(ctx context.Context, p LogicalPlan) 
 	rewriter.ctx = ctx
 	rewriter.err = nil
 	rewriter.rollExpand = b.currentBlockExpand
+	rewriter.stmtctx = rewriter.sctx.StmtCtx()
 	return
 }
 
@@ -227,6 +229,7 @@ type expressionRewriter struct {
 	windowMap  map[*ast.WindowFuncExpr]int
 	b          *PlanBuilder
 	sctx       *expression.ExprContext
+	stmtctx    *stmtctx.StatementContext
 	ctx        context.Context
 
 	// asScalar indicates the return value must be a scalar value.
@@ -547,7 +550,7 @@ func (er *expressionRewriter) handleCompareSubquery(ctx context.Context, v *ast.
 
 	noDecorrelate := hintFlags&HintFlagNoDecorrelate > 0
 	if noDecorrelate && len(extractCorColumnsBySchema4LogicalPlan(np, er.p.Schema())) == 0 {
-		er.sctx.StmtCtx.AppendWarning(ErrInternal.GenWithStack(
+		er.stmtctx.AppendWarning(ErrInternal.GenWithStack(
 			"NO_DECORRELATE() is inapplicable because there are no correlated columns."))
 		noDecorrelate = false
 	}
@@ -853,13 +856,13 @@ func (er *expressionRewriter) handleExistSubquery(ctx context.Context, v *ast.Ex
 
 	noDecorrelate := hintFlags&HintFlagNoDecorrelate > 0
 	if noDecorrelate && len(extractCorColumnsBySchema4LogicalPlan(np, er.p.Schema())) == 0 {
-		er.sctx.StmtCtx.AppendWarning(ErrInternal.GenWithStack(
+		er.stmtctx.AppendWarning(ErrInternal.GenWithStack(
 			"NO_DECORRELATE() is inapplicable because there are no correlated columns."))
 		noDecorrelate = false
 	}
 	semiJoinRewrite := hintFlags&HintFlagSemiJoinRewrite > 0
 	if semiJoinRewrite && noDecorrelate {
-		er.sctx.StmtCtx.AppendWarning(ErrInternal.GenWithStack(
+		er.stmtctx.AppendWarning(ErrInternal.GenWithStack(
 			"NO_DECORRELATE() and SEMI_JOIN_REWRITE() are in conflict. Both will be ineffective."))
 		noDecorrelate = false
 		semiJoinRewrite = false
@@ -873,10 +876,10 @@ func (er *expressionRewriter) handleExistSubquery(ctx context.Context, v *ast.Ex
 		er.ctxStackAppend(er.p.Schema().Columns[er.p.Schema().Len()-1], er.p.OutputNames()[er.p.Schema().Len()-1])
 	} else {
 		// We don't want nth_plan hint to affect separately executed subqueries here, so disable nth_plan temporarily.
-		nthPlanBackup := er.sctx.StmtCtx.StmtHints.ForceNthPlan
-		er.sctx.StmtCtx.StmtHints.ForceNthPlan = -1
+		nthPlanBackup := er.stmtctx.StmtHints.ForceNthPlan
+		er.stmtctx.StmtHints.ForceNthPlan = -1
 		physicalPlan, _, err := DoOptimize(ctx, er.sctx.GetSessionCtx(), er.b.optFlag, np)
-		er.sctx.StmtCtx.StmtHints.ForceNthPlan = nthPlanBackup
+		er.stmtctx.StmtHints.ForceNthPlan = nthPlanBackup
 		if err != nil {
 			er.err = err
 			return v, true
@@ -1027,7 +1030,7 @@ func (er *expressionRewriter) handleInSubquery(ctx context.Context, v *ast.Patte
 	noDecorrelate := hintFlags&HintFlagNoDecorrelate > 0
 	corCols := extractCorColumnsBySchema4LogicalPlan(np, er.p.Schema())
 	if len(corCols) == 0 && noDecorrelate {
-		er.sctx.StmtCtx.AppendWarning(ErrInternal.GenWithStack(
+		er.stmtctx.AppendWarning(ErrInternal.GenWithStack(
 			"NO_DECORRELATE() is inapplicable because there are no correlated columns."))
 		noDecorrelate = false
 	}
@@ -1087,7 +1090,7 @@ func (er *expressionRewriter) handleScalarSubquery(ctx context.Context, v *ast.S
 
 	noDecorrelate := hintFlags&HintFlagNoDecorrelate > 0
 	if noDecorrelate && len(extractCorColumnsBySchema4LogicalPlan(np, er.p.Schema())) == 0 {
-		er.sctx.StmtCtx.AppendWarning(ErrInternal.GenWithStack(
+		er.stmtctx.AppendWarning(ErrInternal.GenWithStack(
 			"NO_DECORRELATE() is inapplicable because there are no correlated columns."))
 		noDecorrelate = false
 	}
@@ -1111,10 +1114,10 @@ func (er *expressionRewriter) handleScalarSubquery(ctx context.Context, v *ast.S
 		return v, true
 	}
 	// We don't want nth_plan hint to affect separately executed subqueries here, so disable nth_plan temporarily.
-	nthPlanBackup := er.sctx.StmtCtx.StmtHints.ForceNthPlan
-	er.sctx.StmtCtx.StmtHints.ForceNthPlan = -1
+	nthPlanBackup := er.stmtctx.StmtHints.ForceNthPlan
+	er.stmtctx.StmtHints.ForceNthPlan = -1
 	physicalPlan, _, err := DoOptimize(ctx, er.sctx.GetSessionCtx(), er.b.optFlag, np)
-	er.sctx.StmtCtx.StmtHints.ForceNthPlan = nthPlanBackup
+	er.stmtctx.StmtHints.ForceNthPlan = nthPlanBackup
 	if err != nil {
 		er.err = err
 		return v, true
@@ -1445,7 +1448,7 @@ func (*expressionRewriter) checkTimePrecision(ft *types.FieldType) error {
 }
 
 func (er *expressionRewriter) useCache() bool {
-	return er.sctx.StmtCtx.UseCache
+	return er.stmtctx.UseCache
 }
 
 func (er *expressionRewriter) rewriteVariable(v *ast.VariableExpr) {
@@ -1685,7 +1688,7 @@ func (er *expressionRewriter) inToExpression(lLen int, not bool, tp *types.Field
 					if c.GetType().EvalType() == types.ETInt {
 						continue // no need to refine it
 					}
-					er.sctx.StmtCtx.SetSkipPlanCache(errors.Errorf("'%v' may be converted to INT", c.String()))
+					er.stmtctx.SetSkipPlanCache(errors.Errorf("'%v' may be converted to INT", c.String()))
 					expression.RemoveMutableConst(evalCtx, []expression.Expression{c})
 				}
 				args[i], isExceptional = expression.RefineComparedConstant(evalCtx, *leftFt, c, opcode.EQ)
@@ -1855,7 +1858,7 @@ func (er *expressionRewriter) patternLikeOrIlikeToExpression(v *ast.PatternLikeO
 	isPatternExactMatch := false
 	// Treat predicate 'like' or 'ilike' the same way as predicate '=' when it is an exact match and new collation is not enabled.
 	if patExpression, ok := er.ctxStack[l-1].(*expression.Constant); ok && !collate.NewCollationEnabled() {
-		patString, isNull, err := patExpression.EvalString(chunk.Row{})
+		patString, isNull, err := patExpression.EvalString(expression.NewDefaultEvalContext(), chunk.Row{})
 		if err != nil {
 			er.err = err
 			return
@@ -2297,7 +2300,7 @@ func (er *expressionRewriter) evalDefaultExpr(v *ast.DefaultExpr) {
 	var val *expression.Constant
 	switch {
 	case isCurrentTimestamp && (col.GetType() == mysql.TypeDatetime || col.GetType() == mysql.TypeTimestamp):
-		t, err := expression.GetTimeValue(er.sctx, ast.CurrentTimestamp, col.GetType(), col.GetDecimal(), nil)
+		t, err := expression.GetTimeValue(er.sctx, er.sctx.EvalCtx(), ast.CurrentTimestamp, col.GetType(), col.GetDecimal())
 		if err != nil {
 			return
 		}
@@ -2324,7 +2327,7 @@ func hasCurrentDatetimeDefault(col *table.Column) bool {
 	return strings.ToLower(x) == ast.CurrentTimestamp
 }
 
-func decodeKeyFromString(ctx *expression.ExprContext, s string) string {
+func decodeKeyFromString(is interface{}, ctx *expression.EvalContext, s string) string {
 	sc := ctx.StmtCtx
 	key, err := hex.DecodeString(s)
 	if err != nil {
@@ -2342,16 +2345,11 @@ func decodeKeyFromString(ctx *expression.ExprContext, s string) string {
 		return s
 	}
 
-	is := ctx.InfoSchema.(infoschema.InfoSchema)
-	if is == nil {
-		sc.AppendWarning(errors.Errorf("infoschema not found when decoding key: %X", key))
-		return s
-	}
-	tbl, _ := is.TableByID(tableID)
+	tbl, _ := is.(infoschema.InfoSchema).TableByID(tableID)
 	if tbl == nil {
-		tbl, _, _ = is.FindTableByPartitionID(tableID)
+		tbl, _, _ = is.(infoschema.InfoSchema).FindTableByPartitionID(tableID)
 	}
-	loc := ctx.Location()
+	loc := ctx.Location
 	if tablecodec.IsRecordKey(key) {
 		ret, err := decodeRecordKey(key, tableID, tbl, loc)
 		if err != nil {

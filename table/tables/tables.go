@@ -21,6 +21,7 @@ package tables
 import (
 	"context"
 	"fmt"
+	"github.com/pingcap/tidb/expression"
 	"math"
 	"sort"
 	"strconv"
@@ -508,7 +509,7 @@ func (t *TableCommon) UpdateRecord(ctx context.Context, sctx sessionctx.Context,
 	}
 	// check data constraint
 	for _, constraint := range t.WritableConstraint() {
-		ok, isNull, err := constraint.ConstraintExpr.EvalInt(chunk.MutRowFromDatums(rowToCheck).ToRow())
+		ok, isNull, err := constraint.ConstraintExpr.EvalInt(expression.NewEvalContext(sctx), chunk.MutRowFromDatums(rowToCheck).ToRow())
 		if err != nil {
 			return err
 		}
@@ -968,7 +969,7 @@ func (t *TableCommon) AddRecord(sctx sessionctx.Context, r []types.Datum, opts .
 	}
 
 	for _, constraint := range t.WritableConstraint() {
-		ok, isNull, err := constraint.ConstraintExpr.EvalInt(chunk.MutRowFromDatums(r).ToRow())
+		ok, isNull, err := constraint.ConstraintExpr.EvalInt(expression.NewEvalContext(sctx), chunk.MutRowFromDatums(r).ToRow())
 		if err != nil {
 			return nil, err
 		}

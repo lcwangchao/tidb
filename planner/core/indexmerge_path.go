@@ -900,7 +900,7 @@ func jsonArrayExpr2Exprs(sctx sessionctx.Context, jsonArrayExpr expression.Expre
 		return nil, false
 	}
 
-	jsonArray, isNull, err := jsonArrayExpr.EvalJSON(chunk.Row{})
+	jsonArray, isNull, err := jsonArrayExpr.EvalJSON(expression.NewDefaultEvalContext(), chunk.Row{})
 	if isNull || err != nil {
 		return nil, false
 	}

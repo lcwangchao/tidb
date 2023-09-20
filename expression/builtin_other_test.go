@@ -165,7 +165,7 @@ func TestGetVar(t *testing.T) {
 		}
 		fn, err := BuildGetVarFunction(ctx, datumsToConstants(types.MakeDatums(tc.args...))[0], tp)
 		require.NoError(t, err)
-		d, err := fn.Eval(chunk.Row{})
+		d, err := fn.Eval(ctx, chunk.Row{})
 		require.NoError(t, err)
 		require.Equal(t, tc.res, d.GetValue())
 	}
@@ -305,14 +305,14 @@ func TestInFunc(t *testing.T) {
 	strD2 := types.NewCollationStringDatum("Á", "utf8_general_ci")
 	fn, err := fc.getFunction(ctx, datumsToConstants([]types.Datum{strD1, strD2}))
 	require.NoError(t, err)
-	d, isNull, err := fn.evalInt(chunk.Row{})
+	d, isNull, err := fn.evalInt(nil, chunk.Row{})
 	require.False(t, isNull)
 	require.NoError(t, err)
 	require.Equalf(t, int64(1), d, "%v, %v", strD1, strD2)
 	chk1 := chunk.NewChunkWithCapacity(nil, 1)
 	chk1.SetNumVirtualRows(1)
 	chk2 := chunk.NewChunkWithCapacity([]*types.FieldType{types.NewFieldType(mysql.TypeTiny)}, 1)
-	err = fn.vecEvalInt(chk1, chk2.Column(0))
+	err = fn.vecEvalInt(ctx, chk1, chk2.Column(0))
 	require.NoError(t, err)
 	require.Equal(t, int64(1), chk2.Column(0).GetInt64(0))
 }

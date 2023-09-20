@@ -30,13 +30,37 @@ import (
 	"time"
 )
 
+type EvalContext struct {
+	SQLMode                    mysql.SQLMode
+	StrictSQLMode              bool
+	Killed                     *uint32
+	EnableVectorizedExpression bool
+	StmtCtx                    *stmtctx.StatementContext
+	Location                   *time.Location
+}
+
+func NewDefaultEvalContext() *EvalContext {
+	return &EvalContext{
+		Location: time.Local,
+	}
+}
+
+func NewEvalContext(sctx sessionctx.Context) *EvalContext {
+	return &EvalContext{
+		SQLMode:                    sctx.GetSessionVars().SQLMode,
+		StrictSQLMode:              sctx.GetSessionVars().StrictSQLMode,
+		EnableVectorizedExpression: sctx.GetSessionVars().EnableVectorizedExpression,
+		Killed:                     &sctx.GetSessionVars().Killed,
+		StmtCtx:                    sctx.GetSessionVars().StmtCtx,
+		Location:                   sctx.GetSessionVars().Location(),
+	}
+}
+
 type ExprContext struct {
 	sctx                        sessionctx.Context
-	StmtCtx                     *stmtctx.StatementContext
-	SQLMode                     mysql.SQLMode
-	StrictSQLMode               bool
+	stmtCtx                     *stmtctx.StatementContext
+	sqlMode                     func() *mysql.SQLMode
 	GetSystemVar                func(name string) (string, bool)
-	Location                    func() *time.Location
 	GetSessionOrGlobalSystemVar func(ctx context.Context, name string) (string, error)
 	GlobalVarsAccessor          variable.GlobalVarAccessor
 	CurrentUser                 *auth.UserIdentity
@@ -70,7 +94,6 @@ type ExprContext struct {
 	NoopFuncsMode               int
 	EnableVectorizedExpression  bool
 	AllocPlanColumnID           func() int64
-	Killed                      *uint32
 	RetrieveSQLDigest           func(ctx context.Context, digests []interface{}) (map[string]string, error)
 	GetAllowInSubqToJoinAndAgg  func() bool
 	DefaultCollationForUTF8MB4  string
@@ -80,11 +103,8 @@ func NewExprContext(sctx sessionctx.Context) *ExprContext {
 	sessVars := sctx.GetSessionVars()
 	return &ExprContext{
 		sctx:                        sctx,
-		StmtCtx:                     sessVars.StmtCtx,
-		SQLMode:                     sessVars.SQLMode,
-		StrictSQLMode:               sessVars.StrictSQLMode,
+		stmtCtx:                     sessVars.StmtCtx,
 		GetSystemVar:                sessVars.GetSystemVar,
-		Location:                    sessVars.Location,
 		GetSessionOrGlobalSystemVar: sessVars.GetSessionOrGlobalSystemVar,
 		GlobalVarsAccessor:          sessVars.GlobalVarsAccessor,
 		CurrentUser:                 sessVars.User,
@@ -119,7 +139,6 @@ func NewExprContext(sctx sessionctx.Context) *ExprContext {
 			return privilege.GetPrivilegeManager(sctx)
 		},
 		AllocPlanColumnID: sessVars.AllocPlanColumnID,
-		Killed:            &sessVars.Killed,
 		RetrieveSQLDigest: func(ctx context.Context, digests []interface{}) (map[string]string, error) {
 			retriever := NewSQLDigestTextRetriever()
 			for _, item := range digests {
@@ -140,6 +159,58 @@ func NewExprContext(sctx sessionctx.Context) *ExprContext {
 		GetAllowInSubqToJoinAndAgg: sessVars.GetAllowInSubqToJoinAndAgg,
 		DefaultCollationForUTF8MB4: sessVars.DefaultCollationForUTF8MB4,
 	}
+}
+
+func (c *ExprContext) EvalCtx() *EvalContext {
+	return &EvalContext{}
+}
+
+func (c *ExprContext) StmtCtx() *stmtctx.StatementContext {
+	return c.stmtCtx
+}
+
+func (c *ExprContext) SQLMode() mysql.SQLMode {
+	return c.SQLMode()
+}
+
+func (c *ExprContext) ConstItemCtx() *stmtctx.StatementContext {
+	return c.stmtCtx
+}
+
+func (c *ExprContext) HashCodeCtx() *stmtctx.StatementContext {
+	return c.stmtCtx
+}
+
+func (c *ExprContext) AppendWarning(err error) {
+	c.stmtCtx.AppendWarning(err)
+}
+
+func (c *ExprContext) WarningCount() uint16 {
+	return c.stmtCtx.WarningCount()
+}
+
+func (c *ExprContext) HandleTruncate(err error) error {
+	return c.stmtCtx.HandleTruncate(err)
+}
+
+func (c *ExprContext) TruncateWarnings(start int) []stmtctx.SQLWarn {
+	return c.stmtCtx.TruncateWarnings(start)
+}
+
+func (c *ExprContext) SetSkipPlanCache(reason error) {
+	c.stmtCtx.SetSkipPlanCache(reason)
+}
+
+func (c *ExprContext) UseCache() bool {
+	return c.stmtCtx.UseCache
+}
+
+func (c *ExprContext) PointExec() bool {
+	return c.stmtCtx.PointExec
+}
+
+func (c *ExprContext) GetStaleTSO() (uint64, error) {
+	return c.stmtCtx.GetStaleTSO()
 }
 
 func (c *ExprContext) GetSessionCtx() sessionctx.Context {

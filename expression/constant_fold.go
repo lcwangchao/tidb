@@ -52,7 +52,7 @@ func isNullHandler(expr *ScalarFunction) (Expression, bool) {
 	arg0 := expr.GetArgs()[0]
 	if constArg, isConst := arg0.(*Constant); isConst {
 		isDeferredConst := constArg.DeferredExpr != nil || constArg.ParamMarker != nil
-		value, err := expr.Eval(chunk.Row{})
+		value, err := expr.Eval(NewDefaultEvalContext(), chunk.Row{})
 		if err != nil {
 			// Failed to fold this expr to a constant, print the DEBUG log and
 			// return the original expression to let the error to be evaluated
@@ -75,7 +75,7 @@ func ifFoldHandler(expr *ScalarFunction) (Expression, bool) {
 	args := expr.GetArgs()
 	foldedArg0, _ := foldConstant(args[0])
 	if constArg, isConst := foldedArg0.(*Constant); isConst {
-		arg0, isNull0, err := constArg.EvalInt(chunk.Row{})
+		arg0, isNull0, err := constArg.EvalInt(NewDefaultEvalContext(), chunk.Row{})
 		if err != nil {
 			// Failed to fold this expr to a constant, print the DEBUG log and
 			// return the original expression to let the error to be evaluated
@@ -121,7 +121,7 @@ func caseWhenHandler(expr *ScalarFunction) (Expression, bool) {
 		// If the condition is const and true, and the previous conditions
 		// has no expr, then the folded execution body is returned, otherwise
 		// the arguments of the casewhen are folded and replaced.
-		val, isNull, err := args[i].EvalInt(chunk.Row{})
+		val, isNull, err := args[i].EvalInt(NewDefaultEvalContext(), chunk.Row{})
 		if err != nil {
 			return expr, false
 		}
@@ -161,7 +161,7 @@ func foldConstant(expr Expression) (Expression, bool) {
 		}
 
 		args := x.GetArgs()
-		sc := x.GetCtx().StmtCtx
+		sc := x.GetCtx().StmtCtx()
 		argIsConst := make([]bool, len(args))
 		hasNullArg := false
 		allConstArg := true
@@ -197,7 +197,7 @@ func foldConstant(expr Expression) (Expression, bool) {
 			if err != nil {
 				return expr, isDeferredConst
 			}
-			value, err := dummyScalarFunc.Eval(chunk.Row{})
+			value, err := dummyScalarFunc.Eval(NewDefaultEvalContext(), chunk.Row{})
 			if err != nil {
 				return expr, isDeferredConst
 			}
@@ -217,7 +217,7 @@ func foldConstant(expr Expression) (Expression, bool) {
 			}
 			return expr, isDeferredConst
 		}
-		value, err := x.Eval(chunk.Row{})
+		value, err := x.Eval(NewDefaultEvalContext(), chunk.Row{})
 		retType := x.RetType.Clone()
 		if !hasNullArg {
 			// set right not null flag for constant value
@@ -245,7 +245,7 @@ func foldConstant(expr Expression) (Expression, bool) {
 				ParamMarker:  x.ParamMarker,
 			}, true
 		} else if x.DeferredExpr != nil {
-			value, err := x.DeferredExpr.Eval(chunk.Row{})
+			value, err := x.DeferredExpr.Eval(NewDefaultEvalContext(), chunk.Row{})
 			if err != nil {
 				logutil.BgLogger().Debug("fold expression to constant", zap.String("expression", x.ExplainInfo()), zap.Error(err))
 				return expr, true

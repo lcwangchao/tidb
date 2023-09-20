@@ -188,7 +188,7 @@ func (rd *RowDecoder) EvalRemainedExprColumnMap(ctx sessionctx.Context, row map[
 			continue
 		}
 		// Eval the column value
-		val, err := col.GenExpr.Eval(rd.mutRow.ToRow())
+		val, err := col.GenExpr.Eval(expression.NewEvalContext(ctx), rd.mutRow.ToRow())
 		if err != nil {
 			return nil, err
 		}

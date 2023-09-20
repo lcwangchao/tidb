@@ -55,13 +55,13 @@ func (s *basePropConstSolver) insertCol(col *Column) {
 // tryToUpdateEQList tries to update the eqList. When the eqList has store this column with a different constant, like
 // a = 1 and a = 2, we set the second return value to false.
 func (s *basePropConstSolver) tryToUpdateEQList(col *Column, con *Constant) (bool, bool) {
-	if con.ConstItem(s.ctx.StmtCtx) && con.Value.IsNull() {
+	if con.ConstItem(s.ctx.ConstItemCtx()) && con.Value.IsNull() {
 		return false, true
 	}
 	id := s.getColID(col)
 	oldCon := s.eqList[id]
 	if oldCon != nil {
-		res, err := oldCon.Value.Compare(s.ctx.StmtCtx, &con.Value, collate.GetCollator(col.GetType().GetCollate()))
+		res, err := oldCon.Value.Compare(s.ctx.StmtCtx(), &con.Value, collate.GetCollator(col.GetType().GetCollate()))
 		return false, res != 0 || err != nil
 	}
 	s.eqList[id] = con
@@ -281,7 +281,7 @@ func (s *propConstSolver) propagateColumnEQ() {
 
 func (s *propConstSolver) setConds2ConstFalse() {
 	if MaybeOverOptimized4PlanCache(s.ctx, s.conditions) {
-		s.ctx.StmtCtx.SetSkipPlanCache(errors.New("some parameters may be overwritten when constant propagation"))
+		s.ctx.SetSkipPlanCache(errors.New("some parameters may be overwritten when constant propagation"))
 	}
 	s.conditions = []Expression{&Constant{
 		Value:   types.NewDatum(false),
@@ -305,7 +305,7 @@ func (s *propConstSolver) pickNewEQConds(visited []bool) (retMapper map[int]*Con
 				continue
 			}
 			visited[i] = true
-			value, _, err := EvalBool(s.ctx, []Expression{con}, chunk.Row{})
+			value, _, err := EvalBool(s.ctx.EvalCtx(), []Expression{con}, chunk.Row{})
 			if err != nil {
 				terror.Log(err)
 				return nil
@@ -410,7 +410,7 @@ func (s *propOuterJoinConstSolver) pickEQCondsOnOuterCol(retMapper map[int]*Cons
 				continue
 			}
 			visited[i+condsOffset] = true
-			value, _, err := EvalBool(s.ctx, []Expression{con}, chunk.Row{})
+			value, _, err := EvalBool(s.ctx.EvalCtx(), []Expression{con}, chunk.Row{})
 			if err != nil {
 				terror.Log(err)
 				return nil

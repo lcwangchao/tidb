@@ -15,6 +15,7 @@
 package aggfuncs
 
 import (
+	"github.com/pingcap/tidb/expression"
 	"strings"
 	"unsafe"
 
@@ -72,7 +73,7 @@ func (e *jsonObjectAgg) AppendFinalResult2Chunk(_ sessionctx.Context, pr Partial
 func (e *jsonObjectAgg) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4JsonObjectAgg)(pr)
 	for _, row := range rowsInGroup {
-		key, keyIsNull, err := e.args[0].EvalString(row)
+		key, keyIsNull, err := e.args[0].EvalString(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, errors.Trace(err)
 		}
@@ -86,7 +87,7 @@ func (e *jsonObjectAgg) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup
 		}
 
 		key = strings.Clone(key)
-		value, err := e.args[1].Eval(row)
+		value, err := e.args[1].Eval(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, errors.Trace(err)
 		}

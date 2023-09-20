@@ -41,6 +41,7 @@ func setWatchOption(ctx context.Context,
 	record *resourcegroup.QuarantineRecord,
 	op *ast.QueryWatchOption,
 ) error {
+	evalCtx := expression.NewEvalContext(sctx)
 	switch op.Tp {
 	case ast.QueryWatchResourceGroup:
 		if op.ExprValue != nil {
@@ -48,7 +49,7 @@ func setWatchOption(ctx context.Context,
 			if err != nil {
 				return err
 			}
-			name, isNull, err := expr.EvalString(chunk.Row{})
+			name, isNull, err := expr.EvalString(evalCtx, chunk.Row{})
 			if err != nil {
 				return err
 			}
@@ -66,7 +67,7 @@ func setWatchOption(ctx context.Context,
 		if err != nil {
 			return err
 		}
-		strval, isNull, err := expr.EvalString(chunk.Row{})
+		strval, isNull, err := expr.EvalString(evalCtx, chunk.Row{})
 		if err != nil {
 			return err
 		}

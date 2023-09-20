@@ -62,7 +62,7 @@ func TestLengthAndOctetLength(t *testing.T) {
 		for _, c := range cases {
 			f, err := newFunctionForTest(ctx, lengthMethod, primitiveValsToConstants(ctx, []interface{}{c.args})...)
 			require.NoError(t, err)
-			d, err := f.Eval(chunk.Row{})
+			d, err := f.Eval(ctx, chunk.Row{})
 			if c.getErr {
 				require.Error(t, err)
 			} else {
@@ -97,7 +97,7 @@ func TestLengthAndOctetLength(t *testing.T) {
 			require.NoError(t, err)
 			f, err := newFunctionForTest(ctx, lengthMethod, primitiveValsToConstants(ctx, []interface{}{c.input})...)
 			require.NoError(t, err)
-			d, err := f.Eval(chunk.Row{})
+			d, err := f.Eval(ctx, chunk.Row{})
 			require.NoError(t, err)
 			require.Equal(t, c.result, d.GetInt64())
 		}
@@ -125,7 +125,7 @@ func TestASCII(t *testing.T) {
 		f, err := newFunctionForTest(ctx, ast.ASCII, primitiveValsToConstants(ctx, []interface{}{c.args})...)
 		require.NoError(t, err)
 
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -158,7 +158,7 @@ func TestASCII(t *testing.T) {
 		require.NoError(t, err)
 		f, err := newFunctionForTest(ctx, ast.ASCII, primitiveValsToConstants(ctx, []interface{}{c.input})...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		require.NoError(t, err)
 		require.Equal(t, c.result, d.GetInt64())
 	}
@@ -206,7 +206,7 @@ func TestConcat(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, fcName, primitiveValsToConstants(ctx, c.args)...)
 		require.NoError(t, err)
-		v, err := f.Eval(chunk.Row{})
+		v, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -253,7 +253,7 @@ func TestConcatSig(t *testing.T) {
 		input.AppendString(0, c.args[0].(string))
 		input.AppendString(1, c.args[1].(string))
 
-		res, isNull, err := concat.evalString(input.GetRow(0))
+		res, isNull, err := concat.evalString(ctx, input.GetRow(0))
 		require.Equal(t, c.res, res)
 		require.NoError(t, err)
 		if c.warnings == 0 {
@@ -323,7 +323,7 @@ func TestConcatWS(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, fcName, primitiveValsToConstants(ctx, c.args)...)
 		require.NoError(t, err)
-		val, err1 := f.Eval(chunk.Row{})
+		val, err1 := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.NotNil(t, err1)
 		} else {
@@ -375,7 +375,7 @@ func TestConcatWSSig(t *testing.T) {
 		input.AppendString(1, c.args[1].(string))
 		input.AppendString(2, c.args[2].(string))
 
-		res, isNull, err := concat.evalString(input.GetRow(0))
+		res, isNull, err := concat.evalString(ctx, input.GetRow(0))
 		require.Equal(t, c.res, res)
 		require.NoError(t, err)
 		if c.warnings == 0 {
@@ -423,7 +423,7 @@ func TestLeft(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.Left, primitiveValsToConstants(ctx, c.args)...)
 		require.NoError(t, err)
-		v, err := f.Eval(chunk.Row{})
+		v, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -473,7 +473,7 @@ func TestRight(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.Right, primitiveValsToConstants(ctx, c.args)...)
 		require.NoError(t, err)
-		v, err := f.Eval(chunk.Row{})
+		v, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -551,7 +551,7 @@ func TestRepeatSig(t *testing.T) {
 		input.AppendString(0, c.args[0].(string))
 		input.AppendInt64(1, c.args[1].(int64))
 
-		res, isNull, err := repeat.evalString(input.GetRow(0))
+		res, isNull, err := repeat.evalString(ctx, input.GetRow(0))
 		require.Equal(t, c.res, res)
 		require.NoError(t, err)
 		if c.warning == 0 {
@@ -587,7 +587,7 @@ func TestLower(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.Lower, primitiveValsToConstants(ctx, c.args)...)
 		require.NoError(t, err)
-		v, err := f.Eval(chunk.Row{})
+		v, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -619,7 +619,7 @@ func TestLower(t *testing.T) {
 		require.NoError(t, err)
 		f, err := newFunctionForTest(ctx, ast.Lower, primitiveValsToConstants(ctx, []interface{}{c.input})...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		require.NoError(t, err)
 		require.Equal(t, c.result, d.GetString())
 	}
@@ -645,7 +645,7 @@ func TestUpper(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.Upper, primitiveValsToConstants(ctx, c.args)...)
 		require.NoError(t, err)
-		v, err := f.Eval(chunk.Row{})
+		v, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -678,7 +678,7 @@ func TestUpper(t *testing.T) {
 		require.NoError(t, err)
 		f, err := newFunctionForTest(ctx, ast.Upper, primitiveValsToConstants(ctx, []interface{}{c.input})...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		require.NoError(t, err)
 		require.Equal(t, c.result, d.GetString())
 	}
@@ -742,7 +742,7 @@ func TestStrcmp(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.Strcmp, primitiveValsToConstants(ctx, c.args)...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -780,7 +780,7 @@ func TestReplace(t *testing.T) {
 		f, err := newFunctionForTest(ctx, ast.Replace, primitiveValsToConstants(ctx, c.args)...)
 		require.NoError(t, err)
 		require.Equalf(t, c.flen, f.GetType().GetFlen(), "test %v", i)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -825,7 +825,7 @@ func TestSubstring(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.Substring, primitiveValsToConstants(ctx, c.args)...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -936,7 +936,7 @@ func TestSubstringIndex(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.SubstringIndex, primitiveValsToConstants(ctx, c.args)...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -982,7 +982,7 @@ func TestSpace(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.Space, primitiveValsToConstants(ctx, []interface{}{c.arg})...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -1015,11 +1015,11 @@ func TestSpaceSig(t *testing.T) {
 	input := chunk.NewChunkWithCapacity(colTypes, 10)
 	input.AppendInt64(0, 6)
 	input.AppendInt64(0, 1001)
-	res, isNull, err := space.evalString(input.GetRow(0))
+	res, isNull, err := space.evalString(ctx, input.GetRow(0))
 	require.Equal(t, "      ", res)
 	require.False(t, isNull)
 	require.NoError(t, err)
-	res, isNull, err = space.evalString(input.GetRow(1))
+	res, isNull, err = space.evalString(ctx, input.GetRow(1))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
@@ -1130,7 +1130,7 @@ func TestTrim(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.Trim, primitiveValsToConstants(ctx, c.args)...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -1178,7 +1178,7 @@ func TestLTrim(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.LTrim, primitiveValsToConstants(ctx, []interface{}{c.arg})...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -1218,7 +1218,7 @@ func TestRTrim(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.RTrim, primitiveValsToConstants(ctx, []interface{}{c.arg})...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -1259,7 +1259,7 @@ func TestHexFunc(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.Hex, primitiveValsToConstants(ctx, []interface{}{c.arg})...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -1288,7 +1288,7 @@ func TestHexFunc(t *testing.T) {
 		require.NoError(t, err)
 		f, err := newFunctionForTest(ctx, ast.Hex, primitiveValsToConstants(ctx, []interface{}{c.arg})...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.errCode != 0 {
 			require.Error(t, err)
 			require.True(t, strings.Contains(err.Error(), strconv.Itoa(c.errCode)))
@@ -1328,7 +1328,7 @@ func TestUnhexFunc(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.Unhex, primitiveValsToConstants(ctx, []interface{}{c.arg})...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -1369,7 +1369,7 @@ func TestBitLength(t *testing.T) {
 		require.NoError(t, err)
 		f, err := newFunctionForTest(ctx, ast.BitLength, primitiveValsToConstants(ctx, []interface{}{c.args})...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -1649,12 +1649,12 @@ func TestRpadSig(t *testing.T) {
 	input.AppendString(2, "123")
 	input.AppendString(2, "123")
 
-	res, isNull, err := rpad.evalString(input.GetRow(0))
+	res, isNull, err := rpad.evalString(ctx, input.GetRow(0))
 	require.Equal(t, "abc123", res)
 	require.False(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = rpad.evalString(input.GetRow(1))
+	res, isNull, err = rpad.evalString(ctx, input.GetRow(1))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
@@ -1717,37 +1717,37 @@ func TestInsertBinarySig(t *testing.T) {
 	input.AppendString(3, "d")
 	input.AppendNull(3)
 
-	res, isNull, err := insert.evalString(input.GetRow(0))
+	res, isNull, err := insert.evalString(ctx, input.GetRow(0))
 	require.Equal(t, "abd", res)
 	require.False(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = insert.evalString(input.GetRow(1))
+	res, isNull, err = insert.evalString(ctx, input.GetRow(1))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = insert.evalString(input.GetRow(2))
+	res, isNull, err = insert.evalString(ctx, input.GetRow(2))
 	require.Equal(t, "abc", res)
 	require.False(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = insert.evalString(input.GetRow(3))
+	res, isNull, err = insert.evalString(ctx, input.GetRow(3))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = insert.evalString(input.GetRow(4))
+	res, isNull, err = insert.evalString(ctx, input.GetRow(4))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = insert.evalString(input.GetRow(5))
+	res, isNull, err = insert.evalString(ctx, input.GetRow(5))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = insert.evalString(input.GetRow(6))
+	res, isNull, err = insert.evalString(ctx, input.GetRow(6))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
@@ -1819,7 +1819,7 @@ func TestLoadFile(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.LoadFile, primitiveValsToConstants(ctx, []interface{}{c.arg})...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -2125,7 +2125,7 @@ func TestFromBase64Sig(t *testing.T) {
 
 		input := chunk.NewChunkWithCapacity(colTypes, 1)
 		input.AppendString(0, test.args)
-		res, isNull, err := fromBase64.evalString(input.GetRow(0))
+		res, isNull, err := fromBase64.evalString(ctx, input.GetRow(0))
 		require.NoError(t, err)
 		require.Equal(t, test.isNil, isNull)
 		if isNull {
@@ -2217,7 +2217,7 @@ func TestOrd(t *testing.T) {
 		f, err := newFunctionForTest(ctx, ast.Ord, primitiveValsToConstants(ctx, []interface{}{c.args})...)
 		require.NoError(t, err)
 
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.getErr {
 			require.Error(t, err)
 		} else {
@@ -2399,7 +2399,7 @@ func TestToBase64(t *testing.T) {
 	for _, test := range tests {
 		f, err := newFunctionForTest(ctx, ast.ToBase64, primitiveValsToConstants(ctx, []interface{}{test.args})...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if test.getErr {
 			require.Error(t, err)
 		} else {
@@ -2432,7 +2432,7 @@ func TestToBase64(t *testing.T) {
 		require.NoError(t, err)
 		f, err := newFunctionForTest(ctx, ast.ToBase64, primitiveValsToConstants(ctx, []interface{}{c.input})...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		require.NoError(t, err)
 		require.Equal(t, c.result, d.GetString())
 	}
@@ -2491,7 +2491,7 @@ func TestToBase64Sig(t *testing.T) {
 
 		input := chunk.NewChunkWithCapacity(colTypes, 1)
 		input.AppendString(0, test.args)
-		res, isNull, err := toBase64.evalString(input.GetRow(0))
+		res, isNull, err := toBase64.evalString(ctx, input.GetRow(0))
 		require.NoError(t, err)
 		if test.isNil {
 			require.True(t, isNull)
@@ -2650,7 +2650,7 @@ func TestTranslate(t *testing.T) {
 	for _, c := range cases {
 		f, err := newFunctionForTest(ctx, ast.Translate, primitiveValsToConstants(ctx, c.args)...)
 		require.NoError(t, err)
-		d, err := f.Eval(chunk.Row{})
+		d, err := f.Eval(ctx, chunk.Row{})
 		if c.isErr {
 			require.Error(t, err)
 		} else {

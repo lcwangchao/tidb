@@ -103,9 +103,9 @@ func BuildWindowFunctions(ctx sessionctx.Context, windowFuncDesc *aggregation.Ag
 		return buildLag(ctx, windowFuncDesc, ordinal)
 	case ast.AggFuncMax:
 		// The max/min aggFunc using in the window function will using the sliding window algo.
-		return buildMaxMinInWindowFunction(windowFuncDesc, ordinal, true)
+		return buildMaxMinInWindowFunction(ctx, windowFuncDesc, ordinal, true)
 	case ast.AggFuncMin:
-		return buildMaxMinInWindowFunction(windowFuncDesc, ordinal, false)
+		return buildMaxMinInWindowFunction(ctx, windowFuncDesc, ordinal, false)
 	default:
 		return Build(ctx, windowFuncDesc, ordinal)
 	}
@@ -150,7 +150,7 @@ func buildApproxPercentile(sctx sessionctx.Context, aggFuncDesc *aggregation.Agg
 	}
 
 	// Checked while building descriptor
-	percent, _, err := aggFuncDesc.Args[1].EvalInt(chunk.Row{})
+	percent, _, err := aggFuncDesc.Args[1].EvalInt(expression.NewEvalContext(sctx), chunk.Row{})
 	if err != nil {
 		// Should not reach here
 		logutil.BgLogger().Error("Error happened when buildApproxPercentile", zap.Error(err))
@@ -425,7 +425,7 @@ func buildMaxMin(aggFuncDesc *aggregation.AggFuncDesc, ordinal int, isMax bool) 
 }
 
 // buildMaxMin builds the AggFunc implementation for function "MAX" and "MIN" using by window function.
-func buildMaxMinInWindowFunction(aggFuncDesc *aggregation.AggFuncDesc, ordinal int, isMax bool) AggFunc {
+func buildMaxMinInWindowFunction(sctx sessionctx.Context, aggFuncDesc *aggregation.AggFuncDesc, ordinal int, isMax bool) AggFunc {
 	base := buildMaxMin(aggFuncDesc, ordinal, isMax)
 	// build max/min aggFunc for window function using sliding window
 	switch baseAggFunc := base.(type) {
@@ -457,7 +457,7 @@ func buildGroupConcat(ctx sessionctx.Context, aggFuncDesc *aggregation.AggFuncDe
 	default:
 		// The last arg is promised to be a not-null string constant, so the error can be ignored.
 		c, _ := aggFuncDesc.Args[len(aggFuncDesc.Args)-1].(*expression.Constant)
-		sep, _, err := c.EvalString(chunk.Row{})
+		sep, _, err := c.EvalString(expression.NewEvalContext(ctx), chunk.Row{})
 		// This err should never happen.
 		if err != nil {
 			panic(fmt.Sprintf("Error happened when buildGroupConcat: %s", err.Error()))

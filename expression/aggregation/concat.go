@@ -45,9 +45,9 @@ func (*concatFunction) writeValue(evalCtx *AggEvaluateContext, val types.Datum) 
 	}
 }
 
-func (cf *concatFunction) initSeparator(_ *stmtctx.StatementContext, row chunk.Row) error {
+func (cf *concatFunction) initSeparator(evalCtx *AggEvaluateContext, row chunk.Row) error {
 	sepArg := cf.Args[len(cf.Args)-1]
-	sepDatum, err := sepArg.Eval(row)
+	sepDatum, err := sepArg.Eval(evalCtx.EvalCtx, row)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (cf *concatFunction) initSeparator(_ *stmtctx.StatementContext, row chunk.R
 func (cf *concatFunction) Update(evalCtx *AggEvaluateContext, sc *stmtctx.StatementContext, row chunk.Row) error {
 	datumBuf := make([]types.Datum, 0, len(cf.Args))
 	if !cf.sepInited {
-		err := cf.initSeparator(sc, row)
+		err := cf.initSeparator(evalCtx, row)
 		if err != nil {
 			return err
 		}
@@ -71,7 +71,7 @@ func (cf *concatFunction) Update(evalCtx *AggEvaluateContext, sc *stmtctx.Statem
 
 	// The last parameter is the concat separator, we only concat the first "len(cf.Args)-1" parameters.
 	for i, length := 0, len(cf.Args)-1; i < length; i++ {
-		value, err := cf.Args[i].Eval(row)
+		value, err := cf.Args[i].Eval(evalCtx.EvalCtx, row)
 		if err != nil {
 			return err
 		}

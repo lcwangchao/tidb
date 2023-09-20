@@ -108,6 +108,7 @@ func getPotentialEqOrInColOffset(sctx sessionctx.Context, expr expression.Expres
 		return -1
 	}
 	_, collation := expr.CharsetAndCollation()
+	evalCtx := expression.NewEvalContext(sctx)
 	switch f.FuncName.L {
 	case ast.LogicOr:
 		dnfItems := expression.FlattenDNFConditions(f)
@@ -132,7 +133,7 @@ func getPotentialEqOrInColOffset(sctx sessionctx.Context, expr expression.Expres
 				return -1
 			}
 			if constVal, ok := f.GetArgs()[1].(*expression.Constant); ok {
-				val, err := constVal.Eval(chunk.Row{})
+				val, err := constVal.Eval(evalCtx, chunk.Row{})
 				if err != nil || (!sctx.GetSessionVars().RegardNULLAsPoint && val.IsNull()) {
 					// treat col<=>null as range scan instead of point get to avoid incorrect results
 					// when nullable unique index has multiple matches for filter x is null
@@ -154,7 +155,7 @@ func getPotentialEqOrInColOffset(sctx sessionctx.Context, expr expression.Expres
 				return -1
 			}
 			if constVal, ok := f.GetArgs()[0].(*expression.Constant); ok {
-				val, err := constVal.Eval(chunk.Row{})
+				val, err := constVal.Eval(evalCtx, chunk.Row{})
 				if err != nil || (!sctx.GetSessionVars().RegardNULLAsPoint && val.IsNull()) {
 					return -1
 				}
@@ -1090,6 +1091,8 @@ func AddGcColumn4InCond(sctx sessionctx.Context,
 
 	expr := cols[0].VirtualExpr.Clone()
 	andType := types.NewFieldType(mysql.TypeTiny)
+	exprCtx := expression.NewExprContext(sctx)
+	evalCtx := expression.NewEvalContext(sctx)
 
 	sf := accessesCond[1].(*expression.ScalarFunction)
 	c := sf.GetArgs()[0].(*expression.Column)
@@ -1097,31 +1100,31 @@ func AddGcColumn4InCond(sctx sessionctx.Context,
 	for i, arg := range sf.GetArgs()[1:] {
 		// get every const value and calculate tidb_shard(val)
 		con := arg.(*expression.Constant)
-		conVal, err := con.Eval(chunk.Row{})
+		conVal, err := con.Eval(evalCtx, chunk.Row{})
 		if err != nil {
 			return accessesCond, err
 		}
 
 		record[0] = conVal
 		mutRow := chunk.MutRowFromDatums(record)
-		exprVal, err := expr.Eval(mutRow.ToRow())
+		exprVal, err := expr.Eval(evalCtx, mutRow.ToRow())
 		if err != nil {
 			return accessesCond, err
 		}
 
 		// tmpArg1 is like `tidb_shard(a) = 8`, tmpArg2 is like `a = 100`
 		exprCon := &expression.Constant{Value: exprVal, RetType: cols[0].RetType}
-		tmpArg1, err := expression.NewFunction(expression.NewExprContext(sctx), ast.EQ, cols[0].RetType, cols[0], exprCon)
+		tmpArg1, err := expression.NewFunction(exprCtx, ast.EQ, cols[0].RetType, cols[0], exprCon)
 		if err != nil {
 			return accessesCond, err
 		}
-		tmpArg2, err := expression.NewFunction(expression.NewExprContext(sctx), ast.EQ, c.RetType, c.Clone(), arg)
+		tmpArg2, err := expression.NewFunction(exprCtx, ast.EQ, c.RetType, c.Clone(), arg)
 		if err != nil {
 			return accessesCond, err
 		}
 
 		// make a LogicAnd, e.g. `tidb_shard(a) = 8 AND a = 100`
-		andExpr, err := expression.NewFunction(expression.NewExprContext(sctx), ast.LogicAnd, andType, tmpArg1, tmpArg2)
+		andExpr, err := expression.NewFunction(exprCtx, ast.LogicAnd, andType, tmpArg1, tmpArg2)
 		if err != nil {
 			return accessesCond, err
 		}
@@ -1131,7 +1134,7 @@ func AddGcColumn4InCond(sctx sessionctx.Context,
 		} else {
 			// if the LogicAnd more than one, make a LogicOr,
 			// e.g. `(tidb_shard(a) = 8 AND a = 100) OR (tidb_shard(a) = 161 AND a = 200)`
-			andOrExpr, errRes = expression.NewFunction(expression.NewExprContext(sctx), ast.LogicOr, andType, andOrExpr, andExpr)
+			andOrExpr, errRes = expression.NewFunction(exprCtx, ast.LogicOr, andType, andOrExpr, andExpr)
 			if errRes != nil {
 				return accessesCond, errRes
 			}
@@ -1165,7 +1168,7 @@ func AddGcColumn4EqCond(sctx sessionctx.Context,
 	}
 
 	mutRow := chunk.MutRowFromDatums(record)
-	evaluated, err := expr.Eval(mutRow.ToRow())
+	evaluated, err := expr.Eval(expression.NewEvalContext(sctx), mutRow.ToRow())
 	if err != nil {
 		return accessesCond, err
 	}

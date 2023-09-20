@@ -434,6 +434,7 @@ func (h coprHandler) buildTopN(ctx *dagContext, executor *tipb.Executor) (*topNE
 }
 
 type evalContext struct {
+	evalCtx     *expression.EvalContext
 	colIDs      map[int64]int
 	columnInfos []*tipb.ColumnInfo
 	fieldTps    []*types.FieldType

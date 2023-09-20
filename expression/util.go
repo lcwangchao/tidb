@@ -600,7 +600,7 @@ func SubstituteCorCol2Constant(expr Expression) (Expression, error) {
 			allConstant = allConstant && ok
 		}
 		if allConstant {
-			val, err := x.Eval(chunk.Row{})
+			val, err := x.Eval(NewDefaultEvalContext(), chunk.Row{})
 			if err != nil {
 				return nil, err
 			}
@@ -1016,14 +1016,13 @@ func ExtractFiltersFromDNFs(ctx *ExprContext, conditions []Expression) []Express
 // extractFiltersFromDNF extracts the same condition that occurs in every DNF item and remove them from dnf leaves.
 func extractFiltersFromDNF(ctx *ExprContext, dnfFunc *ScalarFunction) ([]Expression, Expression) {
 	dnfItems := FlattenDNFConditions(dnfFunc)
-	sc := ctx.StmtCtx
 	codeMap := make(map[string]int)
 	hashcode2Expr := make(map[string]Expression)
 	for i, dnfItem := range dnfItems {
 		innerMap := make(map[string]struct{})
 		cnfItems := SplitCNFItems(dnfItem)
 		for _, cnfItem := range cnfItems {
-			code := cnfItem.HashCode(sc)
+			code := cnfItem.HashCode(ctx.ConstItemCtx())
 			if i == 0 {
 				codeMap[string(code)] = 1
 				hashcode2Expr[string(code)] = cnfItem
@@ -1053,7 +1052,7 @@ func extractFiltersFromDNF(ctx *ExprContext, dnfFunc *ScalarFunction) ([]Express
 		cnfItems := SplitCNFItems(dnfItem)
 		newCNFItems := make([]Expression, 0, len(cnfItems))
 		for _, cnfItem := range cnfItems {
-			code := cnfItem.HashCode(sc)
+			code := cnfItem.HashCode(ctx.HashCodeCtx())
 			_, ok := hashcode2Expr[string(code)]
 			if !ok {
 				newCNFItems = append(newCNFItems, cnfItem)
@@ -1166,8 +1165,8 @@ func DatumToConstant(d types.Datum, tp byte, flag uint) *Constant {
 
 // ParamMarkerExpression generate a getparam function expression.
 func ParamMarkerExpression(ctx *ExprContext, v *driver.ParamMarkerExpr, needParam bool) (*Constant, error) {
-	useCache := ctx.StmtCtx.UseCache
-	isPointExec := ctx.StmtCtx.PointExec
+	useCache := ctx.UseCache()
+	isPointExec := ctx.PointExec()
 	tp := types.NewFieldType(mysql.TypeUnspecified)
 	types.InferParamTypeFromDatum(&v.Datum, tp)
 	value := &Constant{Value: v.Datum, RetType: tp}
@@ -1244,7 +1243,7 @@ func GetStringFromConstant(value Expression) (string, bool, error) {
 		err := errors.Errorf("Not a Constant expression %+v", value)
 		return "", true, err
 	}
-	str, isNull, err := con.EvalString(chunk.Row{})
+	str, isNull, err := con.EvalString(NewDefaultEvalContext(), chunk.Row{})
 	if err != nil || isNull {
 		return "", true, err
 	}
@@ -1382,9 +1381,8 @@ func IsInmutableExpr(expr Expression) bool {
 func RemoveDupExprs(ctx *ExprContext, exprs []Expression) []Expression {
 	res := make([]Expression, 0, len(exprs))
 	exists := make(map[string]struct{}, len(exprs))
-	sc := ctx.StmtCtx
 	for _, expr := range exprs {
-		key := string(expr.HashCode(sc))
+		key := string(expr.HashCode(ctx.HashCodeCtx()))
 		if _, ok := exists[key]; !ok || IsMutableEffectsExpr(expr) {
 			res = append(res, expr)
 			exists[key] = struct{}{}
@@ -1405,7 +1403,7 @@ func GetUint64FromConstant(expr Expression) (uint64, bool, bool) {
 		dt = con.ParamMarker.GetUserVar()
 	} else if con.DeferredExpr != nil {
 		var err error
-		dt, err = con.DeferredExpr.Eval(chunk.Row{})
+		dt, err = con.DeferredExpr.Eval(NewDefaultEvalContext(), chunk.Row{})
 		if err != nil {
 			logutil.BgLogger().Warn("eval deferred expr failed", zap.Error(err))
 			return 0, false, false
@@ -1472,7 +1470,7 @@ func ContainCorrelatedColumn(exprs []Expression) bool {
 // TODO: Do more careful check here.
 func MaybeOverOptimized4PlanCache(ctx *ExprContext, exprs []Expression) bool {
 	// If we do not enable plan cache, all the optimization can work correctly.
-	if !ctx.StmtCtx.UseCache {
+	if !ctx.UseCache() {
 		return false
 	}
 	return containMutableConst(ctx, exprs)

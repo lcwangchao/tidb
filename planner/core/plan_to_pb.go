@@ -267,7 +267,7 @@ func (p *PhysicalTableScan) ToPB(ctx sessionctx.Context, storeType kv.StoreType)
 	}
 
 	var err error
-	tsExec.RuntimeFilterList, err = RuntimeFilterListToPB(p.runtimeFilterList, ctx.GetSessionVars().StmtCtx, ctx.GetClient())
+	tsExec.RuntimeFilterList, err = RuntimeFilterListToPB(p.runtimeFilterList, ctx, ctx.GetClient())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -308,7 +308,7 @@ func (p *PhysicalTableScan) partitionTableScanToPBForFlash(ctx sessionctx.Contex
 
 	// set runtime filter
 	var err error
-	ptsExec.RuntimeFilterList, err = RuntimeFilterListToPB(p.runtimeFilterList, ctx.GetSessionVars().StmtCtx, ctx.GetClient())
+	ptsExec.RuntimeFilterList, err = RuntimeFilterListToPB(p.runtimeFilterList, ctx, ctx.GetClient())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -622,7 +622,7 @@ func (p *PhysicalHashJoin) ToPB(ctx sessionctx.Context, storeType kv.StoreType) 
 	}
 
 	// runtime filter
-	rfListPB, err := RuntimeFilterListToPB(p.runtimeFilterList, sc, client)
+	rfListPB, err := RuntimeFilterListToPB(p.runtimeFilterList, ctx, client)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

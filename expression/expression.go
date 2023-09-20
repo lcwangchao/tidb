@@ -67,25 +67,25 @@ type VecExpr interface {
 	Vectorized() bool
 
 	// VecEvalInt evaluates this expression in a vectorized manner.
-	VecEvalInt(input *chunk.Chunk, result *chunk.Column) error
+	VecEvalInt(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 
 	// VecEvalReal evaluates this expression in a vectorized manner.
-	VecEvalReal(input *chunk.Chunk, result *chunk.Column) error
+	VecEvalReal(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 
 	// VecEvalString evaluates this expression in a vectorized manner.
-	VecEvalString(input *chunk.Chunk, result *chunk.Column) error
+	VecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 
 	// VecEvalDecimal evaluates this expression in a vectorized manner.
-	VecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error
+	VecEvalDecimal(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 
 	// VecEvalTime evaluates this expression in a vectorized manner.
-	VecEvalTime(input *chunk.Chunk, result *chunk.Column) error
+	VecEvalTime(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 
 	// VecEvalDuration evaluates this expression in a vectorized manner.
-	VecEvalDuration(input *chunk.Chunk, result *chunk.Column) error
+	VecEvalDuration(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 
 	// VecEvalJSON evaluates this expression in a vectorized manner.
-	VecEvalJSON(input *chunk.Chunk, result *chunk.Column) error
+	VecEvalJSON(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error
 }
 
 // ReverseExpr contains all resersed evaluation methods.
@@ -113,28 +113,28 @@ type Expression interface {
 	Traverse(TraverseAction) Expression
 
 	// Eval evaluates an expression through a row.
-	Eval(row chunk.Row) (types.Datum, error)
+	Eval(ctx *EvalContext, row chunk.Row) (types.Datum, error)
 
 	// EvalInt returns the int64 representation of expression.
-	EvalInt(row chunk.Row) (val int64, isNull bool, err error)
+	EvalInt(ctx *EvalContext, row chunk.Row) (val int64, isNull bool, err error)
 
 	// EvalReal returns the float64 representation of expression.
-	EvalReal(row chunk.Row) (val float64, isNull bool, err error)
+	EvalReal(ctx *EvalContext, row chunk.Row) (val float64, isNull bool, err error)
 
 	// EvalString returns the string representation of expression.
-	EvalString(row chunk.Row) (val string, isNull bool, err error)
+	EvalString(ctx *EvalContext, row chunk.Row) (val string, isNull bool, err error)
 
 	// EvalDecimal returns the decimal representation of expression.
-	EvalDecimal(row chunk.Row) (val *types.MyDecimal, isNull bool, err error)
+	EvalDecimal(ctx *EvalContext, row chunk.Row) (val *types.MyDecimal, isNull bool, err error)
 
 	// EvalTime returns the DATE/DATETIME/TIMESTAMP representation of expression.
-	EvalTime(row chunk.Row) (val types.Time, isNull bool, err error)
+	EvalTime(ctx *EvalContext, row chunk.Row) (val types.Time, isNull bool, err error)
 
 	// EvalDuration returns the duration representation of expression.
-	EvalDuration(row chunk.Row) (val types.Duration, isNull bool, err error)
+	EvalDuration(ctx *EvalContext, row chunk.Row) (val types.Duration, isNull bool, err error)
 
 	// EvalJSON returns the JSON representation of expression.
-	EvalJSON(row chunk.Row) (val types.BinaryJSON, isNull bool, err error)
+	EvalJSON(ctx *EvalContext, row chunk.Row) (val types.BinaryJSON, isNull bool, err error)
 
 	// GetType gets the type that the expression returns.
 	GetType() *types.FieldType
@@ -253,10 +253,10 @@ func HandleOverflowOnSelection(sc *stmtctx.StatementContext, val int64, err erro
 // indicates bool result of the expression list, the second returned value indicates
 // whether the result of the expression list is null, it can only be true when the
 // first returned values is false.
-func EvalBool(ctx *ExprContext, exprList CNFExprs, row chunk.Row) (bool, bool, error) {
+func EvalBool(ctx *EvalContext, exprList CNFExprs, row chunk.Row) (bool, bool, error) {
 	hasNull := false
 	for _, expr := range exprList {
-		data, err := expr.Eval(row)
+		data, err := expr.Eval(ctx, row)
 		if err != nil {
 			return false, false, err
 		}
@@ -327,7 +327,7 @@ func deallocateZeroSlice(isZero []int8) {
 }
 
 // VecEvalBool does the same thing as EvalBool but it works in a vectorized manner.
-func VecEvalBool(ctx *ExprContext, exprList CNFExprs, input *chunk.Chunk, selected, nulls []bool) ([]bool, []bool, error) {
+func VecEvalBool(ctx *EvalContext, exprList CNFExprs, input *chunk.Chunk, selected, nulls []bool) ([]bool, []bool, error) {
 	// If input.Sel() != nil, we will call input.SetSel(nil) to clear the sel slice in input chunk.
 	// After the function finished, then we reset the input.Sel().
 	// The caller will handle the input.Sel() and selected slices.
@@ -541,16 +541,16 @@ func toBool(sc *stmtctx.StatementContext, tp *types.FieldType, eType types.EvalT
 	return nil
 }
 
-func implicitEvalReal(ctx *ExprContext, expr Expression, input *chunk.Chunk, result *chunk.Column) (err error) {
+func implicitEvalReal(ctx *EvalContext, expr Expression, input *chunk.Chunk, result *chunk.Column) (err error) {
 	if expr.Vectorized() && ctx.EnableVectorizedExpression {
-		err = expr.VecEvalReal(input, result)
+		err = expr.VecEvalReal(ctx, input, result)
 	} else {
 		ind, n := 0, input.NumRows()
 		iter := chunk.NewIterator4Chunk(input)
 		result.ResizeFloat64(n, false)
 		f64s := result.Float64s()
 		for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-			value, isNull, err := expr.EvalReal(it)
+			value, isNull, err := expr.EvalReal(ctx, it)
 			if err != nil {
 				return err
 			}
@@ -570,23 +570,23 @@ func implicitEvalReal(ctx *ExprContext, expr Expression, input *chunk.Chunk, res
 // the environment variables and whether the expression can be vectorized.
 // Note: the input argument `evalType` is needed because of that when `expr` is
 // of the hybrid type(ENUM/SET/BIT), we need the invoker decide the actual EvalType.
-func EvalExpr(ctx *ExprContext, expr Expression, evalType types.EvalType, input *chunk.Chunk, result *chunk.Column) (err error) {
+func EvalExpr(ctx *EvalContext, expr Expression, evalType types.EvalType, input *chunk.Chunk, result *chunk.Column) (err error) {
 	if expr.Vectorized() && ctx.EnableVectorizedExpression {
 		switch evalType {
 		case types.ETInt:
-			err = expr.VecEvalInt(input, result)
+			err = expr.VecEvalInt(ctx, input, result)
 		case types.ETReal:
-			err = expr.VecEvalReal(input, result)
+			err = expr.VecEvalReal(ctx, input, result)
 		case types.ETDuration:
-			err = expr.VecEvalDuration(input, result)
+			err = expr.VecEvalDuration(ctx, input, result)
 		case types.ETDatetime, types.ETTimestamp:
-			err = expr.VecEvalTime(input, result)
+			err = expr.VecEvalTime(ctx, input, result)
 		case types.ETString:
-			err = expr.VecEvalString(input, result)
+			err = expr.VecEvalString(ctx, input, result)
 		case types.ETJson:
-			err = expr.VecEvalJSON(input, result)
+			err = expr.VecEvalJSON(ctx, input, result)
 		case types.ETDecimal:
-			err = expr.VecEvalDecimal(input, result)
+			err = expr.VecEvalDecimal(ctx, input, result)
 		default:
 			err = fmt.Errorf("invalid eval type %v", expr.GetType().EvalType())
 		}
@@ -598,7 +598,7 @@ func EvalExpr(ctx *ExprContext, expr Expression, evalType types.EvalType, input 
 			result.ResizeInt64(n, false)
 			i64s := result.Int64s()
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalInt(it)
+				value, isNull, err := expr.EvalInt(ctx, it)
 				if err != nil {
 					return err
 				}
@@ -613,7 +613,7 @@ func EvalExpr(ctx *ExprContext, expr Expression, evalType types.EvalType, input 
 			result.ResizeFloat64(n, false)
 			f64s := result.Float64s()
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalReal(it)
+				value, isNull, err := expr.EvalReal(ctx, it)
 				if err != nil {
 					return err
 				}
@@ -628,7 +628,7 @@ func EvalExpr(ctx *ExprContext, expr Expression, evalType types.EvalType, input 
 			result.ResizeGoDuration(n, false)
 			d64s := result.GoDurations()
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalDuration(it)
+				value, isNull, err := expr.EvalDuration(ctx, it)
 				if err != nil {
 					return err
 				}
@@ -643,7 +643,7 @@ func EvalExpr(ctx *ExprContext, expr Expression, evalType types.EvalType, input 
 			result.ResizeTime(n, false)
 			t64s := result.Times()
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalTime(it)
+				value, isNull, err := expr.EvalTime(ctx, it)
 				if err != nil {
 					return err
 				}
@@ -657,7 +657,7 @@ func EvalExpr(ctx *ExprContext, expr Expression, evalType types.EvalType, input 
 		case types.ETString:
 			result.ReserveString(n)
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalString(it)
+				value, isNull, err := expr.EvalString(ctx, it)
 				if err != nil {
 					return err
 				}
@@ -670,7 +670,7 @@ func EvalExpr(ctx *ExprContext, expr Expression, evalType types.EvalType, input 
 		case types.ETJson:
 			result.ReserveJSON(n)
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalJSON(it)
+				value, isNull, err := expr.EvalJSON(ctx, it)
 				if err != nil {
 					return err
 				}
@@ -684,7 +684,7 @@ func EvalExpr(ctx *ExprContext, expr Expression, evalType types.EvalType, input 
 			result.ResizeDecimal(n, false)
 			d64s := result.Decimals()
 			for it := iter.Begin(); it != iter.End(); it = iter.Next() {
-				value, isNull, err := expr.EvalDecimal(it)
+				value, isNull, err := expr.EvalDecimal(ctx, it)
 				if err != nil {
 					return err
 				}
@@ -819,9 +819,9 @@ func SplitDNFItems(onExpr Expression) []Expression {
 // If the Expression is a non-constant value, it means the result is unknown.
 func EvaluateExprWithNull(ctx *ExprContext, schema *Schema, expr Expression) Expression {
 	if MaybeOverOptimized4PlanCache(ctx, []Expression{expr}) {
-		ctx.StmtCtx.SetSkipPlanCache(errors.New("%v affects null check"))
+		ctx.SetSkipPlanCache(errors.New("%v affects null check"))
 	}
-	if ctx.StmtCtx.InNullRejectCheck {
+	if ctx.StmtCtx().InNullRejectCheck {
 		expr, _ = evaluateExprWithNullInNullRejectCheck(ctx, schema, expr)
 		return expr
 	}
@@ -986,11 +986,11 @@ func ColumnInfos2ColumnsAndNames(ctx *ExprContext, dbName, tblName model.CIStr, 
 	// Resolve virtual generated column.
 	mockSchema := NewSchema(columns...)
 	// Ignore redundant warning here.
-	save := ctx.StmtCtx.IgnoreTruncate.Load()
+	save := ctx.StmtCtx().IgnoreTruncate.Load()
 	defer func() {
-		ctx.StmtCtx.IgnoreTruncate.Store(save)
+		ctx.StmtCtx().IgnoreTruncate.Store(save)
 	}()
-	ctx.StmtCtx.IgnoreTruncate.Store(true)
+	ctx.StmtCtx().IgnoreTruncate.Store(true)
 	for i, col := range colInfos {
 		if col.IsGenerated() && !col.GeneratedStored {
 			expr, err := generatedexpr.ParseExpression(col.GeneratedExprString)

@@ -678,7 +678,7 @@ func (p *LogicalMemTable) findBestTask(prop *property.PhysicalProperty, planCoun
 func (ds *DataSource) tryToGetDualTask() (task, error) {
 	for _, cond := range ds.pushedDownConds {
 		if con, ok := cond.(*expression.Constant); ok && con.DeferredExpr == nil && con.ParamMarker == nil {
-			result, _, err := expression.EvalBool(expression.NewExprContext(ds.SCtx()), []expression.Expression{cond}, chunk.Row{})
+			result, _, err := expression.EvalBool(expression.NewDefaultEvalContext(), []expression.Expression{cond}, chunk.Row{})
 			if err != nil {
 				return nil, err
 			}

@@ -80,7 +80,7 @@ func (e *countOriginalWithDistinct4Int) UpdatePartialResult(sctx sessionctx.Cont
 	p := (*partialResult4CountDistinctInt)(pr)
 
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalInt(row)
+		input, isNull, err := e.args[0].EvalInt(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -126,7 +126,7 @@ func (e *countOriginalWithDistinct4Real) UpdatePartialResult(sctx sessionctx.Con
 	p := (*partialResult4CountDistinctReal)(pr)
 
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalReal(row)
+		input, isNull, err := e.args[0].EvalReal(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -172,7 +172,7 @@ func (e *countOriginalWithDistinct4Decimal) UpdatePartialResult(sctx sessionctx.
 	p := (*partialResult4CountDistinctDecimal)(pr)
 
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalDecimal(row)
+		input, isNull, err := e.args[0].EvalDecimal(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -224,7 +224,7 @@ func (e *countOriginalWithDistinct4Duration) UpdatePartialResult(sctx sessionctx
 	p := (*partialResult4CountDistinctDuration)(pr)
 
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalDuration(row)
+		input, isNull, err := e.args[0].EvalDuration(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -272,7 +272,7 @@ func (e *countOriginalWithDistinct4String) UpdatePartialResult(sctx sessionctx.C
 	collator := collate.GetCollator(e.args[0].GetType().GetCollate())
 
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalString(row)
+		input, isNull, err := e.args[0].EvalString(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return memDelta, err
 		}
@@ -363,49 +363,49 @@ func evalAndEncode(
 	switch tp := arg.GetType().EvalType(); tp {
 	case types.ETInt:
 		var val int64
-		val, isNull, err = arg.EvalInt(row)
+		val, isNull, err = arg.EvalInt(expression.NewEvalContext(sctx), row)
 		if err != nil || isNull {
 			break
 		}
 		encodedBytes = appendInt64(encodedBytes, buf, val)
 	case types.ETReal:
 		var val float64
-		val, isNull, err = arg.EvalReal(row)
+		val, isNull, err = arg.EvalReal(expression.NewEvalContext(sctx), row)
 		if err != nil || isNull {
 			break
 		}
 		encodedBytes = appendFloat64(encodedBytes, buf, val)
 	case types.ETDecimal:
 		var val *types.MyDecimal
-		val, isNull, err = arg.EvalDecimal(row)
+		val, isNull, err = arg.EvalDecimal(expression.NewEvalContext(sctx), row)
 		if err != nil || isNull {
 			break
 		}
 		encodedBytes, err = appendDecimal(encodedBytes, val)
 	case types.ETTimestamp, types.ETDatetime:
 		var val types.Time
-		val, isNull, err = arg.EvalTime(row)
+		val, isNull, err = arg.EvalTime(expression.NewEvalContext(sctx), row)
 		if err != nil || isNull {
 			break
 		}
 		encodedBytes = appendTime(encodedBytes, buf, val)
 	case types.ETDuration:
 		var val types.Duration
-		val, isNull, err = arg.EvalDuration(row)
+		val, isNull, err = arg.EvalDuration(expression.NewEvalContext(sctx), row)
 		if err != nil || isNull {
 			break
 		}
 		encodedBytes = appendDuration(encodedBytes, buf, val)
 	case types.ETJson:
 		var val types.BinaryJSON
-		val, isNull, err = arg.EvalJSON(row)
+		val, isNull, err = arg.EvalJSON(expression.NewEvalContext(sctx), row)
 		if err != nil || isNull {
 			break
 		}
 		encodedBytes = val.HashValue(encodedBytes)
 	case types.ETString:
 		var val string
-		val, isNull, err = arg.EvalString(row)
+		val, isNull, err = arg.EvalString(expression.NewEvalContext(sctx), row)
 		if err != nil || isNull {
 			break
 		}
@@ -828,7 +828,7 @@ type approxCountDistinctPartial2 struct {
 func (e *approxCountDistinctPartial2) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4ApproxCountDistinct)(pr)
 	for _, row := range rowsInGroup {
-		input, isNull, err := e.args[0].EvalString(row)
+		input, isNull, err := e.args[0].EvalString(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return memDelta, err
 		}

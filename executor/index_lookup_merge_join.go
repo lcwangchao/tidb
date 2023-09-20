@@ -426,7 +426,7 @@ func (imw *innerMergeWorker) handleTask(ctx context.Context, task *lookUpMergeJo
 		for i := 0; i < numOuterChks; i++ {
 			chk := task.outerResult.GetChunk(i)
 			task.outerMatch[i] = make([]bool, chk.NumRows())
-			task.outerMatch[i], err = expression.VectorizedFilter(expression.NewExprContext(imw.ctx), imw.outerMergeCtx.filter, chunk.NewIterator4Chunk(chk), task.outerMatch[i])
+			task.outerMatch[i], err = expression.VectorizedFilter(expression.NewEvalContext(imw.ctx), imw.outerMergeCtx.filter, chunk.NewIterator4Chunk(chk), task.outerMatch[i])
 			if err != nil {
 				return err
 			}
@@ -456,7 +456,7 @@ func (imw *innerMergeWorker) handleTask(ctx context.Context, task *lookUpMergeJo
 			var err error
 			for _, keyOff := range imw.keyOff2KeyOffOrderByIdx {
 				joinKey := imw.outerMergeCtx.joinKeys[keyOff]
-				c, _, err = imw.outerMergeCtx.compareFuncs[keyOff](joinKey, joinKey, rowI, rowJ)
+				c, _, err = imw.outerMergeCtx.compareFuncs[keyOff](expression.NewEvalContext(imw.ctx), joinKey, joinKey, rowI, rowJ)
 				terror.Log(err)
 				if c != 0 {
 					break
@@ -630,7 +630,7 @@ func (imw *innerMergeWorker) fetchInnerRowsWithSameKey(ctx context.Context, task
 
 func (imw *innerMergeWorker) compare(outerRow, innerRow chunk.Row) (int, error) {
 	for _, keyOff := range imw.innerMergeCtx.keyOff2KeyOffOrderByIdx {
-		cmp, _, err := imw.innerMergeCtx.compareFuncs[keyOff](imw.outerMergeCtx.joinKeys[keyOff], imw.innerMergeCtx.joinKeys[keyOff], outerRow, innerRow)
+		cmp, _, err := imw.innerMergeCtx.compareFuncs[keyOff](expression.NewEvalContext(imw.ctx), imw.outerMergeCtx.joinKeys[keyOff], imw.innerMergeCtx.joinKeys[keyOff], outerRow, innerRow)
 		if err != nil || cmp != 0 {
 			return int(cmp), err
 		}

@@ -31,7 +31,7 @@ func (b *builtinDatabaseSig) vectorized() bool {
 
 // evalString evals a builtinDatabaseSig.
 // See https://dev.mysql.com/doc/refman/5.7/en/information-functions.html
-func (b *builtinDatabaseSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinDatabaseSig) vecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 
 	currentDB := b.ctx.CurrentDB
@@ -52,7 +52,7 @@ func (b *builtinConnectionIDSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinConnectionIDSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinConnectionIDSig) vecEvalInt(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	connectionID := int64(b.ctx.ConnectionID)
 	result.ResizeInt64(n, false)
@@ -67,7 +67,7 @@ func (b *builtinTiDBVersionSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinTiDBVersionSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinTiDBVersionSig) vecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	result.ReserveString(n)
 	info := printer.GetTiDBInfo()
@@ -83,11 +83,11 @@ func (b *builtinRowCountSig) vectorized() bool {
 
 // evalInt evals ROW_COUNT().
 // See https://dev.mysql.com/doc/refman/5.7/en/information-functions.html#function_row-count
-func (b *builtinRowCountSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinRowCountSig) vecEvalInt(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	result.ResizeInt64(n, false)
 	i64s := result.Int64s()
-	res := b.ctx.StmtCtx.PrevAffectedRows
+	res := ctx.StmtCtx.PrevAffectedRows
 	for i := 0; i < n; i++ {
 		i64s[i] = res
 	}
@@ -100,7 +100,7 @@ func (b *builtinCurrentUserSig) vectorized() bool {
 
 // evalString evals a builtinCurrentUserSig.
 // See https://dev.mysql.com/doc/refman/5.7/en/information-functions.html#function_current-user
-func (b *builtinCurrentUserSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCurrentUserSig) vecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 
 	result.ReserveString(n)
@@ -117,7 +117,7 @@ func (b *builtinCurrentResourceGroupSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinCurrentResourceGroupSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCurrentResourceGroupSig) vecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	result.ReserveString(n)
 	for i := 0; i < n; i++ {
@@ -132,7 +132,7 @@ func (b *builtinCurrentRoleSig) vectorized() bool {
 
 // evalString evals a builtinCurrentUserSig.
 // See https://dev.mysql.com/doc/refman/8.0/en/information-functions.html#function_current-role
-func (b *builtinCurrentRoleSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCurrentRoleSig) vecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 
 	if b.ctx.ActiveRoles == nil {
@@ -165,7 +165,7 @@ func (b *builtinUserSig) vectorized() bool {
 
 // evalString evals a builtinUserSig.
 // See https://dev.mysql.com/doc/refman/5.7/en/information-functions.html#function_user
-func (b *builtinUserSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinUserSig) vecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	if b.ctx.CurrentUser == nil {
 		return errors.Errorf("Missing session variable when eval builtin")
@@ -182,7 +182,7 @@ func (b *builtinTiDBIsDDLOwnerSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinTiDBIsDDLOwnerSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinTiDBIsDDLOwnerSig) vecEvalInt(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	var res int64
 	if b.ctx.IsDDLOwner() {
@@ -200,7 +200,7 @@ func (b *builtinFoundRowsSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinFoundRowsSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinFoundRowsSig) vecEvalInt(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	lastFoundRows := int64(b.ctx.LastFoundRows)
 	n := input.NumRows()
 	result.ResizeInt64(n, false)
@@ -215,7 +215,7 @@ func (b *builtinBenchmarkSig) vectorized() bool {
 	return b.constLoopCount > 0
 }
 
-func (b *builtinBenchmarkSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinBenchmarkSig) vecEvalInt(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	loopCount := b.constLoopCount
 	arg := b.args[1]
@@ -230,43 +230,43 @@ func (b *builtinBenchmarkSig) vecEvalInt(input *chunk.Chunk, result *chunk.Colum
 	switch evalType {
 	case types.ETInt:
 		for ; k < loopCount; k++ {
-			if err = arg.VecEvalInt(input, buf); err != nil {
+			if err = arg.VecEvalInt(ctx, input, buf); err != nil {
 				return err
 			}
 		}
 	case types.ETReal:
 		for ; k < loopCount; k++ {
-			if err = arg.VecEvalReal(input, buf); err != nil {
+			if err = arg.VecEvalReal(ctx, input, buf); err != nil {
 				return err
 			}
 		}
 	case types.ETDecimal:
 		for ; k < loopCount; k++ {
-			if err = arg.VecEvalDecimal(input, buf); err != nil {
+			if err = arg.VecEvalDecimal(ctx, input, buf); err != nil {
 				return err
 			}
 		}
 	case types.ETString:
 		for ; k < loopCount; k++ {
-			if err = arg.VecEvalString(input, buf); err != nil {
+			if err = arg.VecEvalString(ctx, input, buf); err != nil {
 				return err
 			}
 		}
 	case types.ETDatetime, types.ETTimestamp:
 		for ; k < loopCount; k++ {
-			if err = arg.VecEvalTime(input, buf); err != nil {
+			if err = arg.VecEvalTime(ctx, input, buf); err != nil {
 				return err
 			}
 		}
 	case types.ETDuration:
 		for ; k < loopCount; k++ {
-			if err = arg.VecEvalDuration(input, buf); err != nil {
+			if err = arg.VecEvalDuration(ctx, input, buf); err != nil {
 				return err
 			}
 		}
 	case types.ETJson:
 		for ; k < loopCount; k++ {
-			if err = arg.VecEvalJSON(input, buf); err != nil {
+			if err = arg.VecEvalJSON(ctx, input, buf); err != nil {
 				return err
 			}
 		}
@@ -285,11 +285,11 @@ func (b *builtinLastInsertIDSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinLastInsertIDSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinLastInsertIDSig) vecEvalInt(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	result.ResizeInt64(n, false)
 	i64s := result.Int64s()
-	res := int64(b.ctx.StmtCtx.PrevLastInsertID)
+	res := int64(ctx.StmtCtx.PrevLastInsertID)
 	for i := 0; i < n; i++ {
 		i64s[i] = res
 	}
@@ -300,8 +300,8 @@ func (b *builtinLastInsertIDWithIDSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinLastInsertIDWithIDSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
-	if err := b.args[0].VecEvalInt(input, result); err != nil {
+func (b *builtinLastInsertIDWithIDSig) vecEvalInt(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
+	if err := b.args[0].VecEvalInt(ctx, input, result); err != nil {
 		return err
 	}
 	i64s := result.Int64s()
@@ -318,7 +318,7 @@ func (b *builtinVersionSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinVersionSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinVersionSig) vecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	result.ReserveString(n)
 	for i := 0; i < n; i++ {
@@ -331,27 +331,27 @@ func (b *builtinTiDBDecodeKeySig) vectorized() bool {
 	return true
 }
 
-func (b *builtinTiDBDecodeKeySig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinTiDBDecodeKeySig) vecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf, err := b.bufAllocator.get()
 	if err != nil {
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(input, buf); err != nil {
+	if err := b.args[0].VecEvalString(ctx, input, buf); err != nil {
 		return err
 	}
 	result.ReserveString(n)
-	decode := func(ctx *ExprContext, s string) string { return s }
+	decode := func(is interface{}, ctx *EvalContext, s string) string { return s }
 	if fn := b.ctx.Value(TiDBDecodeKeyFunctionKey); fn != nil {
-		decode = fn.(func(ctx *ExprContext, s string) string)
+		decode = fn.(func(is interface{}, ctx *EvalContext, s string) string)
 	}
 	for i := 0; i < n; i++ {
 		if buf.IsNull(i) {
 			result.AppendNull()
 			continue
 		}
-		result.AppendString(decode(b.ctx, buf.GetString(i)))
+		result.AppendString(decode(b.ctx.InfoSchema, ctx, buf.GetString(i)))
 	}
 	return nil
 }

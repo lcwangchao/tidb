@@ -43,7 +43,7 @@ func createGroupingFunc(ctx sessionctx.Context, args []Expression) (*BuiltinGrou
 	// TODO We should use the commented codes after the completion of rollup
 	// argTp := []types.EvalType{types.ETInt}
 	tp := constructFieldType()
-	// bf, err := newBaseBuiltinFuncWithTp(ctx, groupingImplName, args, types.ETInt, argTp...)
+	// bf, err := newBaseBuiltinFuncWithTp(exprCtx, groupingImplName, args, types.ETInt, argTp...)
 	bf, err := newBaseBuiltinFuncWithFieldType(ctx, &tp, args)
 	if err != nil {
 		return nil, err

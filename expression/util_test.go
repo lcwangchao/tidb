@@ -34,19 +34,19 @@ func TestBaseBuiltin(t *testing.T) {
 	ctx := mock.NewContext()
 	bf, err := newBaseBuiltinFuncWithTp(ctx, "", nil, types.ETTimestamp)
 	require.NoError(t, err)
-	_, _, err = bf.evalInt(chunk.Row{})
+	_, _, err = bf.evalInt(nil, chunk.Row{})
 	require.Error(t, err)
-	_, _, err = bf.evalReal(chunk.Row{})
+	_, _, err = bf.evalReal(nil, chunk.Row{})
 	require.Error(t, err)
-	_, _, err = bf.evalString(chunk.Row{})
+	_, _, err = bf.evalString(ctx, chunk.Row{})
 	require.Error(t, err)
-	_, _, err = bf.evalDecimal(chunk.Row{})
+	_, _, err = bf.evalDecimal(ctx, chunk.Row{})
 	require.Error(t, err)
-	_, _, err = bf.evalTime(chunk.Row{})
+	_, _, err = bf.evalTime(ctx, chunk.Row{})
 	require.Error(t, err)
-	_, _, err = bf.evalDuration(chunk.Row{})
+	_, _, err = bf.evalDuration(ctx, chunk.Row{})
 	require.Error(t, err)
-	_, _, err = bf.evalJSON(chunk.Row{})
+	_, _, err = bf.evalJSON(ctx, chunk.Row{})
 	require.Error(t, err)
 }
 
@@ -356,7 +356,7 @@ func TestHashGroupKey(t *testing.T) {
 
 		var buf []byte
 		for j := 0; j < input.NumRows(); j++ {
-			d, err := colExpr.Eval(input.GetRow(j))
+			d, err := colExpr.Eval(ctx, input.GetRow(j))
 			require.NoError(t, err)
 			buf, err = codec.EncodeValue(sc, buf[:0], d)
 			require.NoError(t, err)
@@ -496,68 +496,70 @@ type MockExpr struct {
 	i   interface{}
 }
 
-func (m *MockExpr) VecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalInt(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
-func (m *MockExpr) VecEvalReal(input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalReal(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
-func (m *MockExpr) VecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalString(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
-func (m *MockExpr) VecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalDecimal(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
-func (m *MockExpr) VecEvalTime(input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalTime(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
-func (m *MockExpr) VecEvalDuration(input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalDuration(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
-func (m *MockExpr) VecEvalJSON(input *chunk.Chunk, result *chunk.Column) error {
+func (m *MockExpr) VecEvalJSON(ctx *EvalContext, input *chunk.Chunk, result *chunk.Column) error {
 	return nil
 }
 
-func (m *MockExpr) String() string                          { return "" }
-func (m *MockExpr) MarshalJSON() ([]byte, error)            { return nil, nil }
-func (m *MockExpr) Eval(row chunk.Row) (types.Datum, error) { return types.NewDatum(m.i), m.err }
-func (m *MockExpr) EvalInt(row chunk.Row) (val int64, isNull bool, err error) {
+func (m *MockExpr) String() string               { return "" }
+func (m *MockExpr) MarshalJSON() ([]byte, error) { return nil, nil }
+func (m *MockExpr) Eval(ctx *EvalContext, row chunk.Row) (types.Datum, error) {
+	return types.NewDatum(m.i), m.err
+}
+func (m *MockExpr) EvalInt(ctx *EvalContext, row chunk.Row) (val int64, isNull bool, err error) {
 	if x, ok := m.i.(int64); ok {
 		return x, false, m.err
 	}
 	return 0, m.i == nil, m.err
 }
-func (m *MockExpr) EvalReal(row chunk.Row) (val float64, isNull bool, err error) {
+func (m *MockExpr) EvalReal(ctx *EvalContext, row chunk.Row) (val float64, isNull bool, err error) {
 	if x, ok := m.i.(float64); ok {
 		return x, false, m.err
 	}
 	return 0, m.i == nil, m.err
 }
-func (m *MockExpr) EvalString(row chunk.Row) (val string, isNull bool, err error) {
+func (m *MockExpr) EvalString(ctx *EvalContext, row chunk.Row) (val string, isNull bool, err error) {
 	if x, ok := m.i.(string); ok {
 		return x, false, m.err
 	}
 	return "", m.i == nil, m.err
 }
-func (m *MockExpr) EvalDecimal(row chunk.Row) (val *types.MyDecimal, isNull bool, err error) {
+func (m *MockExpr) EvalDecimal(ctx *EvalContext, row chunk.Row) (val *types.MyDecimal, isNull bool, err error) {
 	if x, ok := m.i.(*types.MyDecimal); ok {
 		return x, false, m.err
 	}
 	return nil, m.i == nil, m.err
 }
-func (m *MockExpr) EvalTime(row chunk.Row) (val types.Time, isNull bool, err error) {
+func (m *MockExpr) EvalTime(ctx *EvalContext, row chunk.Row) (val types.Time, isNull bool, err error) {
 	if x, ok := m.i.(types.Time); ok {
 		return x, false, m.err
 	}
 	return types.ZeroTime, m.i == nil, m.err
 }
-func (m *MockExpr) EvalDuration(row chunk.Row) (val types.Duration, isNull bool, err error) {
+func (m *MockExpr) EvalDuration(ctx *EvalContext, row chunk.Row) (val types.Duration, isNull bool, err error) {
 	if x, ok := m.i.(types.Duration); ok {
 		return x, false, m.err
 	}
 	return types.Duration{}, m.i == nil, m.err
 }
-func (m *MockExpr) EvalJSON(row chunk.Row) (val types.BinaryJSON, isNull bool, err error) {
+func (m *MockExpr) EvalJSON(ctx *EvalContext, row chunk.Row) (val types.BinaryJSON, isNull bool, err error) {
 	if x, ok := m.i.(types.BinaryJSON); ok {
 		return x, false, m.err
 	}

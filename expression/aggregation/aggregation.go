@@ -86,6 +86,7 @@ func NewDistAggFunc(expr *tipb.Expr, fieldTps []*types.FieldType, sc *stmtctx.St
 
 // AggEvaluateContext is used to store intermediate result when calculating aggregate functions.
 type AggEvaluateContext struct {
+	EvalCtx         *expression.EvalContext
 	DistinctChecker *distinctChecker
 	Count           int64
 	Value           types.Datum
@@ -126,7 +127,7 @@ func newAggFunc(funcName string, args []expression.Expression, hasDistinct bool)
 
 // CreateContext implements Aggregation interface.
 func (af *aggFunction) CreateContext(sc *stmtctx.StatementContext) *AggEvaluateContext {
-	evalCtx := &AggEvaluateContext{}
+	evalCtx := &AggEvaluateContext{EvalCtx: expression.NewDefaultEvalContext()}
 	if af.HasDistinct {
 		evalCtx.DistinctChecker = createDistinctChecker(sc)
 	}
@@ -142,7 +143,7 @@ func (af *aggFunction) ResetContext(sc *stmtctx.StatementContext, evalCtx *AggEv
 
 func (af *aggFunction) updateSum(sc *stmtctx.StatementContext, evalCtx *AggEvaluateContext, row chunk.Row) error {
 	a := af.Args[0]
-	value, err := a.Eval(row)
+	value, err := a.Eval(evalCtx.EvalCtx, row)
 	if err != nil {
 		return err
 	}

@@ -55,7 +55,7 @@ func SetParameterValuesIntoSCtx(sctx sessionctx.Context, isNonPrep bool, markers
 	vars := sctx.GetSessionVars()
 	vars.PlanCacheParams.Reset()
 	for i, usingParam := range params {
-		val, err := usingParam.Eval(chunk.Row{})
+		val, err := usingParam.Eval(expression.NewDefaultEvalContext(), chunk.Row{})
 		if err != nil {
 			return err
 		}
@@ -613,7 +613,7 @@ func rebuildRange(p Plan) error {
 }
 
 func convertConstant2Datum(sc *stmtctx.StatementContext, con *expression.Constant, target *types.FieldType) (*types.Datum, error) {
-	val, err := con.Eval(chunk.Row{})
+	val, err := con.Eval(expression.NewDefaultEvalContext(), chunk.Row{})
 	if err != nil {
 		return nil, err
 	}

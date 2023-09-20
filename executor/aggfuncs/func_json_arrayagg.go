@@ -15,6 +15,7 @@
 package aggfuncs
 
 import (
+	"github.com/pingcap/tidb/expression"
 	"unsafe"
 
 	"github.com/pingcap/errors"
@@ -62,10 +63,10 @@ func (e *jsonArrayagg) AppendFinalResult2Chunk(_ sessionctx.Context, pr PartialR
 	return nil
 }
 
-func (e *jsonArrayagg) UpdatePartialResult(_ sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
+func (e *jsonArrayagg) UpdatePartialResult(sctx sessionctx.Context, rowsInGroup []chunk.Row, pr PartialResult) (memDelta int64, err error) {
 	p := (*partialResult4JsonArrayagg)(pr)
 	for _, row := range rowsInGroup {
-		item, err := e.args[0].Eval(row)
+		item, err := e.args[0].Eval(expression.NewEvalContext(sctx), row)
 		if err != nil {
 			return 0, errors.Trace(err)
 		}

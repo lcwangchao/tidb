@@ -708,7 +708,7 @@ func GetSelectivityByFilter(sctx sessionctx.Context, coll *statistics.HistColl, 
 			}
 			c.AppendDatum(0, &val)
 		}
-		selected, err = expression.VectorizedFilter(expression.NewExprContext(sctx), filters, chunk.NewIterator4Chunk(c), selected)
+		selected, err = expression.VectorizedFilter(expression.NewEvalContext(sctx), filters, chunk.NewIterator4Chunk(c), selected)
 		if err != nil {
 			return false, 0, err
 		}
@@ -725,7 +725,7 @@ func GetSelectivityByFilter(sctx sessionctx.Context, coll *statistics.HistColl, 
 	// The buckets lower bounds are used as random samples and are regarded equally.
 	if hist != nil && histTotalCnt > 0 {
 		selected = selected[:0]
-		selected, err = expression.VectorizedFilter(expression.NewExprContext(sctx), filters, chunk.NewIterator4Chunk(hist.Bounds), selected)
+		selected, err = expression.VectorizedFilter(expression.NewEvalContext(sctx), filters, chunk.NewIterator4Chunk(hist.Bounds), selected)
 		if err != nil {
 			return false, 0, err
 		}
@@ -759,7 +759,7 @@ func GetSelectivityByFilter(sctx sessionctx.Context, coll *statistics.HistColl, 
 	c.Reset()
 	c.AppendNull(0)
 	selected = selected[:0]
-	selected, err = expression.VectorizedFilter(expression.NewExprContext(sctx), filters, chunk.NewIterator4Chunk(c), selected)
+	selected, err = expression.VectorizedFilter(expression.NewEvalContext(sctx), filters, chunk.NewIterator4Chunk(c), selected)
 	if err != nil || len(selected) != 1 || !selected[0] {
 		nullSel = 0
 	} else {
