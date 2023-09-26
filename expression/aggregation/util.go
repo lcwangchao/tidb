@@ -64,7 +64,7 @@ func calculateSum(sc *stmtctx.StatementContext, sum, v types.Datum) (data types.
 	case types.KindNull:
 	case types.KindInt64, types.KindUint64:
 		var d *types.MyDecimal
-		d, err = v.ToDecimal(sc)
+		d, err = v.ToDecimal(sc.ValCtx)
 		if err == nil {
 			data = types.NewDecimalDatum(d)
 		}
@@ -72,7 +72,7 @@ func calculateSum(sc *stmtctx.StatementContext, sum, v types.Datum) (data types.
 		v.Copy(&data)
 	default:
 		var f float64
-		f, err = v.ToFloat64(sc)
+		f, err = v.ToFloat64(sc.ValCtx)
 		if err == nil {
 			data = types.NewFloat64Datum(f)
 		}

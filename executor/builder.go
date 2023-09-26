@@ -2959,7 +2959,7 @@ func (b *executorBuilder) buildAnalyzePKIncremental(task plannercore.AnalyzeColu
 	if statistics.IsAnalyzed(col.Flag) {
 		oldHist = col.Histogram.Copy()
 	} else {
-		d, err := col.LastAnalyzePos.ConvertTo(b.ctx.GetSessionVars().StmtCtx, col.Tp)
+		d, err := col.LastAnalyzePos.ConvertTo(b.ctx.GetSessionVars().StmtCtx.ValCtx, col.Tp)
 		if err != nil {
 			b.err = err
 			return nil

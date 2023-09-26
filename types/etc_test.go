@@ -173,7 +173,7 @@ func TestTruncateFloat(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		f, err := TruncateFloat(test.input, test.flen, test.decimal)
+		f, err := TruncateFloat(DefaultValContext(), test.input, test.flen, test.decimal)
 		require.Equal(t, test.expect, f)
 		require.Truef(t, terror.ErrorEqual(err, test.err), "err: %v", err)
 	}

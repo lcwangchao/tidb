@@ -492,7 +492,7 @@ func rebuildRange(p Plan) error {
 			if err != nil {
 				return err
 			}
-			iv, err := dVal.ToInt64(sc)
+			iv, err := dVal.ToInt64(sc.ValCtx)
 			if err != nil {
 				return err
 			}
@@ -558,7 +558,7 @@ func rebuildRange(p Plan) error {
 				if err != nil {
 					return err
 				}
-				iv, err := dVal.ToInt64(sc)
+				iv, err := dVal.ToInt64(sc.ValCtx)
 				if err != nil {
 					return err
 				}
@@ -617,12 +617,12 @@ func convertConstant2Datum(sc *stmtctx.StatementContext, con *expression.Constan
 	if err != nil {
 		return nil, err
 	}
-	dVal, err := val.ConvertTo(sc, target)
+	dVal, err := val.ConvertTo(sc.ValCtx, target)
 	if err != nil {
 		return nil, err
 	}
 	// The converted result must be same as original datum.
-	cmp, err := dVal.Compare(sc, &val, collate.GetCollator(target.GetCollate()))
+	cmp, err := dVal.Compare(sc.ValCtx, &val, collate.GetCollator(target.GetCollate()))
 	if err != nil || cmp != 0 {
 		return nil, errors.New("Convert constant to datum is failed, because the constant has changed after the covert")
 	}

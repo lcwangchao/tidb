@@ -19,13 +19,12 @@ import (
 
 	"github.com/pingcap/tidb/parser/mysql"
 	"github.com/pingcap/tidb/types"
-	"github.com/pingcap/tidb/util/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTimeFormatMethod(t *testing.T) {
-	sc := mock.NewContext().GetSessionVars().StmtCtx
-	sc.IgnoreZeroInDate = true
+	sc := types.DefaultValContext()
+	sc.Flags |= types.FlagIgnoreZeroInDateErr
 	tblDate := []struct {
 		Input  string
 		Format string
@@ -79,8 +78,8 @@ func TestTimeFormatMethod(t *testing.T) {
 }
 
 func TestStrToDate(t *testing.T) {
-	sc := mock.NewContext().GetSessionVars().StmtCtx
-	sc.IgnoreZeroInDate = true
+	sc := types.DefaultValContext()
+	sc.Flags |= types.FlagIgnoreZeroInDateErr
 	tests := []struct {
 		input  string
 		format string
@@ -157,7 +156,7 @@ func TestStrToDate(t *testing.T) {
 		{"30/Feb/2016 12:34:56.1234", "%d/%b/%Y %H:%i:%S.%f", types.FromDate(2016, 2, 30, 12, 34, 56, 123400)}, // Feb 30th
 	}
 	for i, tt := range tests {
-		sc.AllowInvalidDate = true
+		sc.Flags |= types.FlagIgnoreInvalidDateErr
 		var time types.Time
 		require.Truef(t, time.StrToDate(sc, tt.input, tt.format), "no.%d failed input=%s format=%s", i, tt.input, tt.format)
 		require.Equalf(t, tt.expect, time.CoreTime(), "no.%d failed input=%s format=%s", i, tt.input, tt.format)
@@ -192,7 +191,7 @@ func TestStrToDate(t *testing.T) {
 		{"11:13:56a", "%r"},             // EOF while parsing "AM"/"PM"
 	}
 	for i, tt := range errTests {
-		sc.AllowInvalidDate = false
+		sc.Flags |= types.FlagIgnoreInvalidDateErr
 		var time types.Time
 		require.Falsef(t, time.StrToDate(sc, tt.input, tt.format), "no.%d failed input=%s format=%s", i, tt.input, tt.format)
 	}

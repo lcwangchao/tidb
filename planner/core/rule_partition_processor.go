@@ -517,7 +517,7 @@ func newListPartitionPruner(ctx sessionctx.Context, tbl table.Table, partitionNa
 func (l *listPartitionPruner) locatePartition(cond expression.Expression) (tables.ListPartitionLocation, bool, error) {
 	switch sf := cond.(type) {
 	case *expression.Constant:
-		b, err := sf.Value.ToBool(l.ctx.GetSessionVars().StmtCtx)
+		b, err := sf.Value.ToBool(l.ctx.GetSessionVars().StmtCtx.ValCtx)
 		if err == nil && b == 0 {
 			// A constant false expression.
 			return nil, false, nil
@@ -1080,7 +1080,7 @@ func minCmp(ctx sessionctx.Context, lowVal []types.Datum, columnsPruner *rangeCo
 				return true
 			}
 			// Add Null as point here?
-			cmp, err := con.Value.Compare(ctx.GetSessionVars().StmtCtx, &lowVal[j], comparer[j])
+			cmp, err := con.Value.Compare(ctx.GetSessionVars().StmtCtx.ValCtx, &lowVal[j], comparer[j])
 			if err != nil {
 				*gotError = true
 			}
@@ -1159,7 +1159,7 @@ func maxCmp(ctx sessionctx.Context, hiVal []types.Datum, columnsPruner *rangeCol
 				return false
 			}
 			// Add Null as point here?
-			cmp, err := con.Value.Compare(ctx.GetSessionVars().StmtCtx, &hiVal[j], comparer[j])
+			cmp, err := con.Value.Compare(ctx.GetSessionVars().StmtCtx.ValCtx, &hiVal[j], comparer[j])
 			if err != nil {
 				*gotError = true
 				// error pushed, we will still use the cmp value
@@ -1296,7 +1296,7 @@ type rangePruner struct {
 
 func (p *rangePruner) partitionRangeForExpr(sctx sessionctx.Context, expr expression.Expression) (start int, end int, ok bool) {
 	if constExpr, ok := expr.(*expression.Constant); ok {
-		if b, err := constExpr.Value.ToBool(sctx.GetSessionVars().StmtCtx); err == nil && b == 0 {
+		if b, err := constExpr.Value.ToBool(sctx.GetSessionVars().StmtCtx.ValCtx); err == nil && b == 0 {
 			// A constant false expression.
 			return 0, 0, true
 		}
@@ -1387,7 +1387,7 @@ func partitionRangeForInExpr(sctx sessionctx.Context, args []expression.Expressi
 			partFnConst := replaceColumnWithConst(pruner.partFn, constExpr)
 			val, _, err = partFnConst.EvalInt(sctx, chunk.Row{})
 		} else {
-			val, err = constExpr.Value.ToInt64(sctx.GetSessionVars().StmtCtx)
+			val, err = constExpr.Value.ToInt64(sctx.GetSessionVars().StmtCtx.ValCtx)
 		}
 		if err != nil {
 			return pruner.fullRange()

@@ -729,14 +729,14 @@ func doTimeConversionForGL(cmpAsDate bool, ctx sessionctx.Context, sc *stmtctx.S
 	var t types.Time
 	var err error
 	if cmpAsDate {
-		t, err = types.ParseDate(sc, strVal)
+		t, err = types.ParseDate(sc.ValCtx, strVal)
 		if err == nil {
-			t, err = t.Convert(sc, mysql.TypeDate)
+			t, err = t.Convert(sc.ValCtx, mysql.TypeDate)
 		}
 	} else {
-		t, err = types.ParseDatetime(sc, strVal)
+		t, err = types.ParseDatetime(sc.ValCtx, strVal)
 		if err == nil {
-			t, err = t.Convert(sc, mysql.TypeDatetime)
+			t, err = t.Convert(sc.ValCtx, mysql.TypeDatetime)
 		}
 	}
 	if err != nil {
@@ -774,7 +774,7 @@ func (b *builtinGreatestTimeSig) evalTime(row chunk.Row) (res types.Time, isNull
 	// Convert ETType Time value to MySQL actual type, distinguish date and datetime
 	sc := b.ctx.GetSessionVars().StmtCtx
 	resTimeTp := getAccurateTimeTypeForGLRet(b.cmpAsDate)
-	if res, err = res.Convert(sc, resTimeTp); err != nil {
+	if res, err = res.Convert(sc.ValCtx, resTimeTp); err != nil {
 		return types.ZeroTime, true, handleInvalidTimeError(b.ctx, err)
 	}
 	return res, false, nil
@@ -1048,7 +1048,7 @@ func (b *builtinLeastTimeSig) evalTime(row chunk.Row) (res types.Time, isNull bo
 	// Convert ETType Time value to MySQL actual type, distinguish date and datetime
 	sc := b.ctx.GetSessionVars().StmtCtx
 	resTimeTp := getAccurateTimeTypeForGLRet(b.cmpAsDate)
-	if res, err = res.Convert(sc, resTimeTp); err != nil {
+	if res, err = res.Convert(sc.ValCtx, resTimeTp); err != nil {
 		return types.ZeroTime, true, handleInvalidTimeError(b.ctx, err)
 	}
 	return res, false, nil
@@ -1443,7 +1443,7 @@ func tryToConvertConstantInt(ctx sessionctx.Context, targetFieldType *types.Fiel
 	}
 	sc := ctx.GetSessionVars().StmtCtx
 
-	dt, err = dt.ConvertTo(sc, targetFieldType)
+	dt, err = dt.ConvertTo(sc.ValCtx, targetFieldType)
 	if err != nil {
 		if terror.ErrorEqual(err, types.ErrOverflow) {
 			return &Constant{
@@ -1482,7 +1482,7 @@ func RefineComparedConstant(ctx sessionctx.Context, targetFieldType types.FieldT
 		targetFieldType = *types.NewFieldType(mysql.TypeLonglong)
 	}
 	var intDatum types.Datum
-	intDatum, err = dt.ConvertTo(sc, &targetFieldType)
+	intDatum, err = dt.ConvertTo(sc.ValCtx, &targetFieldType)
 	if err != nil {
 		if terror.ErrorEqual(err, types.ErrOverflow) {
 			return &Constant{
@@ -1494,7 +1494,7 @@ func RefineComparedConstant(ctx sessionctx.Context, targetFieldType types.FieldT
 		}
 		return con, false
 	}
-	c, err := intDatum.Compare(sc, &con.Value, collate.GetBinaryCollator())
+	c, err := intDatum.Compare(sc.ValCtx, &con.Value, collate.GetBinaryCollator())
 	if err != nil {
 		return con, false
 	}
@@ -1539,7 +1539,7 @@ func RefineComparedConstant(ctx sessionctx.Context, targetFieldType types.FieldT
 			// 3. Suppose the value of `con` is 2, when `targetFieldType.GetType()` is `TypeYear`, the value of `doubleDatum`
 			//    will be 2.0 and the value of `intDatum` will be 2002 in this case.
 			var doubleDatum types.Datum
-			doubleDatum, err = dt.ConvertTo(sc, types.NewFieldType(mysql.TypeDouble))
+			doubleDatum, err = dt.ConvertTo(sc.ValCtx, types.NewFieldType(mysql.TypeDouble))
 			if err != nil {
 				return con, false
 			}
@@ -1737,7 +1737,7 @@ func (c *compareFunctionClass) refineNumericConstantCmpDatetime(ctx sessionctx.C
 	sc := ctx.GetSessionVars().StmtCtx
 	var datetimeDatum types.Datum
 	targetFieldType := types.NewFieldType(mysql.TypeDatetime)
-	datetimeDatum, err = dt.ConvertTo(sc, targetFieldType)
+	datetimeDatum, err = dt.ConvertTo(sc.ValCtx, targetFieldType)
 	if err != nil || datetimeDatum.IsNull() {
 		return args
 	}
@@ -1783,7 +1783,7 @@ func (c *compareFunctionClass) refineArgsByUnsignedFlag(ctx sessionctx.Context, 
 					op = symmetricOp[c.op]
 				}
 				if op == opcode.EQ || op == opcode.NullEQ {
-					if _, err := types.ConvertUintToInt(uint64(v), types.IntergerSignedUpperBound(col.RetType.GetType()), col.RetType.GetType()); err != nil {
+					if _, err := types.ConvertUintToInt(ctx.GetSessionVars().StmtCtx.ValCtx, uint64(v), types.IntergerSignedUpperBound(col.RetType.GetType()), col.RetType.GetType()); err != nil {
 						args[i], args[1-i] = NewOne(), NewZero()
 						return args
 					}

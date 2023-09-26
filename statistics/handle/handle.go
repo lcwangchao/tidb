@@ -726,7 +726,7 @@ func saveBucketsToStorage(ctx context.Context, exec sqlexec.SQLExecutor, sc *stm
 				count -= hg.Buckets[j-1].Count
 			}
 			var upperBound types.Datum
-			upperBound, err = hg.GetUpper(j).ConvertTo(sc, types.NewFieldType(mysql.TypeBlob))
+			upperBound, err = hg.GetUpper(j).ConvertTo(sc.ValCtx, types.NewFieldType(mysql.TypeBlob))
 			if err != nil {
 				return
 			}
@@ -734,7 +734,7 @@ func saveBucketsToStorage(ctx context.Context, exec sqlexec.SQLExecutor, sc *stm
 				lastAnalyzePos = upperBound.GetBytes()
 			}
 			var lowerBound types.Datum
-			lowerBound, err = hg.GetLower(j).ConvertTo(sc, types.NewFieldType(mysql.TypeBlob))
+			lowerBound, err = hg.GetLower(j).ConvertTo(sc.ValCtx, types.NewFieldType(mysql.TypeBlob))
 			if err != nil {
 				return
 			}

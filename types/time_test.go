@@ -2288,7 +2288,7 @@ func BenchmarkParseDateFormat(b *testing.B) {
 	benchmarkDateFormat(b, "datetime repeated delimiters", "2011---12---13 14::15::16..123456")
 }
 
-func benchmarkDatetimeFormat(b *testing.B, name string, sc *stmtctx.StatementContext, str string) {
+func benchmarkDatetimeFormat(b *testing.B, name string, sc ValContext, str string) {
 	b.Run(name, func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			_, err := types.ParseDatetime(sc, str)
@@ -2305,7 +2305,7 @@ func BenchmarkParseDatetimeFormat(b *testing.B) {
 	benchmarkDatetimeFormat(b, "datetime with timezone", sc, "2020-10-10T10:10:10Z+08:00")
 }
 
-func benchmarkStrToDate(b *testing.B, name string, sc *stmtctx.StatementContext, str, format string) {
+func benchmarkStrToDate(b *testing.B, name string, sc ValContext, str, format string) {
 	b.Run(name, func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			var t types.Time

@@ -1443,7 +1443,7 @@ func getNameValuePairs(ctx sessionctx.Context, tbl *model.TableInfo, tblName mod
 		if !checkCanConvertInPointGet(col, d) {
 			return nil, false
 		}
-		dVal, err := d.ConvertTo(stmtCtx, &col.FieldType)
+		dVal, err := d.ConvertTo(stmtCtx.ValCtx, &col.FieldType)
 		if err != nil {
 			if terror.ErrorEqual(types.ErrOverflow, err) {
 				return append(nvPairs, nameValuePair{colName: colName.Name.Name.L, colFieldType: &col.FieldType, value: d, con: con}), true
@@ -1454,7 +1454,7 @@ func getNameValuePairs(ctx sessionctx.Context, tbl *model.TableInfo, tblName mod
 			}
 		}
 		// The converted result must be same as original datum.
-		cmp, err := dVal.Compare(stmtCtx, &d, collate.GetCollator(col.GetCollate()))
+		cmp, err := dVal.Compare(stmtCtx.ValCtx, &d, collate.GetCollator(col.GetCollate()))
 		if err != nil || cmp != 0 {
 			return nil, false
 		}
@@ -1467,12 +1467,12 @@ func getPointGetValue(stmtCtx *stmtctx.StatementContext, col *model.ColumnInfo, 
 	if !checkCanConvertInPointGet(col, *d) {
 		return nil
 	}
-	dVal, err := d.ConvertTo(stmtCtx, &col.FieldType)
+	dVal, err := d.ConvertTo(stmtCtx.ValCtx, &col.FieldType)
 	if err != nil {
 		return nil
 	}
 	// The converted result must be same as original datum.
-	cmp, err := dVal.Compare(stmtCtx, d, collate.GetCollator(col.GetCollate()))
+	cmp, err := dVal.Compare(stmtCtx.ValCtx, d, collate.GetCollator(col.GetCollate()))
 	if err != nil || cmp != 0 {
 		return nil
 	}

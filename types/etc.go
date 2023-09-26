@@ -193,8 +193,88 @@ func InvOp2(x, y interface{}, o opcode.Op) (interface{}, error) {
 }
 
 // overflow returns an overflowed error.
-func overflow(v interface{}, tp byte) error {
-	return ErrOverflow.GenWithStack("constant %v overflows %s", v, TypeStr(tp))
+func overflow(ctx ValContext, v interface{}, tp byte) error {
+	if ctx.OverflowAsError() {
+		return ErrOverflow.GenWithStack("constant %v overflows %s", v, TypeStr(tp))
+	}
+
+	if ctx.OverflowAsWarning() {
+		ctx.AppendWarning(ErrOverflow.GenWithStack("constant %v overflows %s", v, TypeStr(tp)))
+	}
+
+	return nil
+}
+
+func overflowWithArgs(ctx ValContext, args ...interface{}) error {
+	if ctx.OverflowAsError() {
+		return ErrOverflow.GenWithStackByArgs(args...)
+	}
+
+	if ctx.OverflowAsWarning() {
+		ctx.AppendWarning(ErrOverflow.GenWithStackByArgs(args...))
+	}
+
+	return nil
+}
+
+func truncatedErr(ctx ValContext) error {
+	if ctx.TruncateAsError() {
+		return ErrTruncated
+	}
+
+	if ctx.TruncateAsWarning() {
+		ctx.AppendWarning(ErrTruncated)
+	}
+
+	return nil
+}
+
+func truncatedWrongVal(ctx ValContext, args ...interface{}) error {
+	if ctx.TruncateAsError() {
+		return ErrTruncatedWrongVal.GenWithStackByArgs(args...)
+	}
+
+	if ctx.TruncateAsWarning() {
+		ctx.AppendWarning(ErrTruncatedWrongVal.GenWithStackByArgs(args...))
+	}
+
+	return nil
+}
+
+func zeroDateErr(ctx ValContext, args ...interface{}) error {
+	if ctx.ZeroDateAsError() {
+		return ErrWrongValue.GenWithStackByArgs(args...)
+	}
+
+	if ctx.ZeroDateAsWarning() {
+		ctx.AppendWarning(ErrWrongValue.GenWithStackByArgs(args...))
+	}
+
+	return nil
+}
+
+func zeroInDateErr(ctx ValContext, args ...interface{}) error {
+	if ctx.ZeroInDateAsError() {
+		return ErrTruncatedWrongVal.GenWithStackByArgs(args...)
+	}
+
+	if ctx.ZeroInDateAsWarning() {
+		ctx.AppendWarning(ErrTruncatedWrongVal.GenWithStackByArgs(args...))
+	}
+
+	return nil
+}
+
+func invalidDateErr(ctx ValContext, args ...interface{}) error {
+	if ctx.InvalidDateAsError() {
+		return ErrWrongValue.GenWithStackByArgs(args...)
+	}
+
+	if ctx.InvalidDateAsWarning() {
+		ctx.AppendWarning(ErrWrongValue.GenWithStackByArgs(args...))
+	}
+
+	return nil
 }
 
 // IsTypeTemporal checks if a type is a temporal type.

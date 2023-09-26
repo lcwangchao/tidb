@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/pingcap/tidb/types"
 	"io"
 	"math"
 	"slices"
@@ -151,6 +152,7 @@ type StatementContext struct {
 
 	// IsDDLJobInQueue is used to mark whether the DDL job is put into the queue.
 	// If IsDDLJobInQueue is true, it means the DDL job is in the queue of storage, and it can be handled by the DDL worker.
+	ValCtx                        types.ValContext
 	IsDDLJobInQueue               bool
 	DDLJobID                      int64
 	InInsertStmt                  bool

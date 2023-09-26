@@ -3042,7 +3042,7 @@ func handleAnalyzeOptionsV2(opts []ast.AnalyzeOpt) (map[ast.AnalyzeOptionType]ui
 			optMap[opt.Type] = v
 		case ast.AnalyzeOptSampleRate:
 			// Only Int/Float/decimal is accepted, so pass nil here is safe.
-			fVal, err := datumValue.ToFloat64(nil)
+			fVal, err := datumValue.ToFloat64(types.DefaultValContext())
 			if err != nil {
 				return nil, err
 			}
@@ -3105,7 +3105,7 @@ func handleAnalyzeOptions(opts []ast.AnalyzeOpt, statsVer int) (map[ast.AnalyzeO
 			optMap[opt.Type] = v
 		case ast.AnalyzeOptSampleRate:
 			// Only Int/Float/decimal is accepted, so pass nil here is safe.
-			fVal, err := datumValue.ToFloat64(nil)
+			fVal, err := datumValue.ToFloat64(types.DefaultValContext())
 			if err != nil {
 				return nil, err
 			}
@@ -4697,7 +4697,7 @@ func (b *PlanBuilder) convertValue(valueItem ast.ExprNode, mockTablePlan Logical
 	if err != nil {
 		return d, err
 	}
-	d, err = value.ConvertTo(b.ctx.GetSessionVars().StmtCtx, &col.FieldType)
+	d, err = value.ConvertTo(b.ctx.GetSessionVars().StmtCtx.ValCtx, &col.FieldType)
 	if err != nil {
 		if !types.ErrTruncated.Equal(err) && !types.ErrTruncatedWrongVal.Equal(err) && !types.ErrBadNumber.Equal(err) {
 			return d, err
@@ -5595,7 +5595,7 @@ func calcTSForPlanReplayer(sctx sessionctx.Context, tsExpr ast.ExprNode) uint64 
 	// To achieve this, we need to set fields like StatementContext.IgnoreTruncate to false, and maybe it's better
 	// not to modify and reuse the original StatementContext, so we use a temporary one here.
 	tmpStmtCtx := &stmtctx.StatementContext{TimeZone: sctx.GetSessionVars().Location()}
-	tso, err := tsVal.ConvertTo(tmpStmtCtx, tpLonglong)
+	tso, err := tsVal.ConvertTo(tmpStmtCtx.ValCtx, tpLonglong)
 	if err == nil {
 		return tso.GetUint64()
 	}
@@ -5604,7 +5604,7 @@ func calcTSForPlanReplayer(sctx sessionctx.Context, tsExpr ast.ExprNode) uint64 
 	// this part is similar to CalculateAsOfTsExpr
 	tpDateTime := types.NewFieldType(mysql.TypeDatetime)
 	tpDateTime.SetDecimal(6)
-	timestamp, err := tsVal.ConvertTo(sctx.GetSessionVars().StmtCtx, tpDateTime)
+	timestamp, err := tsVal.ConvertTo(sctx.GetSessionVars().StmtCtx.ValCtx, tpDateTime)
 	if err != nil {
 		sctx.GetSessionVars().StmtCtx.AppendWarning(err)
 		return 0
