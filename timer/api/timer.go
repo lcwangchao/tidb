@@ -270,7 +270,7 @@ func (r *TimerRecord) Clone() *TimerRecord {
 	return &cloned
 }
 
-// ValidateTimeZone validates the TimeZone field.
+// ValidateTimeZone validates the timeZone field.
 func ValidateTimeZone(tz string) error {
 	if tz != "" {
 		if _, err := timeutil.ParseTimeZone(tz); err != nil {

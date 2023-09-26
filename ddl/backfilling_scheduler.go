@@ -147,7 +147,7 @@ func initSessCtx(
 	sqlMode mysql.SQLMode,
 	tzLocation *model.TimeZoneLocation,
 ) error {
-	// Unify the TimeZone settings in newContext.
+	// Unify the timeZone settings in newContext.
 	if sessCtx.GetSessionVars().StmtCtx.TimeZone == nil {
 		tz := *time.UTC
 		sessCtx.GetSessionVars().StmtCtx.TimeZone = &tz

@@ -50,7 +50,7 @@ type Node interface {
 	OriginTextPosition() int
 }
 
-// Flags indicates whether an expression contains certain types of expression.
+// flags indicates whether an expression contains certain types of expression.
 const (
 	FlagConstant       uint64 = 0
 	FlagHasParamMarker uint64 = 1 << iota

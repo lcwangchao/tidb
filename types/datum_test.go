@@ -56,8 +56,8 @@ func TestDatum(t *testing.T) {
 func testDatumToBool(t *testing.T, in interface{}, res int) {
 	datum := NewDatum(in)
 	res64 := int64(res)
-	sc := DefaultValContext()
-	sc.Flags |= FlagIgnoreTruncateErr
+	sc := DefaultCtx
+	sc.flags |= FlagIgnoreTruncateErr
 	b, err := datum.ToBool(sc)
 	require.NoError(t, err)
 	require.Equal(t, res64, b)
@@ -94,11 +94,11 @@ func TestToBool(t *testing.T) {
 	testDatumToBool(t, CreateBinaryJSON(true), 1)
 	testDatumToBool(t, CreateBinaryJSON(false), 1)
 	testDatumToBool(t, CreateBinaryJSON(""), 1)
-	t1, err := ParseTime(ValContext{TimeZone: time.UTC}, "2011-11-10 11:11:11.999999", mysql.TypeTimestamp, 6, nil)
+	t1, err := ParseTime(DefaultCtx, "2011-11-10 11:11:11.999999", mysql.TypeTimestamp, 6, nil)
 	require.NoError(t, err)
 	testDatumToBool(t, t1, 1)
 
-	td, _, err := ParseDuration(DefaultValContext(), "11:11:11.999999", 6)
+	td, _, err := ParseDuration(DefaultCtx, "11:11:11.999999", 6)
 	require.NoError(t, err)
 	testDatumToBool(t, td, 1)
 
@@ -108,16 +108,16 @@ func TestToBool(t *testing.T) {
 	require.NoError(t, err)
 	testDatumToBool(t, v, 1)
 	d := NewDatum(&invalidMockType{})
-	sc := DefaultValContext()
-	sc.Flags |= FlagIgnoreTruncateErr
+	sc := DefaultCtx
+	sc.flags |= FlagIgnoreTruncateErr
 	_, err = d.ToBool(sc)
 	require.Error(t, err)
 }
 
 func testDatumToInt64(t *testing.T, val interface{}, expect int64) {
 	d := NewDatum(val)
-	sc := DefaultValContext()
-	sc.Flags |= FlagIgnoreTruncateErr
+	sc := DefaultCtx
+	sc.flags |= FlagIgnoreTruncateErr
 	b, err := d.ToInt64(sc)
 	require.NoError(t, err)
 	require.Equal(t, expect, b)
@@ -135,13 +135,11 @@ func TestToInt64(t *testing.T) {
 	testDatumToInt64(t, Set{Name: "a", Value: 1}, int64(1))
 	testDatumToInt64(t, CreateBinaryJSON(int64(3)), int64(3))
 
-	t1, err := ParseTime(ValContext{
-		TimeZone: time.UTC,
-	}, "2011-11-10 11:11:11.999999", mysql.TypeTimestamp, 0, nil)
+	t1, err := ParseTime(DefaultCtx, "2011-11-10 11:11:11.999999", mysql.TypeTimestamp, 0, nil)
 	require.NoError(t, err)
 	testDatumToInt64(t, t1, int64(20111110111112))
 
-	td, _, err := ParseDuration(DefaultValContext(), "11:11:11.999999", 6)
+	td, _, err := ParseDuration(DefaultCtx, "11:11:11.999999", 6)
 	require.NoError(t, err)
 	testDatumToInt64(t, td, int64(111112))
 
@@ -154,8 +152,8 @@ func TestToInt64(t *testing.T) {
 
 func testDatumToUInt32(t *testing.T, val interface{}, expect uint32, hasError bool) {
 	d := NewDatum(val)
-	sc := DefaultValContext()
-	sc.Flags |= FlagIgnoreTruncateErr
+	sc := DefaultCtx
+	sc.flags |= FlagIgnoreTruncateErr
 
 	ft := NewFieldType(mysql.TypeLong)
 	ft.AddFlag(mysql.UnsignedFlag)
@@ -206,8 +204,8 @@ func TestConvertToFloat(t *testing.T) {
 		{NewDatum("281.37"), mysql.TypeFloat, "", 281.37, 281.37},
 	}
 
-	sc := DefaultValContext()
-	sc.Flags |= FlagIgnoreTruncateErr
+	sc := DefaultCtx
+	sc.flags |= FlagIgnoreTruncateErr
 	for _, testCase := range testCases {
 		converted, err := testCase.d.ConvertTo(sc, NewFieldType(testCase.tp))
 		if testCase.errMsg == "" {
@@ -227,7 +225,7 @@ func TestConvertToFloat(t *testing.T) {
 }
 
 func mustParseTime(s string, tp byte, fsp int) Time {
-	t, err := ParseTime(ValContext{TimeZone: time.UTC}, s, tp, fsp, nil)
+	t, err := ParseTime(DefaultCtx, s, tp, fsp, nil)
 	if err != nil {
 		panic("ParseTime fail")
 	}
@@ -243,7 +241,7 @@ func mustParseTimeIntoDatum(s string, tp byte, fsp int) (d Datum) {
 
 func TestToJSON(t *testing.T) {
 	ft := NewFieldType(mysql.TypeJSON)
-	sc := DefaultValContext()
+	sc := DefaultCtx
 	tests := []struct {
 		datum    Datum
 		expected interface{}
@@ -321,7 +319,7 @@ func TestToBytes(t *testing.T) {
 }
 
 func TestComputePlusAndMinus(t *testing.T) {
-	sc := ValContext{TimeZone: time.UTC}
+	sc := DefaultCtx
 	tests := []struct {
 		a      Datum
 		b      Datum
@@ -360,8 +358,8 @@ func TestCloneDatum(t *testing.T) {
 		raw,
 	}
 
-	sc := DefaultValContext()
-	sc.Flags |= FlagIgnoreTruncateErr
+	sc := DefaultCtx
+	sc.flags |= FlagIgnoreTruncateErr
 	for _, tt := range tests {
 		tt1 := *tt.Clone()
 		res, err := tt.Compare(sc, &tt1, collate.GetBinaryCollator())
@@ -414,8 +412,8 @@ func TestEstimatedMemUsage(t *testing.T) {
 }
 
 func TestChangeReverseResultByUpperLowerBound(t *testing.T) {
-	sc := DefaultValContext()
-	sc.Flags |= FlagIgnoreTruncateErr | FlagIgnoreOverflowError | FlagOverflowAsWarning
+	sc := DefaultCtx
+	sc.flags |= FlagIgnoreTruncateErr | FlagIgnoreOverflowError | FlagOverflowAsWarning
 	// TODO: add more reserve convert tests for each pair of convert type.
 	testData := []struct {
 		a         Datum
@@ -543,7 +541,7 @@ func TestStringToMysqlBit(t *testing.T) {
 	tp := NewFieldType(mysql.TypeBit)
 	tp.SetFlen(1)
 	for _, tt := range tests {
-		bin, err := tt.a.convertToMysqlBit(DefaultValContext(), tp)
+		bin, err := tt.a.convertToMysqlBit(DefaultCtx, tp)
 		require.NoError(t, err)
 		require.Equal(t, tt.out, bin.b)
 	}
@@ -604,8 +602,8 @@ func TestMarshalDatum(t *testing.T) {
 
 func BenchmarkCompareDatum(b *testing.B) {
 	vals, vals1 := prepareCompareDatums()
-	sc := DefaultValContext()
-	sc.Flags |= FlagIgnoreTruncateErr
+	sc := DefaultCtx
+	sc.flags |= FlagIgnoreTruncateErr
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for j, v := range vals {
@@ -652,11 +650,11 @@ func TestProduceDecWithSpecifiedTp(t *testing.T) {
 		{"99.9999", 6, 3, "100.000", false, true},
 		{"-99.9999", 6, 3, "-100.000", false, true},
 	}
-	sc := DefaultValContext()
+
 	var warnings []error
-	sc.WarningFunc = func(err error) {
+	sc := ContextWithWarningFunc(DefaultFlags, time.UTC, func(err error) {
 		warnings = append(warnings, err)
-	}
+	})
 	for _, tt := range tests {
 		warnings = nil
 		tp := NewFieldTypeBuilder().SetType(mysql.TypeNewDecimal).SetFlen(tt.flen).SetDecimal(tt.frac).BuildP()
@@ -702,7 +700,7 @@ func TestNULLNotEqualWithOthers(t *testing.T) {
 		MaxValueDatum(),
 	}
 	nullDatum := NewDatum(nil)
-	sc := DefaultValContext()
+	sc := DefaultCtx
 	for _, d := range datums {
 		result, err := d.Compare(sc, &nullDatum, collate.GetBinaryCollator())
 		require.NoError(t, err)

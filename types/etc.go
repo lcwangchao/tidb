@@ -193,85 +193,85 @@ func InvOp2(x, y interface{}, o opcode.Op) (interface{}, error) {
 }
 
 // overflow returns an overflowed error.
-func overflow(ctx ValContext, v interface{}, tp byte) error {
+func overflow(ctx Context, v interface{}, tp byte) error {
 	if ctx.OverflowAsError() {
 		return ErrOverflow.GenWithStack("constant %v overflows %s", v, TypeStr(tp))
 	}
 
 	if ctx.OverflowAsWarning() {
-		ctx.AppendWarning(ErrOverflow.GenWithStack("constant %v overflows %s", v, TypeStr(tp)))
+		ctx.appendWarning(ErrOverflow.GenWithStack("constant %v overflows %s", v, TypeStr(tp)))
 	}
 
 	return nil
 }
 
-func overflowWithArgs(ctx ValContext, args ...interface{}) error {
+func overflowWithArgs(ctx Context, args ...interface{}) error {
 	if ctx.OverflowAsError() {
 		return ErrOverflow.GenWithStackByArgs(args...)
 	}
 
 	if ctx.OverflowAsWarning() {
-		ctx.AppendWarning(ErrOverflow.GenWithStackByArgs(args...))
+		ctx.appendWarning(ErrOverflow.GenWithStackByArgs(args...))
 	}
 
 	return nil
 }
 
-func truncatedErr(ctx ValContext) error {
+func truncatedErr(ctx Context) error {
 	if ctx.TruncateAsError() {
 		return ErrTruncated
 	}
 
 	if ctx.TruncateAsWarning() {
-		ctx.AppendWarning(ErrTruncated)
+		ctx.appendWarning(ErrTruncated)
 	}
 
 	return nil
 }
 
-func truncatedWrongVal(ctx ValContext, args ...interface{}) error {
+func truncatedWrongVal(ctx Context, args ...interface{}) error {
 	if ctx.TruncateAsError() {
 		return ErrTruncatedWrongVal.GenWithStackByArgs(args...)
 	}
 
 	if ctx.TruncateAsWarning() {
-		ctx.AppendWarning(ErrTruncatedWrongVal.GenWithStackByArgs(args...))
+		ctx.appendWarning(ErrTruncatedWrongVal.GenWithStackByArgs(args...))
 	}
 
 	return nil
 }
 
-func zeroDateErr(ctx ValContext, args ...interface{}) error {
+func zeroDateErr(ctx Context, args ...interface{}) error {
 	if ctx.ZeroDateAsError() {
 		return ErrWrongValue.GenWithStackByArgs(args...)
 	}
 
 	if ctx.ZeroDateAsWarning() {
-		ctx.AppendWarning(ErrWrongValue.GenWithStackByArgs(args...))
+		ctx.appendWarning(ErrWrongValue.GenWithStackByArgs(args...))
 	}
 
 	return nil
 }
 
-func zeroInDateErr(ctx ValContext, args ...interface{}) error {
+func zeroInDateErr(ctx Context, args ...interface{}) error {
 	if ctx.ZeroInDateAsError() {
 		return ErrTruncatedWrongVal.GenWithStackByArgs(args...)
 	}
 
 	if ctx.ZeroInDateAsWarning() {
-		ctx.AppendWarning(ErrTruncatedWrongVal.GenWithStackByArgs(args...))
+		ctx.appendWarning(ErrTruncatedWrongVal.GenWithStackByArgs(args...))
 	}
 
 	return nil
 }
 
-func invalidDateErr(ctx ValContext, args ...interface{}) error {
+func invalidDateErr(ctx Context, args ...interface{}) error {
 	if ctx.InvalidDateAsError() {
 		return ErrWrongValue.GenWithStackByArgs(args...)
 	}
 
 	if ctx.InvalidDateAsWarning() {
-		ctx.AppendWarning(ErrWrongValue.GenWithStackByArgs(args...))
+		ctx.appendWarning(ErrWrongValue.GenWithStackByArgs(args...))
 	}
 
 	return nil

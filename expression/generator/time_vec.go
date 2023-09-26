@@ -66,7 +66,7 @@ import (
 		arg1Duration, _, err := types.ParseDuration(sc, arg1, {{if eq .Output.TypeName "String"}}getFsp4TimeAddSub{{else}}types.GetFsp{{end}}(arg1))
 		if err != nil {
 			if terror.ErrorEqual(err, types.ErrTruncatedWrongVal) {
-				sc.AppendWarning(err)
+				sc.appendWarning(err)
 				{{ template "SetNull" . }}
 				continue
 			}
@@ -194,7 +194,7 @@ func (b *{{.SigName}}) vecEval{{ .Output.TypeName }}(input *chunk.Chunk, result 
 		arg1Duration, _, err := types.ParseDuration(sc, arg1, types.GetFsp(arg1))
 		if err != nil {
 			if terror.ErrorEqual(err, types.ErrTruncatedWrongVal) {
-				sc.AppendWarning(err)
+				sc.appendWarning(err)
 				result.SetNull(i, true) // fixed: true
 				continue
 			}
@@ -244,7 +244,7 @@ func (b *{{.SigName}}) vecEval{{ .Output.TypeName }}(input *chunk.Chunk, result 
 			{{ end }}
 			if err != nil {
 				if terror.ErrorEqual(err, types.ErrTruncatedWrongVal) {
-					sc.AppendWarning(err)
+					sc.appendWarning(err)
 					{{ template "SetNull" . }}
 					continue
 				}
@@ -260,7 +260,7 @@ func (b *{{.SigName}}) vecEval{{ .Output.TypeName }}(input *chunk.Chunk, result 
 				return err
 			}
 			if isNull {
-				sc.AppendWarning(err)
+				sc.appendWarning(err)
 				{{ template "SetNull" . }}
 				continue
 			}
@@ -277,7 +277,7 @@ func (b *{{.SigName}}) vecEval{{ .Output.TypeName }}(input *chunk.Chunk, result 
 			{{ end }}
 			if err != nil {
 				if terror.ErrorEqual(err, types.ErrTruncatedWrongVal) {
-					sc.AppendWarning(err)
+					sc.appendWarning(err)
 					{{ template "SetNull" . }}
 					continue
 				}
@@ -293,7 +293,7 @@ func (b *{{.SigName}}) vecEval{{ .Output.TypeName }}(input *chunk.Chunk, result 
 				return err
 			}
 			if isNull {
-				sc.AppendWarning(err)
+				sc.appendWarning(err)
 				{{ template "SetNull" . }}
 				continue
 			}

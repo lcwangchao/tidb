@@ -140,14 +140,14 @@ func TestUpdateTimerOption(t *testing.T) {
 	require.Equal(t, []string{"l1", "l2"}, tags)
 	require.Equal(t, []string{"Tags", "Enable", "SchedPolicyType", "SchedPolicyExpr", "Watermark", "SummaryData"}, update.FieldsSet())
 
-	// test 'TimeZone' field
+	// test 'timeZone' field
 	require.False(t, update.TimeZone.Present())
 	WithSetTimeZone("UTC")(&update)
 	require.True(t, update.TimeZone.Present())
 	tz, ok := update.TimeZone.Get()
 	require.True(t, ok)
 	require.Equal(t, "UTC", tz)
-	require.Equal(t, []string{"Tags", "Enable", "TimeZone", "SchedPolicyType", "SchedPolicyExpr", "Watermark", "SummaryData"}, update.FieldsSet())
+	require.Equal(t, []string{"Tags", "Enable", "timeZone", "SchedPolicyType", "SchedPolicyExpr", "Watermark", "SummaryData"}, update.FieldsSet())
 }
 
 func TestDefaultClient(t *testing.T) {

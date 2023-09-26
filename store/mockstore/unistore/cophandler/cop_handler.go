@@ -420,7 +420,7 @@ func newRowDecoder(columnInfos []*tipb.ColumnInfo, fieldTps []*types.FieldType, 
 	return rowcodec.NewChunkDecoder(cols, pkCols, def, timeZone), nil
 }
 
-// flagsToStatementContext creates a StatementContext from a `tipb.SelectRequest.Flags`.
+// flagsToStatementContext creates a StatementContext from a `tipb.SelectRequest.flags`.
 func flagsToStatementContext(flags uint64) *stmtctx.StatementContext {
 	sc := new(stmtctx.StatementContext)
 	sc.IgnoreTruncate.Store((flags & model.FlagIgnoreTruncate) > 0)

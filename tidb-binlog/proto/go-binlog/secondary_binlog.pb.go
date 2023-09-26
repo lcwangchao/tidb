@@ -2818,7 +2818,7 @@ func (m *Binlog) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 5:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TimeZone", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field timeZone", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {

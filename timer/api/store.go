@@ -168,7 +168,7 @@ type TimerUpdate struct {
 	Tags OptionalVal[[]string]
 	// Enable indicates to set the timer's `Enable` field.
 	Enable OptionalVal[bool]
-	// TimeZone indicates to set the timer's `TimeZone` field.
+	// TimeZone indicates to set the timer's `timeZone` field.
 	TimeZone OptionalVal[string]
 	// SchedPolicyType indicates to set the timer's `SchedPolicyType` field.
 	SchedPolicyType OptionalVal[SchedPolicyType]

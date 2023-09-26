@@ -13,7 +13,7 @@
 
 package model
 
-// Flags are used by tipb.SelectRequest.Flags to handle execution mode, like how to handle truncate error.
+// flags are used by tipb.SelectRequest.flags to handle execution mode, like how to handle truncate error.
 const (
 	// FlagIgnoreTruncate indicates if truncate error should be ignored.
 	// Read-only statements should ignore truncate error, write statements should not ignore truncate error.

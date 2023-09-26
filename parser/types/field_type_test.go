@@ -304,7 +304,7 @@ func TestCompactStr(t *testing.T) {
 	cases := []struct {
 		t     byte   // Field Type
 		flen  int    // Field Length
-		flags uint   // Field Flags, e.g. ZEROFILL
+		flags uint   // Field flags, e.g. ZEROFILL
 		e1    string // Expected string with TiDBStrictIntegerDisplayWidth disabled
 		e2    string // Expected string with TiDBStrictIntegerDisplayWidth enabled
 	}{

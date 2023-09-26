@@ -403,7 +403,7 @@ func (*Handle) initStatsBuckets4Chunk(cache *cache.StatsCache, iter *chunk.Itera
 			}
 			hist = &column.Histogram
 			d := types.NewBytesDatum(row.GetBytes(5))
-			// Setting TimeZone to time.UTC aligns with HistogramFromStorage and can fix #41938. However, #41985 still exist.
+			// Setting timeZone to time.UTC aligns with HistogramFromStorage and can fix #41938. However, #41985 still exist.
 			// TODO: do the correct time zone conversion for timestamp-type columns' upper/lower bounds.
 			sc := &stmtctx.StatementContext{TimeZone: time.UTC, AllowInvalidDate: true, IgnoreZeroInDate: true}
 			var err error

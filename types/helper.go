@@ -71,7 +71,7 @@ func GetMaxFloat(flen int, decimal int) float64 {
 
 // TruncateFloat tries to truncate f.
 // If the result exceeds the max/min float that flen/decimal allowed, returns the max/min float allowed.
-func TruncateFloat(ctx ValContext, f float64, flen int, decimal int) (float64, error) {
+func TruncateFloat(ctx Context, f float64, flen int, decimal int) (float64, error) {
 	if math.IsNaN(f) {
 		// nan returns 0
 		return 0, overflowWithArgs(ctx, "DOUBLE", "")

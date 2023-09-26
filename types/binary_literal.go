@@ -101,7 +101,7 @@ func (b BinaryLiteral) ToBitLiteralString(trimLeadingZero bool) string {
 }
 
 // ToInt returns the int value for the literal.
-func (b BinaryLiteral) ToInt(sc ValContext) (uint64, error) {
+func (b BinaryLiteral) ToInt(sc Context) (uint64, error) {
 	buf := trimLeadingZeroBytes(b)
 	length := len(buf)
 	if length == 0 {

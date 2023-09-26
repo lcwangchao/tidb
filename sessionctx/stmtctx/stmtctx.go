@@ -152,7 +152,7 @@ type StatementContext struct {
 
 	// IsDDLJobInQueue is used to mark whether the DDL job is put into the queue.
 	// If IsDDLJobInQueue is true, it means the DDL job is in the queue of storage, and it can be handled by the DDL worker.
-	ValCtx                        types.ValContext
+	ValCtx                        types.Context
 	IsDDLJobInQueue               bool
 	DDLJobID                      int64
 	InInsertStmt                  bool
@@ -243,7 +243,7 @@ type StatementContext struct {
 	BaseRowID int64
 	MaxRowID  int64
 
-	// Copied from SessionVars.TimeZone.
+	// Copied from SessionVars.timeZone.
 	TimeZone         *time.Location
 	Priority         mysql.PriorityEnum
 	NotFillCache     bool
@@ -1119,7 +1119,7 @@ func (sc *StatementContext) ShouldIgnoreOverflowError() bool {
 	return false
 }
 
-// PushDownFlags converts StatementContext to tipb.SelectRequest.Flags.
+// PushDownFlags converts StatementContext to tipb.SelectRequest.flags.
 func (sc *StatementContext) PushDownFlags() uint64 {
 	var flags uint64
 	if sc.InInsertStmt {
@@ -1196,7 +1196,7 @@ func (sc *StatementContext) CopTasksDetails() *CopTasksDetails {
 	return d
 }
 
-// SetFlagsFromPBFlag set the flag of StatementContext from a `tipb.SelectRequest.Flags`.
+// SetFlagsFromPBFlag set the flag of StatementContext from a `tipb.SelectRequest.flags`.
 func (sc *StatementContext) SetFlagsFromPBFlag(flags uint64) {
 	sc.IgnoreTruncate.Store((flags & model.FlagIgnoreTruncate) > 0)
 	sc.TruncateAsWarning = (flags & model.FlagTruncateAsWarning) > 0

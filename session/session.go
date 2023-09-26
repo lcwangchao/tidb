@@ -3753,7 +3753,7 @@ func (s *session) loadCommonGlobalVariablesIfNeeded() error {
 			}
 		}
 	}
-	// when client set Capability Flags CLIENT_INTERACTIVE, init wait_timeout with interactive_timeout
+	// when client set Capability flags CLIENT_INTERACTIVE, init wait_timeout with interactive_timeout
 	if vars.ClientCapability&mysql.ClientInteractive > 0 {
 		if varVal, ok := vars.GetSystemVar(variable.InteractiveTimeout); ok {
 			if err := vars.SetSystemVar(variable.WaitTimeout, varVal); err != nil {

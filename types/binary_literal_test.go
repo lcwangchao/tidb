@@ -206,7 +206,7 @@ func TestBinaryLiteral(t *testing.T) {
 			{"0x1010ffff8080ff12", 0x1010ffff8080ff12, false},
 			{"0x1010ffff8080ff12ff", 0xffffffffffffffff, true},
 		}
-		sc := DefaultValContext()
+		sc := DefaultCtx
 		for _, item := range tbl {
 			hex, err := ParseHexStr(item.Input)
 			require.NoError(t, err)
