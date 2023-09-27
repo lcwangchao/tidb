@@ -233,11 +233,11 @@ func (d *Datum) GetStringWithCheck(sc Context, chs string) (string, error) {
 
 func findEncoding(sc Context, chs string) (enc charset.Encoding, skip bool) {
 	enc = charset.FindEncoding(chs)
-	if enc.Tp() == charset.EncodingTpUTF8 && sc.SkipUTF8Check() ||
-		enc.Tp() == charset.EncodingTpASCII && sc.SkipASCIICheck() {
+	if enc.Tp() == charset.EncodingTpUTF8 && sc.flags.SkipUTF8Check() ||
+		enc.Tp() == charset.EncodingTpASCII && sc.flags.SkipASCIICheck() {
 		return nil, true
 	}
-	if chs == charset.CharsetUTF8 && !sc.SkipUTF8MB4Check() {
+	if chs == charset.CharsetUTF8 && !sc.flags.SkipUTF8MB4Check() {
 		enc = charset.EncodingUTF8MB3StrictImpl
 	}
 	return enc, false

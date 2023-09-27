@@ -2132,7 +2132,7 @@ func checkMonthDay(ctx Context, year, month, day int) error {
 	}
 
 	maxDay := 31
-	if ctx.InvalidDateAsError() || ctx.InvalidDateAsWarning() {
+	if ctx.flags.InvalidDateAsError() || ctx.flags.InvalidDateAsWarning() {
 		if month > 0 {
 			maxDay = maxDaysInMonth[month-1]
 		}

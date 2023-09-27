@@ -145,7 +145,7 @@ func ConvertUintToInt(ctx Context, val uint64, upperBound int64, tp byte) (int64
 
 // ConvertIntToUint converts an int value to an uint value.
 func ConvertIntToUint(sc Context, val int64, upperBound uint64, tp byte) (uint64, error) {
-	if sc.ClipNegativeToZero() && val < 0 {
+	if sc.flags.ClipNegativeToZero() && val < 0 {
 		return 0, overflow(sc, val, tp)
 	}
 
@@ -169,7 +169,7 @@ func ConvertUintToUint(ctx Context, val uint64, upperBound uint64, tp byte) (uin
 func ConvertFloatToUint(sc Context, fval float64, upperBound uint64, tp byte) (uint64, error) {
 	val := RoundFloat(fval)
 	if val < 0 {
-		if sc.ClipNegativeToZero() {
+		if sc.flags.ClipNegativeToZero() {
 			return 0, overflow(sc, val, tp)
 		}
 		return uint64(int64(val)), overflow(sc, val, tp)

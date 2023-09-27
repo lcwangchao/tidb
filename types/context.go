@@ -20,10 +20,10 @@ import (
 	"time"
 )
 
-type flags uint16
+type Flags uint16
 
 const (
-	FlagIgnoreTruncateErr flags = 1 << iota
+	FlagIgnoreTruncateErr Flags = 1 << iota
 	FlagTruncateAsWarning
 	FlagClipNegativeToZero
 	FlagIgnoreOverflowError
@@ -39,82 +39,82 @@ const (
 	FlagSkipUTF8MB4Check
 )
 
-func (f flags) Flags() flags {
-	return f
-}
-
-func (f flags) TruncateAsError() bool {
-	return f&(FlagIgnoreTruncateErr|FlagTruncateAsWarning) == 0
-}
-
-func (f flags) TruncateAsWarning() bool {
-	return f&FlagTruncateAsWarning != 0
-}
-
-func (f flags) ClipNegativeToZero() bool {
-	return f&FlagClipNegativeToZero != 0
-}
-
-func (f flags) OverflowAsError() bool {
-	return f&(FlagIgnoreOverflowError|FlagOverflowAsWarning) == 0
-}
-
-func (f flags) OverflowAsWarning() bool {
-	return f&FlagOverflowAsWarning != 0
-}
-
-func (f flags) ZeroDateAsError() bool {
-	return f&(FlagIgnoreZeroDateErr|FlagZeroDateAsWarning) == 0
-}
-
-func (f flags) ZeroDateAsWarning() bool {
-	return f&FlagZeroDateAsWarning != 0
-}
-
-func (f flags) ZeroInDateAsError() bool {
-	return f&(FlagIgnoreZeroInDateErr|FlagZeroInDateAsWarning) != 0
-}
-
-func (f flags) ZeroInDateAsWarning() bool {
-	return f&FlagZeroInDateAsWarning != 0
-}
-
-func (f flags) InvalidDateAsError() bool {
-	return f&(FlagIgnoreInvalidDateErr|FlagInvalidDateAsWarning) == 0
-}
-
-func (f flags) InvalidDateAsWarning() bool {
-	return f&FlagInvalidDateAsWarning != 0
-}
-
-func (f flags) SkipASCIICheck() bool {
-	return f&FlagSkipASCIICheck != 0
-}
-
-func (f flags) SkipUTF8Check() bool {
-	return f&FlagSkipUTF8Check != 0
-}
-
-func (f flags) SkipUTF8MB4Check() bool {
-	return f&FlagSkipUTF8MB4Check != 0
-}
-
 var (
-	DefaultFlags = flags(0)
+	DefaultFlags = Flags(0)
 	DefaultCtx   = ContextWithFlags(DefaultFlags, time.UTC)
 )
 
+func (f Flags) Flags() Flags {
+	return f
+}
+
+func (f Flags) TruncateAsError() bool {
+	return f&(FlagIgnoreTruncateErr|FlagTruncateAsWarning) == 0
+}
+
+func (f Flags) TruncateAsWarning() bool {
+	return f&FlagTruncateAsWarning != 0
+}
+
+func (f Flags) ClipNegativeToZero() bool {
+	return f&FlagClipNegativeToZero != 0
+}
+
+func (f Flags) OverflowAsError() bool {
+	return f&(FlagIgnoreOverflowError|FlagOverflowAsWarning) == 0
+}
+
+func (f Flags) OverflowAsWarning() bool {
+	return f&FlagOverflowAsWarning != 0
+}
+
+func (f Flags) ZeroDateAsError() bool {
+	return f&(FlagIgnoreZeroDateErr|FlagZeroDateAsWarning) == 0
+}
+
+func (f Flags) ZeroDateAsWarning() bool {
+	return f&FlagZeroDateAsWarning != 0
+}
+
+func (f Flags) ZeroInDateAsError() bool {
+	return f&(FlagIgnoreZeroInDateErr|FlagZeroInDateAsWarning) != 0
+}
+
+func (f Flags) ZeroInDateAsWarning() bool {
+	return f&FlagZeroInDateAsWarning != 0
+}
+
+func (f Flags) InvalidDateAsError() bool {
+	return f&(FlagIgnoreInvalidDateErr|FlagInvalidDateAsWarning) == 0
+}
+
+func (f Flags) InvalidDateAsWarning() bool {
+	return f&FlagInvalidDateAsWarning != 0
+}
+
+func (f Flags) SkipASCIICheck() bool {
+	return f&FlagSkipASCIICheck != 0
+}
+
+func (f Flags) SkipUTF8Check() bool {
+	return f&FlagSkipUTF8Check != 0
+}
+
+func (f Flags) SkipUTF8MB4Check() bool {
+	return f&FlagSkipUTF8MB4Check != 0
+}
+
 type Context struct {
-	flags
+	flags       Flags
 	loc         *time.Location
 	warningFunc func(error)
 }
 
-func ContextWithFlags(flags flags, loc *time.Location) Context {
+func ContextWithFlags(flags Flags, loc *time.Location) Context {
 	return Context{flags: flags, loc: loc}
 }
 
-func ContextWithWarningFunc(flags flags, loc *time.Location, fn func(error)) Context {
+func ContextWithWarningFunc(flags Flags, loc *time.Location, fn func(error)) Context {
 	return Context{flags: flags, loc: loc, warningFunc: fn}
 }
 
@@ -128,6 +128,21 @@ func (ctx Context) Loc() *time.Location {
 	return ctx.loc
 }
 
+func (ctx Context) WithNewFlags(flags Flags) Context {
+	ctx.flags = flags
+	return ctx
+}
+
+func (ctx Context) WithNewLocation(loc *time.Location) Context {
+	ctx.loc = loc
+	return ctx
+}
+
+func (ctx Context) WithNewWarningFunc(fn func(error)) Context {
+	ctx.warningFunc = fn
+	return ctx
+}
+
 func (ctx Context) HandleTruncate(err error) error {
 	// TODO: At present we have not checked whether the error can be ignored or treated as warning.
 	// We will do that later, and then append WarnDataTruncated instead of the error itself.
@@ -135,7 +150,7 @@ func (ctx Context) HandleTruncate(err error) error {
 		return nil
 	}
 
-	asWarning, asError := ctx.TruncateAsWarning(), ctx.TruncateAsError()
+	asWarning, asError := ctx.flags.TruncateAsWarning(), ctx.flags.TruncateAsError()
 	if !asWarning && !asError {
 		return nil
 	}

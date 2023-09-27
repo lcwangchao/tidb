@@ -194,11 +194,11 @@ func InvOp2(x, y interface{}, o opcode.Op) (interface{}, error) {
 
 // overflow returns an overflowed error.
 func overflow(ctx Context, v interface{}, tp byte) error {
-	if ctx.OverflowAsError() {
+	if ctx.flags.OverflowAsError() {
 		return ErrOverflow.GenWithStack("constant %v overflows %s", v, TypeStr(tp))
 	}
 
-	if ctx.OverflowAsWarning() {
+	if ctx.flags.OverflowAsWarning() {
 		ctx.appendWarning(ErrOverflow.GenWithStack("constant %v overflows %s", v, TypeStr(tp)))
 	}
 
@@ -206,11 +206,11 @@ func overflow(ctx Context, v interface{}, tp byte) error {
 }
 
 func overflowWithArgs(ctx Context, args ...interface{}) error {
-	if ctx.OverflowAsError() {
+	if ctx.flags.OverflowAsError() {
 		return ErrOverflow.GenWithStackByArgs(args...)
 	}
 
-	if ctx.OverflowAsWarning() {
+	if ctx.flags.OverflowAsWarning() {
 		ctx.appendWarning(ErrOverflow.GenWithStackByArgs(args...))
 	}
 
@@ -218,11 +218,11 @@ func overflowWithArgs(ctx Context, args ...interface{}) error {
 }
 
 func truncatedErr(ctx Context) error {
-	if ctx.TruncateAsError() {
+	if ctx.flags.TruncateAsError() {
 		return ErrTruncated
 	}
 
-	if ctx.TruncateAsWarning() {
+	if ctx.flags.TruncateAsWarning() {
 		ctx.appendWarning(ErrTruncated)
 	}
 
@@ -230,11 +230,11 @@ func truncatedErr(ctx Context) error {
 }
 
 func truncatedWrongVal(ctx Context, args ...interface{}) error {
-	if ctx.TruncateAsError() {
+	if ctx.flags.TruncateAsError() {
 		return ErrTruncatedWrongVal.GenWithStackByArgs(args...)
 	}
 
-	if ctx.TruncateAsWarning() {
+	if ctx.flags.TruncateAsWarning() {
 		ctx.appendWarning(ErrTruncatedWrongVal.GenWithStackByArgs(args...))
 	}
 
@@ -242,11 +242,11 @@ func truncatedWrongVal(ctx Context, args ...interface{}) error {
 }
 
 func zeroDateErr(ctx Context, args ...interface{}) error {
-	if ctx.ZeroDateAsError() {
+	if ctx.flags.ZeroDateAsError() {
 		return ErrWrongValue.GenWithStackByArgs(args...)
 	}
 
-	if ctx.ZeroDateAsWarning() {
+	if ctx.flags.ZeroDateAsWarning() {
 		ctx.appendWarning(ErrWrongValue.GenWithStackByArgs(args...))
 	}
 
@@ -254,11 +254,11 @@ func zeroDateErr(ctx Context, args ...interface{}) error {
 }
 
 func zeroInDateErr(ctx Context, args ...interface{}) error {
-	if ctx.ZeroInDateAsError() {
+	if ctx.flags.ZeroInDateAsError() {
 		return ErrTruncatedWrongVal.GenWithStackByArgs(args...)
 	}
 
-	if ctx.ZeroInDateAsWarning() {
+	if ctx.flags.ZeroInDateAsWarning() {
 		ctx.appendWarning(ErrTruncatedWrongVal.GenWithStackByArgs(args...))
 	}
 
@@ -266,11 +266,11 @@ func zeroInDateErr(ctx Context, args ...interface{}) error {
 }
 
 func invalidDateErr(ctx Context, args ...interface{}) error {
-	if ctx.InvalidDateAsError() {
+	if ctx.flags.InvalidDateAsError() {
 		return ErrWrongValue.GenWithStackByArgs(args...)
 	}
 
-	if ctx.InvalidDateAsWarning() {
+	if ctx.flags.InvalidDateAsWarning() {
 		ctx.appendWarning(ErrWrongValue.GenWithStackByArgs(args...))
 	}
 
