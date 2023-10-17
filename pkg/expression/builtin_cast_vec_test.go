@@ -171,9 +171,9 @@ func TestVectorizedCastRealAsTime(t *testing.T) {
 
 	for _, input := range inputs {
 		result := chunk.NewColumn(types.NewFieldType(mysql.TypeDatetime), input.NumRows())
-		require.NoError(t, cast.vecEvalTime(input, result))
+		require.NoError(t, cast.vecEvalTime(nil, input, result))
 		for i := 0; i < input.NumRows(); i++ {
-			res, isNull, err := cast.evalTime(input.GetRow(i))
+			res, isNull, err := cast.evalTime(nil, input.GetRow(i))
 			require.NoError(t, err)
 			if expect[i] == nil {
 				require.True(t, result.IsNull(i))
@@ -262,9 +262,9 @@ func TestVectorizedCastStringAsDecimalWithUnsignedFlagInUnion(t *testing.T) {
 
 	for _, input := range inputs {
 		result := chunk.NewColumn(types.NewFieldType(mysql.TypeNewDecimal), input.NumRows())
-		require.NoError(t, cast.vecEvalDecimal(input, result))
+		require.NoError(t, cast.vecEvalDecimal(nil, input, result))
 		for i := 0; i < input.NumRows(); i++ {
-			res, isNull, err := cast.evalDecimal(input.GetRow(i))
+			res, isNull, err := cast.evalDecimal(nil, input.GetRow(i))
 			require.False(t, isNull)
 			require.NoError(t, err)
 			require.Zero(t, result.GetDecimal(i).Compare(res))

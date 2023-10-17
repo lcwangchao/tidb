@@ -17,6 +17,7 @@
 package expression
 
 import (
+	"github.com/pingcap/tidb/pkg/sessionctx"
 	"time"
 
 	"github.com/pingcap/tidb/pkg/types"
@@ -32,7 +33,7 @@ func (b *builtinCaseWhenIntSig) fallbackEvalInt(input *chunk.Chunk, result *chun
 	result.ResizeInt64(n, false)
 	x := result.Int64s()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalInt(input.GetRow(i))
+		res, isNull, err := b.evalInt(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -47,7 +48,7 @@ func (b *builtinCaseWhenIntSig) fallbackEvalInt(input *chunk.Chunk, result *chun
 	return nil
 }
 
-func (b *builtinCaseWhenIntSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCaseWhenIntSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	args, l := b.getArgs(), len(b.getArgs())
 	whens := make([]*chunk.Column, l/2)
@@ -143,7 +144,7 @@ func (b *builtinCaseWhenRealSig) fallbackEvalReal(input *chunk.Chunk, result *ch
 	result.ResizeFloat64(n, false)
 	x := result.Float64s()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalReal(input.GetRow(i))
+		res, isNull, err := b.evalReal(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -158,7 +159,7 @@ func (b *builtinCaseWhenRealSig) fallbackEvalReal(input *chunk.Chunk, result *ch
 	return nil
 }
 
-func (b *builtinCaseWhenRealSig) vecEvalReal(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCaseWhenRealSig) vecEvalReal(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	args, l := b.getArgs(), len(b.getArgs())
 	whens := make([]*chunk.Column, l/2)
@@ -254,7 +255,7 @@ func (b *builtinCaseWhenDecimalSig) fallbackEvalDecimal(input *chunk.Chunk, resu
 	result.ResizeDecimal(n, false)
 	x := result.Decimals()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalDecimal(input.GetRow(i))
+		res, isNull, err := b.evalDecimal(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -269,7 +270,7 @@ func (b *builtinCaseWhenDecimalSig) fallbackEvalDecimal(input *chunk.Chunk, resu
 	return nil
 }
 
-func (b *builtinCaseWhenDecimalSig) vecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCaseWhenDecimalSig) vecEvalDecimal(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	args, l := b.getArgs(), len(b.getArgs())
 	whens := make([]*chunk.Column, l/2)
@@ -364,7 +365,7 @@ func (b *builtinCaseWhenStringSig) fallbackEvalString(input *chunk.Chunk, result
 	n := input.NumRows()
 	result.ReserveString(n)
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalString(input.GetRow(i))
+		res, isNull, err := b.evalString(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -377,7 +378,7 @@ func (b *builtinCaseWhenStringSig) fallbackEvalString(input *chunk.Chunk, result
 	return nil
 }
 
-func (b *builtinCaseWhenStringSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCaseWhenStringSig) vecEvalString(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	args, l := b.getArgs(), len(b.getArgs())
 	whens := make([]*chunk.Column, l/2)
@@ -474,7 +475,7 @@ func (b *builtinCaseWhenTimeSig) fallbackEvalTime(input *chunk.Chunk, result *ch
 	result.ResizeTime(n, false)
 	x := result.Times()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalTime(input.GetRow(i))
+		res, isNull, err := b.evalTime(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -489,7 +490,7 @@ func (b *builtinCaseWhenTimeSig) fallbackEvalTime(input *chunk.Chunk, result *ch
 	return nil
 }
 
-func (b *builtinCaseWhenTimeSig) vecEvalTime(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCaseWhenTimeSig) vecEvalTime(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	args, l := b.getArgs(), len(b.getArgs())
 	whens := make([]*chunk.Column, l/2)
@@ -585,7 +586,7 @@ func (b *builtinCaseWhenDurationSig) fallbackEvalDuration(input *chunk.Chunk, re
 	result.ResizeGoDuration(n, false)
 	x := result.GoDurations()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalDuration(input.GetRow(i))
+		res, isNull, err := b.evalDuration(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -600,7 +601,7 @@ func (b *builtinCaseWhenDurationSig) fallbackEvalDuration(input *chunk.Chunk, re
 	return nil
 }
 
-func (b *builtinCaseWhenDurationSig) vecEvalDuration(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCaseWhenDurationSig) vecEvalDuration(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	args, l := b.getArgs(), len(b.getArgs())
 	whens := make([]*chunk.Column, l/2)
@@ -695,7 +696,7 @@ func (b *builtinCaseWhenJSONSig) fallbackEvalJSON(input *chunk.Chunk, result *ch
 	n := input.NumRows()
 	result.ReserveJSON(n)
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalJSON(input.GetRow(i))
+		res, isNull, err := b.evalJSON(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -708,7 +709,7 @@ func (b *builtinCaseWhenJSONSig) fallbackEvalJSON(input *chunk.Chunk, result *ch
 	return nil
 }
 
-func (b *builtinCaseWhenJSONSig) vecEvalJSON(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCaseWhenJSONSig) vecEvalJSON(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	args, l := b.getArgs(), len(b.getArgs())
 	whens := make([]*chunk.Column, l/2)
@@ -805,7 +806,7 @@ func (b *builtinIfNullIntSig) fallbackEvalInt(input *chunk.Chunk, result *chunk.
 	result.ResizeInt64(n, false)
 	x := result.Int64s()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalInt(input.GetRow(i))
+		res, isNull, err := b.evalInt(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -820,7 +821,7 @@ func (b *builtinIfNullIntSig) fallbackEvalInt(input *chunk.Chunk, result *chunk.
 	return nil
 }
 
-func (b *builtinIfNullIntSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfNullIntSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	if err := b.args[0].VecEvalInt(b.ctx, input, result); err != nil {
 		return err
@@ -860,7 +861,7 @@ func (b *builtinIfNullRealSig) fallbackEvalReal(input *chunk.Chunk, result *chun
 	result.ResizeFloat64(n, false)
 	x := result.Float64s()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalReal(input.GetRow(i))
+		res, isNull, err := b.evalReal(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -875,7 +876,7 @@ func (b *builtinIfNullRealSig) fallbackEvalReal(input *chunk.Chunk, result *chun
 	return nil
 }
 
-func (b *builtinIfNullRealSig) vecEvalReal(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfNullRealSig) vecEvalReal(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	if err := b.args[0].VecEvalReal(b.ctx, input, result); err != nil {
 		return err
@@ -915,7 +916,7 @@ func (b *builtinIfNullDecimalSig) fallbackEvalDecimal(input *chunk.Chunk, result
 	result.ResizeDecimal(n, false)
 	x := result.Decimals()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalDecimal(input.GetRow(i))
+		res, isNull, err := b.evalDecimal(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -930,7 +931,7 @@ func (b *builtinIfNullDecimalSig) fallbackEvalDecimal(input *chunk.Chunk, result
 	return nil
 }
 
-func (b *builtinIfNullDecimalSig) vecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfNullDecimalSig) vecEvalDecimal(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	if err := b.args[0].VecEvalDecimal(b.ctx, input, result); err != nil {
 		return err
@@ -969,7 +970,7 @@ func (b *builtinIfNullStringSig) fallbackEvalString(input *chunk.Chunk, result *
 	n := input.NumRows()
 	result.ReserveString(n)
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalString(input.GetRow(i))
+		res, isNull, err := b.evalString(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -982,7 +983,7 @@ func (b *builtinIfNullStringSig) fallbackEvalString(input *chunk.Chunk, result *
 	return nil
 }
 
-func (b *builtinIfNullStringSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfNullStringSig) vecEvalString(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1030,7 +1031,7 @@ func (b *builtinIfNullTimeSig) fallbackEvalTime(input *chunk.Chunk, result *chun
 	result.ResizeTime(n, false)
 	x := result.Times()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalTime(input.GetRow(i))
+		res, isNull, err := b.evalTime(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1045,7 +1046,7 @@ func (b *builtinIfNullTimeSig) fallbackEvalTime(input *chunk.Chunk, result *chun
 	return nil
 }
 
-func (b *builtinIfNullTimeSig) vecEvalTime(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfNullTimeSig) vecEvalTime(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	if err := b.args[0].VecEvalTime(b.ctx, input, result); err != nil {
 		return err
@@ -1085,7 +1086,7 @@ func (b *builtinIfNullDurationSig) fallbackEvalDuration(input *chunk.Chunk, resu
 	result.ResizeGoDuration(n, false)
 	x := result.GoDurations()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalDuration(input.GetRow(i))
+		res, isNull, err := b.evalDuration(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1100,7 +1101,7 @@ func (b *builtinIfNullDurationSig) fallbackEvalDuration(input *chunk.Chunk, resu
 	return nil
 }
 
-func (b *builtinIfNullDurationSig) vecEvalDuration(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfNullDurationSig) vecEvalDuration(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	if err := b.args[0].VecEvalDuration(b.ctx, input, result); err != nil {
 		return err
@@ -1139,7 +1140,7 @@ func (b *builtinIfNullJSONSig) fallbackEvalJSON(input *chunk.Chunk, result *chun
 	n := input.NumRows()
 	result.ReserveJSON(n)
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalJSON(input.GetRow(i))
+		res, isNull, err := b.evalJSON(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1152,7 +1153,7 @@ func (b *builtinIfNullJSONSig) fallbackEvalJSON(input *chunk.Chunk, result *chun
 	return nil
 }
 
-func (b *builtinIfNullJSONSig) vecEvalJSON(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfNullJSONSig) vecEvalJSON(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1200,7 +1201,7 @@ func (b *builtinIfIntSig) fallbackEvalInt(input *chunk.Chunk, result *chunk.Colu
 	result.ResizeInt64(n, false)
 	x := result.Int64s()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalInt(input.GetRow(i))
+		res, isNull, err := b.evalInt(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1215,7 +1216,7 @@ func (b *builtinIfIntSig) fallbackEvalInt(input *chunk.Chunk, result *chunk.Colu
 	return nil
 }
 
-func (b *builtinIfIntSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfIntSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1279,7 +1280,7 @@ func (b *builtinIfRealSig) fallbackEvalReal(input *chunk.Chunk, result *chunk.Co
 	result.ResizeFloat64(n, false)
 	x := result.Float64s()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalReal(input.GetRow(i))
+		res, isNull, err := b.evalReal(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1294,7 +1295,7 @@ func (b *builtinIfRealSig) fallbackEvalReal(input *chunk.Chunk, result *chunk.Co
 	return nil
 }
 
-func (b *builtinIfRealSig) vecEvalReal(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfRealSig) vecEvalReal(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1358,7 +1359,7 @@ func (b *builtinIfDecimalSig) fallbackEvalDecimal(input *chunk.Chunk, result *ch
 	result.ResizeDecimal(n, false)
 	x := result.Decimals()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalDecimal(input.GetRow(i))
+		res, isNull, err := b.evalDecimal(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1373,7 +1374,7 @@ func (b *builtinIfDecimalSig) fallbackEvalDecimal(input *chunk.Chunk, result *ch
 	return nil
 }
 
-func (b *builtinIfDecimalSig) vecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfDecimalSig) vecEvalDecimal(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1436,7 +1437,7 @@ func (b *builtinIfStringSig) fallbackEvalString(input *chunk.Chunk, result *chun
 	n := input.NumRows()
 	result.ReserveString(n)
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalString(input.GetRow(i))
+		res, isNull, err := b.evalString(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1449,7 +1450,7 @@ func (b *builtinIfStringSig) fallbackEvalString(input *chunk.Chunk, result *chun
 	return nil
 }
 
-func (b *builtinIfStringSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfStringSig) vecEvalString(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1521,7 +1522,7 @@ func (b *builtinIfTimeSig) fallbackEvalTime(input *chunk.Chunk, result *chunk.Co
 	result.ResizeTime(n, false)
 	x := result.Times()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalTime(input.GetRow(i))
+		res, isNull, err := b.evalTime(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1536,7 +1537,7 @@ func (b *builtinIfTimeSig) fallbackEvalTime(input *chunk.Chunk, result *chunk.Co
 	return nil
 }
 
-func (b *builtinIfTimeSig) vecEvalTime(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfTimeSig) vecEvalTime(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1600,7 +1601,7 @@ func (b *builtinIfDurationSig) fallbackEvalDuration(input *chunk.Chunk, result *
 	result.ResizeGoDuration(n, false)
 	x := result.GoDurations()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalDuration(input.GetRow(i))
+		res, isNull, err := b.evalDuration(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1615,7 +1616,7 @@ func (b *builtinIfDurationSig) fallbackEvalDuration(input *chunk.Chunk, result *
 	return nil
 }
 
-func (b *builtinIfDurationSig) vecEvalDuration(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfDurationSig) vecEvalDuration(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1678,7 +1679,7 @@ func (b *builtinIfJSONSig) fallbackEvalJSON(input *chunk.Chunk, result *chunk.Co
 	n := input.NumRows()
 	result.ReserveJSON(n)
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalJSON(input.GetRow(i))
+		res, isNull, err := b.evalJSON(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1691,7 +1692,7 @@ func (b *builtinIfJSONSig) fallbackEvalJSON(input *chunk.Chunk, result *chunk.Co
 	return nil
 }
 
-func (b *builtinIfJSONSig) vecEvalJSON(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIfJSONSig) vecEvalJSON(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {

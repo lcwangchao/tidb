@@ -156,18 +156,18 @@ func (b *extensionFuncSig) Clone() builtinFunc {
 	return newSig
 }
 
-func (b *extensionFuncSig) evalString(row chunk.Row) (string, bool, error) {
+func (b *extensionFuncSig) evalString(sctx sessionctx.Context, row chunk.Row) (string, bool, error) {
 	if b.EvalTp == types.ETString {
 		return b.EvalStringFunc(b, row)
 	}
-	return b.baseBuiltinFunc.evalString(row)
+	return b.baseBuiltinFunc.evalString(nil, row)
 }
 
-func (b *extensionFuncSig) evalInt(row chunk.Row) (int64, bool, error) {
+func (b *extensionFuncSig) evalInt(sctx sessionctx.Context, row chunk.Row) (int64, bool, error) {
 	if b.EvalTp == types.ETInt {
 		return b.EvalIntFunc(b, row)
 	}
-	return b.baseBuiltinFunc.evalInt(row)
+	return b.baseBuiltinFunc.evalInt(nil, row)
 }
 
 func (b *extensionFuncSig) EvalArgs(row chunk.Row) ([]types.Datum, error) {

@@ -15,6 +15,7 @@
 package expression
 
 import (
+	"github.com/pingcap/tidb/pkg/sessionctx"
 	"sync"
 	"unsafe"
 
@@ -82,12 +83,12 @@ func (r *localColumnPool) MemoryUsage() (sum int64) {
 }
 
 // vecEvalIntByRows uses the non-vectorized(row-based) interface `evalInt` to eval the expression.
-func vecEvalIntByRows(sig builtinFunc, input *chunk.Chunk, result *chunk.Column) error {
+func vecEvalIntByRows(sctx sessionctx.Context, sig builtinFunc, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	result.ResizeInt64(n, false)
 	i64s := result.Int64s()
 	for i := 0; i < n; i++ {
-		res, isNull, err := sig.evalInt(input.GetRow(i))
+		res, isNull, err := sig.evalInt(sctx, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -98,11 +99,11 @@ func vecEvalIntByRows(sig builtinFunc, input *chunk.Chunk, result *chunk.Column)
 }
 
 // vecEvalStringByRows uses the non-vectorized(row-based) interface `evalString` to eval the expression.
-func vecEvalStringByRows(sig builtinFunc, input *chunk.Chunk, result *chunk.Column) error {
+func vecEvalStringByRows(sctx sessionctx.Context, sig builtinFunc, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	result.ReserveString(n)
 	for i := 0; i < n; i++ {
-		res, isNull, err := sig.evalString(input.GetRow(i))
+		res, isNull, err := sig.evalString(sctx, input.GetRow(i))
 		if err != nil {
 			return err
 		}

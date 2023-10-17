@@ -143,7 +143,7 @@ func TestCompare(t *testing.T) {
 		args := bf.getArgs()
 		require.Equal(t, test.tp, args[0].GetType().GetType())
 		require.Equal(t, test.tp, args[1].GetType().GetType())
-		res, isNil, err := bf.evalInt(chunk.Row{})
+		res, isNil, err := bf.evalInt(nil, chunk.Row{})
 		require.NoError(t, err)
 		require.False(t, isNil)
 		require.Equal(t, test.expected, res)

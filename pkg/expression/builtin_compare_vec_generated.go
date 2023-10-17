@@ -18,12 +18,13 @@ package expression
 
 import (
 	"cmp"
+	"github.com/pingcap/tidb/pkg/sessionctx"
 
 	"github.com/pingcap/tidb/pkg/types"
 	"github.com/pingcap/tidb/pkg/util/chunk"
 )
 
-func (b *builtinLTRealSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinLTRealSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -61,7 +62,7 @@ func (b *builtinLTRealSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinLTDecimalSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinLTDecimalSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -99,7 +100,7 @@ func (b *builtinLTDecimalSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinLTStringSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinLTStringSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -135,7 +136,7 @@ func (b *builtinLTStringSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinLTTimeSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinLTTimeSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -173,7 +174,7 @@ func (b *builtinLTTimeSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinLTDurationSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinLTDurationSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -211,7 +212,7 @@ func (b *builtinLTDurationSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinLTJSONSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinLTJSONSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -247,7 +248,7 @@ func (b *builtinLTJSONSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinLERealSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinLERealSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -285,7 +286,7 @@ func (b *builtinLERealSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinLEDecimalSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinLEDecimalSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -323,7 +324,7 @@ func (b *builtinLEDecimalSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinLEStringSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinLEStringSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -359,7 +360,7 @@ func (b *builtinLEStringSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinLETimeSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinLETimeSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -397,7 +398,7 @@ func (b *builtinLETimeSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinLEDurationSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinLEDurationSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -435,7 +436,7 @@ func (b *builtinLEDurationSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinLEJSONSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinLEJSONSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -471,7 +472,7 @@ func (b *builtinLEJSONSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinGTRealSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinGTRealSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -509,7 +510,7 @@ func (b *builtinGTRealSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinGTDecimalSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinGTDecimalSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -547,7 +548,7 @@ func (b *builtinGTDecimalSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinGTStringSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinGTStringSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -583,7 +584,7 @@ func (b *builtinGTStringSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinGTTimeSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinGTTimeSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -621,7 +622,7 @@ func (b *builtinGTTimeSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinGTDurationSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinGTDurationSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -659,7 +660,7 @@ func (b *builtinGTDurationSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinGTJSONSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinGTJSONSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -695,7 +696,7 @@ func (b *builtinGTJSONSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinGERealSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinGERealSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -733,7 +734,7 @@ func (b *builtinGERealSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinGEDecimalSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinGEDecimalSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -771,7 +772,7 @@ func (b *builtinGEDecimalSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinGEStringSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinGEStringSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -807,7 +808,7 @@ func (b *builtinGEStringSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinGETimeSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinGETimeSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -845,7 +846,7 @@ func (b *builtinGETimeSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinGEDurationSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinGEDurationSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -883,7 +884,7 @@ func (b *builtinGEDurationSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinGEJSONSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinGEJSONSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -919,7 +920,7 @@ func (b *builtinGEJSONSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinEQRealSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinEQRealSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -957,7 +958,7 @@ func (b *builtinEQRealSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinEQDecimalSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinEQDecimalSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -995,7 +996,7 @@ func (b *builtinEQDecimalSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinEQStringSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinEQStringSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1031,7 +1032,7 @@ func (b *builtinEQStringSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinEQTimeSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinEQTimeSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1069,7 +1070,7 @@ func (b *builtinEQTimeSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinEQDurationSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinEQDurationSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1107,7 +1108,7 @@ func (b *builtinEQDurationSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinEQJSONSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinEQJSONSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1143,7 +1144,7 @@ func (b *builtinEQJSONSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNERealSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNERealSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1181,7 +1182,7 @@ func (b *builtinNERealSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNEDecimalSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNEDecimalSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1219,7 +1220,7 @@ func (b *builtinNEDecimalSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNEStringSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNEStringSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1255,7 +1256,7 @@ func (b *builtinNEStringSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNETimeSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNETimeSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1293,7 +1294,7 @@ func (b *builtinNETimeSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNEDurationSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNEDurationSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1331,7 +1332,7 @@ func (b *builtinNEDurationSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNEJSONSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNEJSONSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1367,7 +1368,7 @@ func (b *builtinNEJSONSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNullEQRealSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNullEQRealSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1409,7 +1410,7 @@ func (b *builtinNullEQRealSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNullEQDecimalSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNullEQDecimalSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1451,7 +1452,7 @@ func (b *builtinNullEQDecimalSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNullEQStringSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNullEQStringSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1491,7 +1492,7 @@ func (b *builtinNullEQStringSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNullEQTimeSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNullEQTimeSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1533,7 +1534,7 @@ func (b *builtinNullEQTimeSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNullEQDurationSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNullEQDurationSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1575,7 +1576,7 @@ func (b *builtinNullEQDurationSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNullEQJSONSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNullEQJSONSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf0, err := b.bufAllocator.get()
 	if err != nil {
@@ -1622,7 +1623,7 @@ func (b *builtinCoalesceIntSig) fallbackEvalInt(input *chunk.Chunk, result *chun
 
 	x := result.Int64s()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalInt(input.GetRow(i))
+		res, isNull, err := b.evalInt(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1637,7 +1638,7 @@ func (b *builtinCoalesceIntSig) fallbackEvalInt(input *chunk.Chunk, result *chun
 	return nil
 }
 
-func (b *builtinCoalesceIntSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCoalesceIntSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	result.ResizeInt64(n, true)
 	i64s := result.Int64s()
@@ -1679,7 +1680,7 @@ func (b *builtinCoalesceRealSig) fallbackEvalReal(input *chunk.Chunk, result *ch
 
 	x := result.Float64s()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalReal(input.GetRow(i))
+		res, isNull, err := b.evalReal(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1694,7 +1695,7 @@ func (b *builtinCoalesceRealSig) fallbackEvalReal(input *chunk.Chunk, result *ch
 	return nil
 }
 
-func (b *builtinCoalesceRealSig) vecEvalReal(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCoalesceRealSig) vecEvalReal(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	result.ResizeFloat64(n, true)
 	i64s := result.Float64s()
@@ -1736,7 +1737,7 @@ func (b *builtinCoalesceDecimalSig) fallbackEvalDecimal(input *chunk.Chunk, resu
 
 	x := result.Decimals()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalDecimal(input.GetRow(i))
+		res, isNull, err := b.evalDecimal(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1751,7 +1752,7 @@ func (b *builtinCoalesceDecimalSig) fallbackEvalDecimal(input *chunk.Chunk, resu
 	return nil
 }
 
-func (b *builtinCoalesceDecimalSig) vecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCoalesceDecimalSig) vecEvalDecimal(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	result.ResizeDecimal(n, true)
 	i64s := result.Decimals()
@@ -1793,7 +1794,7 @@ func (b *builtinCoalesceStringSig) fallbackEvalString(input *chunk.Chunk, result
 
 	result.ReserveString(n)
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalString(input.GetRow(i))
+		res, isNull, err := b.evalString(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1806,7 +1807,7 @@ func (b *builtinCoalesceStringSig) fallbackEvalString(input *chunk.Chunk, result
 	return nil
 }
 
-func (b *builtinCoalesceStringSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCoalesceStringSig) vecEvalString(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	argLen := len(b.args)
 
@@ -1856,7 +1857,7 @@ func (b *builtinCoalesceTimeSig) fallbackEvalTime(input *chunk.Chunk, result *ch
 
 	x := result.Times()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalTime(input.GetRow(i))
+		res, isNull, err := b.evalTime(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1871,7 +1872,7 @@ func (b *builtinCoalesceTimeSig) fallbackEvalTime(input *chunk.Chunk, result *ch
 	return nil
 }
 
-func (b *builtinCoalesceTimeSig) vecEvalTime(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCoalesceTimeSig) vecEvalTime(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	result.ResizeTime(n, true)
 	i64s := result.Times()
@@ -1915,7 +1916,7 @@ func (b *builtinCoalesceDurationSig) fallbackEvalDuration(input *chunk.Chunk, re
 
 	x := result.GoDurations()
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalDuration(input.GetRow(i))
+		res, isNull, err := b.evalDuration(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1930,7 +1931,7 @@ func (b *builtinCoalesceDurationSig) fallbackEvalDuration(input *chunk.Chunk, re
 	return nil
 }
 
-func (b *builtinCoalesceDurationSig) vecEvalDuration(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCoalesceDurationSig) vecEvalDuration(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	result.ResizeGoDuration(n, true)
 	i64s := result.GoDurations()
@@ -1972,7 +1973,7 @@ func (b *builtinCoalesceJSONSig) fallbackEvalJSON(input *chunk.Chunk, result *ch
 
 	result.ReserveJSON(n)
 	for i := 0; i < n; i++ {
-		res, isNull, err := b.evalJSON(input.GetRow(i))
+		res, isNull, err := b.evalJSON(nil, input.GetRow(i))
 		if err != nil {
 			return err
 		}
@@ -1985,7 +1986,7 @@ func (b *builtinCoalesceJSONSig) fallbackEvalJSON(input *chunk.Chunk, result *ch
 	return nil
 }
 
-func (b *builtinCoalesceJSONSig) vecEvalJSON(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinCoalesceJSONSig) vecEvalJSON(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	argLen := len(b.args)
 

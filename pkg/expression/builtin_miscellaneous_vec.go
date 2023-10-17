@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/sessionctx"
 	"math"
 	"net"
 	"strings"
@@ -30,7 +31,7 @@ import (
 	"github.com/pingcap/tidb/pkg/util/vitess"
 )
 
-func (b *builtinInetNtoaSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinInetNtoaSig) vecEvalString(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf, err := b.bufAllocator.get()
 	if err != nil {
@@ -66,7 +67,7 @@ func (b *builtinInetNtoaSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinIsIPv4Sig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIsIPv4Sig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf, err := b.bufAllocator.get()
 	if err != nil {
@@ -99,7 +100,7 @@ func (b *builtinJSONAnyValueSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinJSONAnyValueSig) vecEvalJSON(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinJSONAnyValueSig) vecEvalJSON(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[0].VecEvalJSON(b.ctx, input, result)
 }
 
@@ -107,7 +108,7 @@ func (b *builtinRealAnyValueSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinRealAnyValueSig) vecEvalReal(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinRealAnyValueSig) vecEvalReal(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[0].VecEvalReal(b.ctx, input, result)
 }
 
@@ -115,7 +116,7 @@ func (b *builtinStringAnyValueSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinStringAnyValueSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinStringAnyValueSig) vecEvalString(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[0].VecEvalString(b.ctx, input, result)
 }
 
@@ -123,7 +124,7 @@ func (b *builtinIsIPv6Sig) vectorized() bool {
 	return true
 }
 
-func (b *builtinIsIPv6Sig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIsIPv6Sig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf, err := b.bufAllocator.get()
 	if err != nil {
@@ -158,7 +159,7 @@ func (b *builtinIsUUIDSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinIsUUIDSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIsUUIDSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf, err := b.bufAllocator.get()
 	if err != nil {
@@ -188,7 +189,7 @@ func (b *builtinNameConstStringSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNameConstStringSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNameConstStringSig) vecEvalString(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[1].VecEvalString(b.ctx, input, result)
 }
 
@@ -196,7 +197,7 @@ func (b *builtinDecimalAnyValueSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinDecimalAnyValueSig) vecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinDecimalAnyValueSig) vecEvalDecimal(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[0].VecEvalDecimal(b.ctx, input, result)
 }
 
@@ -204,7 +205,7 @@ func (b *builtinUUIDSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinUUIDSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinUUIDSig) vecEvalString(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	result.ReserveString(n)
 	var id uuid.UUID
@@ -223,7 +224,7 @@ func (b *builtinNameConstDurationSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNameConstDurationSig) vecEvalDuration(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNameConstDurationSig) vecEvalDuration(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[1].VecEvalDuration(b.ctx, input, result)
 }
 
@@ -231,7 +232,7 @@ func (b *builtinDurationAnyValueSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinDurationAnyValueSig) vecEvalDuration(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinDurationAnyValueSig) vecEvalDuration(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[0].VecEvalDuration(b.ctx, input, result)
 }
 
@@ -239,7 +240,7 @@ func (b *builtinIntAnyValueSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinIntAnyValueSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIntAnyValueSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[0].VecEvalInt(b.ctx, input, result)
 }
 
@@ -247,7 +248,7 @@ func (b *builtinIsIPv4CompatSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinIsIPv4CompatSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIsIPv4CompatSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf, err := b.bufAllocator.get()
 	if err != nil {
@@ -284,7 +285,7 @@ func (b *builtinNameConstIntSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNameConstIntSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNameConstIntSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[1].VecEvalInt(b.ctx, input, result)
 }
 
@@ -292,7 +293,7 @@ func (b *builtinNameConstTimeSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNameConstTimeSig) vecEvalTime(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNameConstTimeSig) vecEvalTime(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[1].VecEvalTime(b.ctx, input, result)
 }
 
@@ -302,7 +303,7 @@ func (b *builtinSleepSig) vectorized() bool {
 
 // vecEvalInt evals a builtinSleepSig in a vectorized manner.
 // See https://dev.mysql.com/doc/refman/5.7/en/miscellaneous-functions.html#function_sleep
-func (b *builtinSleepSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinSleepSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf, err := b.bufAllocator.get()
 	if err != nil {
@@ -383,7 +384,7 @@ func (b *builtinIsIPv4MappedSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinIsIPv4MappedSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinIsIPv4MappedSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf, err := b.bufAllocator.get()
 	if err != nil {
@@ -420,7 +421,7 @@ func (b *builtinNameConstDecimalSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNameConstDecimalSig) vecEvalDecimal(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNameConstDecimalSig) vecEvalDecimal(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[1].VecEvalDecimal(b.ctx, input, result)
 }
 
@@ -428,7 +429,7 @@ func (b *builtinNameConstJSONSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNameConstJSONSig) vecEvalJSON(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNameConstJSONSig) vecEvalJSON(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[1].VecEvalJSON(b.ctx, input, result)
 }
 
@@ -438,7 +439,7 @@ func (b *builtinInet6AtonSig) vectorized() bool {
 
 // vecEvalString evals a builtinInet6AtonSig.
 // See https://dev.mysql.com/doc/refman/5.7/en/miscellaneous-functions.html#function_inet6-aton
-func (b *builtinInet6AtonSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinInet6AtonSig) vecEvalString(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf, err := b.bufAllocator.get()
 	if err != nil {
@@ -507,7 +508,7 @@ func (b *builtinTimeAnyValueSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinTimeAnyValueSig) vecEvalTime(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinTimeAnyValueSig) vecEvalTime(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[0].VecEvalTime(b.ctx, input, result)
 }
 
@@ -515,7 +516,7 @@ func (b *builtinInetAtonSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinInetAtonSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinInetAtonSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	buf, err := b.bufAllocator.get()
 	if err != nil {
@@ -588,7 +589,7 @@ func (b *builtinInet6NtoaSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinInet6NtoaSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinInet6NtoaSig) vecEvalString(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	val, err := b.bufAllocator.get()
 	if err != nil {
@@ -622,7 +623,7 @@ func (b *builtinNameConstRealSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinNameConstRealSig) vecEvalReal(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinNameConstRealSig) vecEvalReal(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	return b.args[1].VecEvalReal(b.ctx, input, result)
 }
 
@@ -630,7 +631,7 @@ func (b *builtinVitessHashSig) vectorized() bool {
 	return true
 }
 
-func (b *builtinVitessHashSig) vecEvalInt(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinVitessHashSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	column, err := b.bufAllocator.get()
 	if err != nil {
@@ -667,7 +668,7 @@ func (b *builtinUUIDToBinSig) vectorized() bool {
 
 // evalString evals UUID_TO_BIN(string_uuid, swap_flag).
 // See https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_uuid-to-bin
-func (b *builtinUUIDToBinSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinUUIDToBinSig) vecEvalString(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	valBuf, err := b.bufAllocator.get()
 	if err != nil {
@@ -725,7 +726,7 @@ func (b *builtinBinToUUIDSig) vectorized() bool {
 
 // evalString evals BIN_TO_UUID(binary_uuid, swap_flag).
 // See https://dev.mysql.com/doc/refman/8.0/en/miscellaneous-functions.html#function_bin-to-uuid
-func (b *builtinBinToUUIDSig) vecEvalString(input *chunk.Chunk, result *chunk.Column) error {
+func (b *builtinBinToUUIDSig) vecEvalString(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 	valBuf, err := b.bufAllocator.get()
 	if err != nil {

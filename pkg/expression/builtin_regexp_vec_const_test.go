@@ -62,7 +62,7 @@ func genVecBuiltinRegexpBenchCaseForConstants() (baseFunc builtinFunc, childrenF
 
 func TestVectorizedBuiltinRegexpForConstants(t *testing.T) {
 	bf, childrenFieldTypes, input, output := genVecBuiltinRegexpBenchCaseForConstants()
-	err := bf.vecEvalInt(input, output)
+	err := bf.vecEvalInt(nil, input, output)
 	require.NoError(t, err)
 	i64s := output.Int64s()
 
@@ -72,7 +72,7 @@ func TestVectorizedBuiltinRegexpForConstants(t *testing.T) {
 		return fmt.Sprintf("func: builtinRegexpUTF8Sig, row: %v, rowData: %v", row, input.GetRow(row).GetDatumRow(childrenFieldTypes))
 	}
 	for row := it.Begin(); row != it.End(); row = it.Next() {
-		val, isNull, err := bf.evalInt(row)
+		val, isNull, err := bf.evalInt(nil, row)
 		require.NoError(t, err)
 		require.Equal(t, output.IsNull(i), isNull, commentf(i))
 		if !isNull {
@@ -87,7 +87,7 @@ func BenchmarkVectorizedBuiltinRegexpForConstants(b *testing.B) {
 	b.Run("builtinRegexpUTF8Sig-Constants-VecBuiltinFunc", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			if err := bf.vecEvalInt(input, output); err != nil {
+			if err := bf.vecEvalInt(nil, input, output); err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -98,7 +98,7 @@ func BenchmarkVectorizedBuiltinRegexpForConstants(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			output.Reset(types.ETInt)
 			for row := it.Begin(); row != it.End(); row = it.Next() {
-				v, isNull, err := bf.evalInt(row)
+				v, isNull, err := bf.evalInt(nil, row)
 				if err != nil {
 					b.Fatal(err)
 				}

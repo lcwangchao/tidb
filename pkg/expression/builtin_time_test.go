@@ -1147,7 +1147,7 @@ func TestSysDate(t *testing.T) {
 
 		baseFunc, _, input, output := genVecBuiltinFuncBenchCase(ctx, ast.Sysdate, vecExprBenchCase{retEvalType: types.ETDatetime})
 		resetStmtContext(ctx)
-		err = baseFunc.vecEvalTime(input, output)
+		err = baseFunc.vecEvalTime(nil, input, output)
 		require.NoError(t, err)
 		last = time.Now()
 		times := output.Times()
@@ -1164,7 +1164,7 @@ func TestSysDate(t *testing.T) {
 		resetStmtContext(ctx)
 		loc := ctx.GetSessionVars().Location()
 		startTm := time.Now().In(loc)
-		err = baseFunc.vecEvalTime(input, output)
+		err = baseFunc.vecEvalTime(nil, input, output)
 		require.NoError(t, err)
 		for i := 0; i < 1024; i++ {
 			require.GreaterOrEqual(t, times[i].String(), startTm.Format(types.TimeFormat))

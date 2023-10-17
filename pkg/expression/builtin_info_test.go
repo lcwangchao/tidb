@@ -238,7 +238,7 @@ func TestRowCount(t *testing.T) {
 	sig, ok := f.(*builtinRowCountSig)
 	require.True(t, ok)
 	require.NotNil(t, sig)
-	intResult, isNull, err := sig.evalInt(chunk.Row{})
+	intResult, isNull, err := sig.evalInt(nil, chunk.Row{})
 	require.NoError(t, err)
 	require.False(t, isNull)
 	require.Equal(t, int64(10), intResult)

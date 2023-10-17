@@ -253,7 +253,7 @@ func TestConcatSig(t *testing.T) {
 		input.AppendString(0, c.args[0].(string))
 		input.AppendString(1, c.args[1].(string))
 
-		res, isNull, err := concat.evalString(input.GetRow(0))
+		res, isNull, err := concat.evalString(nil, input.GetRow(0))
 		require.Equal(t, c.res, res)
 		require.NoError(t, err)
 		if c.warnings == 0 {
@@ -375,7 +375,7 @@ func TestConcatWSSig(t *testing.T) {
 		input.AppendString(1, c.args[1].(string))
 		input.AppendString(2, c.args[2].(string))
 
-		res, isNull, err := concat.evalString(input.GetRow(0))
+		res, isNull, err := concat.evalString(nil, input.GetRow(0))
 		require.Equal(t, c.res, res)
 		require.NoError(t, err)
 		if c.warnings == 0 {
@@ -551,7 +551,7 @@ func TestRepeatSig(t *testing.T) {
 		input.AppendString(0, c.args[0].(string))
 		input.AppendInt64(1, c.args[1].(int64))
 
-		res, isNull, err := repeat.evalString(input.GetRow(0))
+		res, isNull, err := repeat.evalString(nil, input.GetRow(0))
 		require.Equal(t, c.res, res)
 		require.NoError(t, err)
 		if c.warning == 0 {
@@ -1015,11 +1015,11 @@ func TestSpaceSig(t *testing.T) {
 	input := chunk.NewChunkWithCapacity(colTypes, 10)
 	input.AppendInt64(0, 6)
 	input.AppendInt64(0, 1001)
-	res, isNull, err := space.evalString(input.GetRow(0))
+	res, isNull, err := space.evalString(nil, input.GetRow(0))
 	require.Equal(t, "      ", res)
 	require.False(t, isNull)
 	require.NoError(t, err)
-	res, isNull, err = space.evalString(input.GetRow(1))
+	res, isNull, err = space.evalString(nil, input.GetRow(1))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
@@ -1649,12 +1649,12 @@ func TestRpadSig(t *testing.T) {
 	input.AppendString(2, "123")
 	input.AppendString(2, "123")
 
-	res, isNull, err := rpad.evalString(input.GetRow(0))
+	res, isNull, err := rpad.evalString(nil, input.GetRow(0))
 	require.Equal(t, "abc123", res)
 	require.False(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = rpad.evalString(input.GetRow(1))
+	res, isNull, err = rpad.evalString(nil, input.GetRow(1))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
@@ -1717,37 +1717,37 @@ func TestInsertBinarySig(t *testing.T) {
 	input.AppendString(3, "d")
 	input.AppendNull(3)
 
-	res, isNull, err := insert.evalString(input.GetRow(0))
+	res, isNull, err := insert.evalString(nil, input.GetRow(0))
 	require.Equal(t, "abd", res)
 	require.False(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = insert.evalString(input.GetRow(1))
+	res, isNull, err = insert.evalString(nil, input.GetRow(1))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = insert.evalString(input.GetRow(2))
+	res, isNull, err = insert.evalString(nil, input.GetRow(2))
 	require.Equal(t, "abc", res)
 	require.False(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = insert.evalString(input.GetRow(3))
+	res, isNull, err = insert.evalString(nil, input.GetRow(3))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = insert.evalString(input.GetRow(4))
+	res, isNull, err = insert.evalString(nil, input.GetRow(4))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = insert.evalString(input.GetRow(5))
+	res, isNull, err = insert.evalString(nil, input.GetRow(5))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
 
-	res, isNull, err = insert.evalString(input.GetRow(6))
+	res, isNull, err = insert.evalString(nil, input.GetRow(6))
 	require.Equal(t, "", res)
 	require.True(t, isNull)
 	require.NoError(t, err)
@@ -2125,7 +2125,7 @@ func TestFromBase64Sig(t *testing.T) {
 
 		input := chunk.NewChunkWithCapacity(colTypes, 1)
 		input.AppendString(0, test.args)
-		res, isNull, err := fromBase64.evalString(input.GetRow(0))
+		res, isNull, err := fromBase64.evalString(nil, input.GetRow(0))
 		require.NoError(t, err)
 		require.Equal(t, test.isNil, isNull)
 		if isNull {
@@ -2491,7 +2491,7 @@ func TestToBase64Sig(t *testing.T) {
 
 		input := chunk.NewChunkWithCapacity(colTypes, 1)
 		input.AppendString(0, test.args)
-		res, isNull, err := toBase64.evalString(input.GetRow(0))
+		res, isNull, err := toBase64.evalString(nil, input.GetRow(0))
 		require.NoError(t, err)
 		if test.isNil {
 			require.True(t, isNull)
