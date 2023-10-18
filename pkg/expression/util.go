@@ -600,7 +600,7 @@ func SubstituteCorCol2Constant(expr Expression) (Expression, error) {
 			allConstant = allConstant && ok
 		}
 		if allConstant {
-			val, err := x.Eval(chunk.Row{})
+			val, err := x.Eval(NilEvalCtx, chunk.Row{})
 			if err != nil {
 				return nil, err
 			}
@@ -879,20 +879,20 @@ func pushNotAcrossExpr(ctx sessionctx.Context, expr Expression, not bool) (_ Exp
 				return expr, false
 			}
 			var childExpr Expression
-			childExpr, changed = pushNotAcrossExpr(f.GetCtx(), child, !not)
+			childExpr, changed = pushNotAcrossExpr(ctx, child, !not)
 			if !changed && !not {
 				return expr, false
 			}
 			return childExpr, true
 		case ast.LT, ast.GE, ast.GT, ast.LE, ast.EQ, ast.NE:
 			if not {
-				return NewFunctionInternal(f.GetCtx(), oppositeOp[f.FuncName.L], f.GetType(), f.GetArgs()...), true
+				return NewFunctionInternal(ctx, oppositeOp[f.FuncName.L], f.GetType(), f.GetArgs()...), true
 			}
-			newArgs, changed := pushNotAcrossArgs(f.GetCtx(), f.GetArgs(), false)
+			newArgs, changed := pushNotAcrossArgs(ctx, f.GetArgs(), false)
 			if !changed {
 				return f, false
 			}
-			return NewFunctionInternal(f.GetCtx(), f.FuncName.L, f.GetType(), newArgs...), true
+			return NewFunctionInternal(ctx, f.FuncName.L, f.GetType(), newArgs...), true
 		case ast.LogicAnd, ast.LogicOr:
 			var (
 				newArgs []Expression
@@ -900,16 +900,16 @@ func pushNotAcrossExpr(ctx sessionctx.Context, expr Expression, not bool) (_ Exp
 			)
 			funcName := f.FuncName.L
 			if not {
-				newArgs, _ = pushNotAcrossArgs(f.GetCtx(), f.GetArgs(), true)
+				newArgs, _ = pushNotAcrossArgs(ctx, f.GetArgs(), true)
 				funcName = oppositeOp[f.FuncName.L]
 				changed = true
 			} else {
-				newArgs, changed = pushNotAcrossArgs(f.GetCtx(), f.GetArgs(), false)
+				newArgs, changed = pushNotAcrossArgs(ctx, f.GetArgs(), false)
 			}
 			if !changed {
 				return f, false
 			}
-			return NewFunctionInternal(f.GetCtx(), funcName, f.GetType(), newArgs...), true
+			return NewFunctionInternal(ctx, funcName, f.GetType(), newArgs...), true
 		}
 	}
 	if not {
@@ -1350,7 +1350,7 @@ func IsMutableEffectsExpr(expr Expression) bool {
 }
 
 // IsInmutableExpr checks whether this expression only consists of foldable functions and inmutable constants.
-// This expression can be evaluated by using `expr.Eval(chunk.Row{})` directly if it's inmutable.
+// This expression can be evaluated by using `expr.Eval(nil, chunk.Row{})` directly if it's inmutable.
 func IsInmutableExpr(expr Expression) bool {
 	switch x := expr.(type) {
 	case *ScalarFunction:
@@ -1405,7 +1405,7 @@ func GetUint64FromConstant(expr Expression) (uint64, bool, bool) {
 		dt = con.ParamMarker.GetUserVar()
 	} else if con.DeferredExpr != nil {
 		var err error
-		dt, err = con.DeferredExpr.Eval(chunk.Row{})
+		dt, err = con.DeferredExpr.Eval(NilEvalCtx, chunk.Row{})
 		if err != nil {
 			logutil.BgLogger().Warn("eval deferred expr failed", zap.Error(err))
 			return 0, false, false

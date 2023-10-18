@@ -301,7 +301,7 @@ func (c *dateLiteralFunctionClass) getFunction(ctx sessionctx.Context, args []Ex
 	if !ok {
 		panic("Unexpected parameter for date literal")
 	}
-	dt, err := con.Eval(chunk.Row{})
+	dt, err := con.Eval(ctx, chunk.Row{})
 	if err != nil {
 		return nil, err
 	}
@@ -2292,7 +2292,7 @@ func (c *timeLiteralFunctionClass) getFunction(ctx sessionctx.Context, args []Ex
 	if !ok {
 		panic("Unexpected parameter for time literal")
 	}
-	dt, err := con.Eval(chunk.Row{})
+	dt, err := con.Eval(ctx, chunk.Row{})
 	if err != nil {
 		return nil, err
 	}
@@ -4429,7 +4429,7 @@ func (c *timestampLiteralFunctionClass) getFunction(ctx sessionctx.Context, args
 	if !ok {
 		panic("Unexpected parameter for timestamp literal")
 	}
-	dt, err := con.Eval(chunk.Row{})
+	dt, err := con.Eval(ctx, chunk.Row{})
 	if err != nil {
 		return nil, err
 	}

@@ -766,7 +766,7 @@ func (b *builtinSetStringVarSig) evalString(sctx sessionctx.Context, row chunk.R
 	if isNull || err != nil {
 		return "", isNull, err
 	}
-	datum, err := b.args[1].Eval(row)
+	datum, err := b.args[1].Eval(sctx, row)
 	isNull = datum.IsNull()
 	if isNull || err != nil {
 		return "", isNull, err
@@ -796,7 +796,7 @@ func (b *builtinSetRealVarSig) evalReal(sctx sessionctx.Context, row chunk.Row) 
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
-	datum, err := b.args[1].Eval(row)
+	datum, err := b.args[1].Eval(sctx, row)
 	isNull = datum.IsNull()
 	if isNull || err != nil {
 		return 0, isNull, err
@@ -823,7 +823,7 @@ func (b *builtinSetDecimalVarSig) evalDecimal(sctx sessionctx.Context, row chunk
 	if isNull || err != nil {
 		return nil, isNull, err
 	}
-	datum, err := b.args[1].Eval(row)
+	datum, err := b.args[1].Eval(sctx, row)
 	isNull = datum.IsNull()
 	if isNull || err != nil {
 		return nil, isNull, err
@@ -850,7 +850,7 @@ func (b *builtinSetIntVarSig) evalInt(sctx sessionctx.Context, row chunk.Row) (i
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
-	datum, err := b.args[1].Eval(row)
+	datum, err := b.args[1].Eval(sctx, row)
 	isNull = datum.IsNull()
 	if isNull || err != nil {
 		return 0, isNull, err
@@ -877,7 +877,7 @@ func (b *builtinSetTimeVarSig) evalTime(sctx sessionctx.Context, row chunk.Row) 
 	if isNull || err != nil {
 		return types.ZeroTime, isNull, err
 	}
-	datum, err := b.args[1].Eval(row)
+	datum, err := b.args[1].Eval(sctx, row)
 	if err != nil || datum.IsNull() {
 		return types.ZeroTime, datum.IsNull(), handleInvalidTimeError(b.ctx, err)
 	}

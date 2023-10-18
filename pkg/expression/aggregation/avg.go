@@ -15,6 +15,7 @@
 package aggregation
 
 import (
+	"github.com/pingcap/tidb/pkg/expression"
 	"github.com/pingcap/tidb/pkg/parser/mysql"
 	"github.com/pingcap/tidb/pkg/parser/terror"
 	"github.com/pingcap/tidb/pkg/sessionctx/stmtctx"
@@ -29,7 +30,7 @@ type avgFunction struct {
 
 func (af *avgFunction) updateAvg(sc *stmtctx.StatementContext, evalCtx *AggEvaluateContext, row chunk.Row) error {
 	a := af.Args[1]
-	value, err := a.Eval(row)
+	value, err := a.Eval(expression.NilEvalCtx, row)
 	if err != nil {
 		return err
 	}
@@ -40,7 +41,7 @@ func (af *avgFunction) updateAvg(sc *stmtctx.StatementContext, evalCtx *AggEvalu
 	if err != nil {
 		return err
 	}
-	count, err := af.Args[0].Eval(row)
+	count, err := af.Args[0].Eval(expression.NilEvalCtx, row)
 	if err != nil {
 		return err
 	}

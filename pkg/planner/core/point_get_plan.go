@@ -671,7 +671,7 @@ func newBatchPointGetPlan(
 				if err != nil {
 					return nil
 				}
-				d, err = con.Eval(chunk.Row{})
+				d, err = con.Eval(ctx, chunk.Row{})
 				if err != nil {
 					return nil
 				}
@@ -817,7 +817,7 @@ func newBatchPointGetPlan(
 					if err != nil {
 						return nil
 					}
-					d, err := con.Eval(chunk.Row{})
+					d, err := con.Eval(ctx, chunk.Row{})
 					if err != nil {
 						return nil
 					}
@@ -856,7 +856,7 @@ func newBatchPointGetPlan(
 			if err != nil {
 				return nil
 			}
-			d, err := con.Eval(chunk.Row{})
+			d, err := con.Eval(ctx, chunk.Row{})
 			if err != nil {
 				return nil
 			}
@@ -1402,7 +1402,7 @@ func getNameValuePairs(ctx sessionctx.Context, tbl *model.TableInfo, tblName mod
 				if err != nil {
 					return nil, false
 				}
-				d, err = con.Eval(chunk.Row{})
+				d, err = con.Eval(ctx, chunk.Row{})
 				if err != nil {
 					return nil, false
 				}
@@ -1416,7 +1416,7 @@ func getNameValuePairs(ctx sessionctx.Context, tbl *model.TableInfo, tblName mod
 				if err != nil {
 					return nil, false
 				}
-				d, err = con.Eval(chunk.Row{})
+				d, err = con.Eval(ctx, chunk.Row{})
 				if err != nil {
 					return nil, false
 				}

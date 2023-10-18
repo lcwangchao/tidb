@@ -62,6 +62,8 @@ var EvalAstExpr func(sctx sessionctx.Context, expr ast.ExprNode) (types.Datum, e
 // import expression and planner/core together to use EvalAstExpr
 var RewriteAstExpr func(sctx sessionctx.Context, expr ast.ExprNode, schema *Schema, names types.NameSlice, allowCastArray bool) (Expression, error)
 
+var NilEvalCtx sessionctx.Context = nil
+
 // VecExpr contains all vectorized evaluation methods.
 type VecExpr interface {
 	// Vectorized returns if this expression supports vectorized evaluation.
@@ -114,7 +116,7 @@ type Expression interface {
 	Traverse(TraverseAction) Expression
 
 	// Eval evaluates an expression through a row.
-	Eval(row chunk.Row) (types.Datum, error)
+	Eval(ctx sessionctx.Context, row chunk.Row) (types.Datum, error)
 
 	// EvalInt returns the int64 representation of expression.
 	EvalInt(ctx sessionctx.Context, row chunk.Row) (val int64, isNull bool, err error)
@@ -257,7 +259,7 @@ func HandleOverflowOnSelection(sc *stmtctx.StatementContext, val int64, err erro
 func EvalBool(ctx sessionctx.Context, exprList CNFExprs, row chunk.Row) (bool, bool, error) {
 	hasNull := false
 	for _, expr := range exprList {
-		data, err := expr.Eval(row)
+		data, err := expr.Eval(ctx, row)
 		if err != nil {
 			return false, false, err
 		}

@@ -350,7 +350,7 @@ func (e *InsertValues) evalRow(ctx context.Context, list []expression.Expression
 	sc := e.Ctx().GetSessionVars().StmtCtx
 	warnCnt := int(sc.WarningCount())
 	for i, expr := range list {
-		val, err := expr.Eval(e.evalBuffer.ToRow())
+		val, err := expr.Eval(e.Ctx(), e.evalBuffer.ToRow())
 		if err != nil {
 			return nil, err
 		}
@@ -390,7 +390,7 @@ func (e *InsertValues) fastEvalRow(ctx context.Context, list []expression.Expres
 	warnCnt := int(sc.WarningCount())
 	for i, expr := range list {
 		con := expr.(*expression.Constant)
-		val, err := con.Eval(emptyRow)
+		val, err := con.Eval(e.Ctx(), emptyRow)
 		if err = e.handleErr(e.insertColumns[i], &val, rowIdx, err); err != nil {
 			return nil, err
 		}
@@ -702,7 +702,7 @@ func (e *InsertValues) fillRow(ctx context.Context, row []types.Datum, hasValue 
 	warnCnt := int(sc.WarningCount())
 	for i, gCol := range gCols {
 		colIdx := gCol.ColumnInfo.Offset
-		val, err := e.GenExprs[i].Eval(chunk.MutRowFromDatums(row).ToRow())
+		val, err := e.GenExprs[i].Eval(e.Ctx(), chunk.MutRowFromDatums(row).ToRow())
 		if err != nil && gCol.FieldType.IsArray() {
 			return nil, completeError(tbl, gCol.Offset, rowIdx, err)
 		}

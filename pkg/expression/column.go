@@ -90,7 +90,7 @@ func (col *CorrelatedColumn) Traverse(action TraverseAction) Expression {
 }
 
 // Eval implements Expression interface.
-func (col *CorrelatedColumn) Eval(row chunk.Row) (types.Datum, error) {
+func (col *CorrelatedColumn) Eval(_ sessionctx.Context, row chunk.Row) (types.Datum, error) {
 	return *col.Data, nil
 }
 
@@ -410,7 +410,7 @@ func (col *Column) Traverse(action TraverseAction) Expression {
 }
 
 // Eval implements Expression interface.
-func (col *Column) Eval(row chunk.Row) (types.Datum, error) {
+func (col *Column) Eval(_ sessionctx.Context, row chunk.Row) (types.Datum, error) {
 	return row.GetDatum(col.Index, col.RetType), nil
 }
 
@@ -687,8 +687,8 @@ idLoop:
 }
 
 // EvalVirtualColumn evals the virtual column
-func (col *Column) EvalVirtualColumn(row chunk.Row) (types.Datum, error) {
-	return col.VirtualExpr.Eval(row)
+func (col *Column) EvalVirtualColumn(ctx sessionctx.Context, row chunk.Row) (types.Datum, error) {
+	return col.VirtualExpr.Eval(ctx, row)
 }
 
 // SupportReverseEval checks whether the builtinFunc support reverse evaluation.

@@ -15,6 +15,7 @@
 package aggregation
 
 import (
+	"github.com/pingcap/tidb/pkg/expression"
 	"github.com/pingcap/tidb/pkg/sessionctx/stmtctx"
 	"github.com/pingcap/tidb/pkg/types"
 	"github.com/pingcap/tidb/pkg/util/chunk"
@@ -37,7 +38,7 @@ func (*bitOrFunction) ResetContext(_ *stmtctx.StatementContext, evalCtx *AggEval
 // Update implements Aggregation interface.
 func (bf *bitOrFunction) Update(evalCtx *AggEvaluateContext, sc *stmtctx.StatementContext, row chunk.Row) error {
 	a := bf.Args[0]
-	value, err := a.Eval(row)
+	value, err := a.Eval(expression.NilEvalCtx, row)
 	if err != nil {
 		return err
 	}

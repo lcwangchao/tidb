@@ -105,7 +105,7 @@ func (s *ScalarSubQueryExpr) selfEvaluate() error {
 }
 
 // Eval implements the Expression interface.
-func (s *ScalarSubQueryExpr) Eval(_ chunk.Row) (types.Datum, error) {
+func (s *ScalarSubQueryExpr) Eval(_ sessionctx.Context, _ chunk.Row) (types.Datum, error) {
 	if s.evaled {
 		return s.Value, nil
 	}

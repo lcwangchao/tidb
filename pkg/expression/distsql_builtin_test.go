@@ -782,7 +782,7 @@ func TestEval(t *testing.T) {
 	for _, tt := range tests {
 		expr, err := PBToExpr(tt.expr, fieldTps, sc)
 		require.NoError(t, err)
-		result, err := expr.Eval(row)
+		result, err := expr.Eval(nil, row)
 		require.NoError(t, err)
 		require.Equal(t, tt.result.Kind(), result.Kind())
 		cmp, err := result.Compare(sc, &tt.result, collate.GetCollator(fieldTps[0].GetCollate()))

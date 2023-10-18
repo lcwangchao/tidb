@@ -80,7 +80,7 @@ func (col *Column) ExplainNormalizedInfo() string {
 
 // ExplainInfo implements the Expression interface.
 func (expr *Constant) ExplainInfo() string {
-	dt, err := expr.Eval(chunk.Row{})
+	dt, err := expr.Eval(NilEvalCtx, chunk.Row{})
 	if err != nil {
 		return "not recognized const vanue"
 	}

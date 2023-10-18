@@ -388,37 +388,42 @@ func (sf *ScalarFunction) Traverse(action TraverseAction) Expression {
 }
 
 // Eval implements Expression interface.
-func (sf *ScalarFunction) Eval(row chunk.Row) (d types.Datum, err error) {
+func (sf *ScalarFunction) Eval(sctx sessionctx.Context, row chunk.Row) (d types.Datum, err error) {
 	var (
 		res    interface{}
 		isNull bool
 	)
+
+	if sctx == nil {
+		sctx = sf.GetCtx()
+	}
+
 	switch tp, evalType := sf.GetType(), sf.GetType().EvalType(); evalType {
 	case types.ETInt:
 		var intRes int64
-		intRes, isNull, err = sf.EvalInt(sf.GetCtx(), row)
+		intRes, isNull, err = sf.EvalInt(sctx, row)
 		if mysql.HasUnsignedFlag(tp.GetFlag()) {
 			res = uint64(intRes)
 		} else {
 			res = intRes
 		}
 	case types.ETReal:
-		res, isNull, err = sf.EvalReal(sf.GetCtx(), row)
+		res, isNull, err = sf.EvalReal(sctx, row)
 	case types.ETDecimal:
-		res, isNull, err = sf.EvalDecimal(sf.GetCtx(), row)
+		res, isNull, err = sf.EvalDecimal(sctx, row)
 	case types.ETDatetime, types.ETTimestamp:
-		res, isNull, err = sf.EvalTime(sf.GetCtx(), row)
+		res, isNull, err = sf.EvalTime(sctx, row)
 	case types.ETDuration:
-		res, isNull, err = sf.EvalDuration(sf.GetCtx(), row)
+		res, isNull, err = sf.EvalDuration(sctx, row)
 	case types.ETJson:
-		res, isNull, err = sf.EvalJSON(sf.GetCtx(), row)
+		res, isNull, err = sf.EvalJSON(sctx, row)
 	case types.ETString:
 		var str string
-		str, isNull, err = sf.EvalString(sf.GetCtx(), row)
+		str, isNull, err = sf.EvalString(sctx, row)
 		if !isNull && err == nil && tp.GetType() == mysql.TypeEnum {
 			res, err = types.ParseEnum(tp.GetElems(), str, tp.GetCollate())
-			if ctx := sf.GetCtx(); ctx != nil {
-				if sc := ctx.GetSessionVars().StmtCtx; sc != nil {
+			if sctx != nil {
+				if sc := sctx.GetSessionVars().StmtCtx; sc != nil {
 					err = sc.HandleTruncate(err)
 				}
 			}

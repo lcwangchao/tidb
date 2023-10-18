@@ -141,7 +141,29 @@ func (c *extensionFuncClass) checkPrivileges(ctx sessionctx.Context) error {
 	return nil
 }
 
-var _ extension.FunctionContext = &extensionFuncSig{}
+var _ extension.FunctionContext = &funcCtx{}
+
+type funcCtx struct {
+	*extensionFuncSig
+	sctx sessionctx.Context
+}
+
+func (ctx funcCtx) EvalArgs(row chunk.Row) ([]types.Datum, error) {
+	if len(ctx.args) == 0 {
+		return nil, nil
+	}
+
+	result := make([]types.Datum, 0, len(ctx.args))
+	for _, arg := range ctx.args {
+		val, err := arg.Eval(ctx.sctx, row)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, val)
+	}
+
+	return result, nil
+}
 
 type extensionFuncSig struct {
 	context.Context
@@ -158,33 +180,16 @@ func (b *extensionFuncSig) Clone() builtinFunc {
 
 func (b *extensionFuncSig) evalString(sctx sessionctx.Context, row chunk.Row) (string, bool, error) {
 	if b.EvalTp == types.ETString {
-		return b.EvalStringFunc(b, row)
+		return b.EvalStringFunc(funcCtx{b, sctx}, row)
 	}
 	return b.baseBuiltinFunc.evalString(nil, row)
 }
 
 func (b *extensionFuncSig) evalInt(sctx sessionctx.Context, row chunk.Row) (int64, bool, error) {
 	if b.EvalTp == types.ETInt {
-		return b.EvalIntFunc(b, row)
+		return b.EvalIntFunc(funcCtx{b, sctx}, row)
 	}
 	return b.baseBuiltinFunc.evalInt(nil, row)
-}
-
-func (b *extensionFuncSig) EvalArgs(row chunk.Row) ([]types.Datum, error) {
-	if len(b.args) == 0 {
-		return nil, nil
-	}
-
-	result := make([]types.Datum, 0, len(b.args))
-	for _, arg := range b.args {
-		val, err := arg.Eval(row)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, val)
-	}
-
-	return result, nil
 }
 
 func (b *extensionFuncSig) ConnectionInfo() *variable.ConnectionInfo {
