@@ -66,7 +66,7 @@ func (b *builtin{{ .compare.CompareName }}{{ .type.TypeName }}Sig) vecEvalInt(in
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEval{{ .type.TypeName }}(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEval{{ .type.TypeName }}(sctx, input, buf0); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -74,7 +74,7 @@ func (b *builtin{{ .compare.CompareName }}{{ .type.TypeName }}Sig) vecEvalInt(in
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEval{{ .type.TypeName }}(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEval{{ .type.TypeName }}(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -120,7 +120,7 @@ func (b *builtin{{ .compare.CompareName }}{{ .type.TypeName }}Sig) vecEvalInt(in
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEval{{ .type.TypeName }}(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEval{{ .type.TypeName }}(sctx, input, buf0); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -128,7 +128,7 @@ func (b *builtin{{ .compare.CompareName }}{{ .type.TypeName }}Sig) vecEvalInt(in
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEval{{ .type.TypeName }}(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEval{{ .type.TypeName }}(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -221,10 +221,10 @@ func (b *builtin{{ .compare.CompareName }}{{ .type.TypeName }}Sig) vecEval{{ .ty
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := sctx.GetSessionVars().StmtCtx
 	beforeWarns := sc.WarningCount()
 	for j := 0; j < len(b.args); j++{
-		err := b.args[j].VecEval{{ .type.TypeName }}(b.ctx, input, buf1)
+		err := b.args[j].VecEval{{ .type.TypeName }}(sctx, input, buf1)
         {{- if eq .type.TypeName "Time" }}
         fsp := b.tp.GetDecimal()
         {{- end }}
@@ -254,7 +254,7 @@ func (b *builtin{{ .compare.CompareName }}{{ .type.TypeName }}Sig) vecEval{{ .ty
 	argLen := len(b.args)
 
 	bufs := make([]*chunk.Column, argLen)
-	sc := b.ctx.GetSessionVars().StmtCtx
+	sc := sctx.GetSessionVars().StmtCtx
 	beforeWarns := sc.WarningCount()
 	for i := 0; i < argLen; i++ {
 		buf, err := b.bufAllocator.get()
@@ -262,7 +262,7 @@ func (b *builtin{{ .compare.CompareName }}{{ .type.TypeName }}Sig) vecEval{{ .ty
 			return err
 		}
 		defer b.bufAllocator.put(buf)
-		err = b.args[i].VecEval{{ .type.TypeName }}(b.ctx, input, buf)
+		err = b.args[i].VecEval{{ .type.TypeName }}(sctx, input, buf)
 		afterWarns := sc.WarningCount()
 		if err != nil || afterWarns > beforeWarns {
 			if afterWarns > beforeWarns {

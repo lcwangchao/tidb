@@ -27,7 +27,7 @@ import (
 func (b *builtinAddDatetimeAndDurationSig) vecEvalTime(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 
-	if err := b.args[0].VecEvalTime(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalTime(sctx, input, result); err != nil {
 		return err
 	}
 	buf0 := result
@@ -37,7 +37,7 @@ func (b *builtinAddDatetimeAndDurationSig) vecEvalTime(sctx sessionctx.Context, 
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalDuration(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalDuration(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -63,7 +63,7 @@ func (b *builtinAddDatetimeAndDurationSig) vecEvalTime(sctx sessionctx.Context, 
 
 		// calculate
 
-		output, err := arg0.Add(b.ctx.GetSessionVars().StmtCtx, types.Duration{Duration: arg1, Fsp: -1})
+		output, err := arg0.Add(sctx.GetSessionVars().StmtCtx, types.Duration{Duration: arg1, Fsp: -1})
 
 		if err != nil {
 			return err
@@ -84,7 +84,7 @@ func (b *builtinAddDatetimeAndDurationSig) vectorized() bool {
 func (b *builtinAddDatetimeAndStringSig) vecEvalTime(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 
-	if err := b.args[0].VecEvalTime(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalTime(sctx, input, result); err != nil {
 		return err
 	}
 	buf0 := result
@@ -94,7 +94,7 @@ func (b *builtinAddDatetimeAndStringSig) vecEvalTime(sctx sessionctx.Context, in
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -122,7 +122,7 @@ func (b *builtinAddDatetimeAndStringSig) vecEvalTime(sctx sessionctx.Context, in
 			result.SetNull(i, true) // fixed: true
 			continue
 		}
-		sc := b.ctx.GetSessionVars().StmtCtx
+		sc := sctx.GetSessionVars().StmtCtx
 		arg1Duration, _, err := types.ParseDuration(sc, arg1, types.GetFsp(arg1))
 		if err != nil {
 			if terror.ErrorEqual(err, types.ErrTruncatedWrongVal) {
@@ -154,7 +154,7 @@ func (b *builtinAddDatetimeAndStringSig) vectorized() bool {
 func (b *builtinAddDurationAndDurationSig) vecEvalDuration(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 
-	if err := b.args[0].VecEvalDuration(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalDuration(sctx, input, result); err != nil {
 		return err
 	}
 	buf0 := result
@@ -164,7 +164,7 @@ func (b *builtinAddDurationAndDurationSig) vecEvalDuration(sctx sessionctx.Conte
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalDuration(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalDuration(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -210,7 +210,7 @@ func (b *builtinAddDurationAndDurationSig) vectorized() bool {
 func (b *builtinAddDurationAndStringSig) vecEvalDuration(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 
-	if err := b.args[0].VecEvalDuration(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalDuration(sctx, input, result); err != nil {
 		return err
 	}
 	buf0 := result
@@ -220,7 +220,7 @@ func (b *builtinAddDurationAndStringSig) vecEvalDuration(sctx sessionctx.Context
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -248,7 +248,7 @@ func (b *builtinAddDurationAndStringSig) vecEvalDuration(sctx sessionctx.Context
 			result.SetNull(i, true) // fixed: true
 			continue
 		}
-		sc := b.ctx.GetSessionVars().StmtCtx
+		sc := sctx.GetSessionVars().StmtCtx
 		arg1Duration, _, err := types.ParseDuration(sc, arg1, types.GetFsp(arg1))
 		if err != nil {
 			if terror.ErrorEqual(err, types.ErrTruncatedWrongVal) {
@@ -284,7 +284,7 @@ func (b *builtinAddStringAndDurationSig) vecEvalString(sctx sessionctx.Context, 
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(sctx, input, buf0); err != nil {
 		return err
 	}
 
@@ -293,7 +293,7 @@ func (b *builtinAddStringAndDurationSig) vecEvalString(sctx sessionctx.Context, 
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalDuration(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalDuration(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -316,7 +316,7 @@ func (b *builtinAddStringAndDurationSig) vecEvalString(sctx sessionctx.Context, 
 
 		// calculate
 
-		sc := b.ctx.GetSessionVars().StmtCtx
+		sc := sctx.GetSessionVars().StmtCtx
 		fsp1 := b.args[1].GetType().GetDecimal()
 		arg1Duration := types.Duration{Duration: arg1, Fsp: fsp1}
 		var output string
@@ -367,7 +367,7 @@ func (b *builtinAddStringAndStringSig) vecEvalString(sctx sessionctx.Context, in
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(sctx, input, buf0); err != nil {
 		return err
 	}
 
@@ -385,7 +385,7 @@ func (b *builtinAddStringAndStringSig) vecEvalString(sctx sessionctx.Context, in
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -406,7 +406,7 @@ func (b *builtinAddStringAndStringSig) vecEvalString(sctx sessionctx.Context, in
 
 		// calculate
 
-		sc := b.ctx.GetSessionVars().StmtCtx
+		sc := sctx.GetSessionVars().StmtCtx
 		arg1Duration, _, err := types.ParseDuration(sc, arg1, getFsp4TimeAddSub(arg1))
 		if err != nil {
 			if terror.ErrorEqual(err, types.ErrTruncatedWrongVal) {
@@ -465,7 +465,7 @@ func (b *builtinAddDateAndDurationSig) vecEvalString(sctx sessionctx.Context, in
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalDuration(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalDuration(sctx, input, buf0); err != nil {
 		return err
 	}
 
@@ -474,7 +474,7 @@ func (b *builtinAddDateAndDurationSig) vecEvalString(sctx sessionctx.Context, in
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalDuration(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalDuration(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -530,7 +530,7 @@ func (b *builtinAddDateAndStringSig) vecEvalString(sctx sessionctx.Context, inpu
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalDuration(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalDuration(sctx, input, buf0); err != nil {
 		return err
 	}
 
@@ -539,7 +539,7 @@ func (b *builtinAddDateAndStringSig) vecEvalString(sctx sessionctx.Context, inpu
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -566,7 +566,7 @@ func (b *builtinAddDateAndStringSig) vecEvalString(sctx sessionctx.Context, inpu
 			result.AppendNull() // fixed: false
 			continue
 		}
-		sc := b.ctx.GetSessionVars().StmtCtx
+		sc := sctx.GetSessionVars().StmtCtx
 		arg1Duration, _, err := types.ParseDuration(sc, arg1, getFsp4TimeAddSub(arg1))
 		if err != nil {
 			if terror.ErrorEqual(err, types.ErrTruncatedWrongVal) {
@@ -640,7 +640,7 @@ func (b *builtinAddTimeDurationNullSig) vectorized() bool {
 func (b *builtinSubDatetimeAndDurationSig) vecEvalTime(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 
-	if err := b.args[0].VecEvalTime(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalTime(sctx, input, result); err != nil {
 		return err
 	}
 	buf0 := result
@@ -650,7 +650,7 @@ func (b *builtinSubDatetimeAndDurationSig) vecEvalTime(sctx sessionctx.Context, 
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalDuration(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalDuration(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -676,7 +676,7 @@ func (b *builtinSubDatetimeAndDurationSig) vecEvalTime(sctx sessionctx.Context, 
 
 		// calculate
 
-		sc := b.ctx.GetSessionVars().StmtCtx
+		sc := sctx.GetSessionVars().StmtCtx
 		arg1Duration := types.Duration{Duration: arg1, Fsp: -1}
 		output, err := arg0.Add(sc, arg1Duration.Neg())
 
@@ -699,7 +699,7 @@ func (b *builtinSubDatetimeAndDurationSig) vectorized() bool {
 func (b *builtinSubDatetimeAndStringSig) vecEvalTime(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 
-	if err := b.args[0].VecEvalTime(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalTime(sctx, input, result); err != nil {
 		return err
 	}
 	buf0 := result
@@ -709,7 +709,7 @@ func (b *builtinSubDatetimeAndStringSig) vecEvalTime(sctx sessionctx.Context, in
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -737,7 +737,7 @@ func (b *builtinSubDatetimeAndStringSig) vecEvalTime(sctx sessionctx.Context, in
 			result.SetNull(i, true) // fixed: true
 			continue
 		}
-		sc := b.ctx.GetSessionVars().StmtCtx
+		sc := sctx.GetSessionVars().StmtCtx
 		arg1Duration, _, err := types.ParseDuration(sc, arg1, types.GetFsp(arg1))
 		if err != nil {
 			if terror.ErrorEqual(err, types.ErrTruncatedWrongVal) {
@@ -768,7 +768,7 @@ func (b *builtinSubDatetimeAndStringSig) vectorized() bool {
 func (b *builtinSubDurationAndDurationSig) vecEvalDuration(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 
-	if err := b.args[0].VecEvalDuration(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalDuration(sctx, input, result); err != nil {
 		return err
 	}
 	buf0 := result
@@ -778,7 +778,7 @@ func (b *builtinSubDurationAndDurationSig) vecEvalDuration(sctx sessionctx.Conte
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalDuration(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalDuration(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -824,7 +824,7 @@ func (b *builtinSubDurationAndDurationSig) vectorized() bool {
 func (b *builtinSubDurationAndStringSig) vecEvalDuration(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
 	n := input.NumRows()
 
-	if err := b.args[0].VecEvalDuration(b.ctx, input, result); err != nil {
+	if err := b.args[0].VecEvalDuration(sctx, input, result); err != nil {
 		return err
 	}
 	buf0 := result
@@ -834,7 +834,7 @@ func (b *builtinSubDurationAndStringSig) vecEvalDuration(sctx sessionctx.Context
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -862,7 +862,7 @@ func (b *builtinSubDurationAndStringSig) vecEvalDuration(sctx sessionctx.Context
 			result.SetNull(i, true) // fixed: true
 			continue
 		}
-		sc := b.ctx.GetSessionVars().StmtCtx
+		sc := sctx.GetSessionVars().StmtCtx
 		arg1Duration, _, err := types.ParseDuration(sc, arg1, types.GetFsp(arg1))
 		if err != nil {
 			if terror.ErrorEqual(err, types.ErrTruncatedWrongVal) {
@@ -898,7 +898,7 @@ func (b *builtinSubStringAndDurationSig) vecEvalString(sctx sessionctx.Context, 
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(sctx, input, buf0); err != nil {
 		return err
 	}
 
@@ -907,7 +907,7 @@ func (b *builtinSubStringAndDurationSig) vecEvalString(sctx sessionctx.Context, 
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalDuration(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalDuration(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -930,7 +930,7 @@ func (b *builtinSubStringAndDurationSig) vecEvalString(sctx sessionctx.Context, 
 
 		// calculate
 
-		sc := b.ctx.GetSessionVars().StmtCtx
+		sc := sctx.GetSessionVars().StmtCtx
 		fsp1 := b.args[1].GetType().GetDecimal()
 		arg1Duration := types.Duration{Duration: arg1, Fsp: fsp1}
 		var output string
@@ -981,7 +981,7 @@ func (b *builtinSubStringAndStringSig) vecEvalString(sctx sessionctx.Context, in
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(sctx, input, buf0); err != nil {
 		return err
 	}
 
@@ -999,7 +999,7 @@ func (b *builtinSubStringAndStringSig) vecEvalString(sctx sessionctx.Context, in
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -1020,7 +1020,7 @@ func (b *builtinSubStringAndStringSig) vecEvalString(sctx sessionctx.Context, in
 
 		// calculate
 
-		sc := b.ctx.GetSessionVars().StmtCtx
+		sc := sctx.GetSessionVars().StmtCtx
 		arg1Duration, _, err := types.ParseDuration(sc, arg1, getFsp4TimeAddSub(arg1))
 		if err != nil {
 			if terror.ErrorEqual(err, types.ErrTruncatedWrongVal) {
@@ -1079,7 +1079,7 @@ func (b *builtinSubDateAndDurationSig) vecEvalString(sctx sessionctx.Context, in
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalDuration(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalDuration(sctx, input, buf0); err != nil {
 		return err
 	}
 
@@ -1088,7 +1088,7 @@ func (b *builtinSubDateAndDurationSig) vecEvalString(sctx sessionctx.Context, in
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalDuration(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalDuration(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -1144,7 +1144,7 @@ func (b *builtinSubDateAndStringSig) vecEvalString(sctx sessionctx.Context, inpu
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalDuration(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalDuration(sctx, input, buf0); err != nil {
 		return err
 	}
 
@@ -1153,7 +1153,7 @@ func (b *builtinSubDateAndStringSig) vecEvalString(sctx sessionctx.Context, inpu
 		return err
 	}
 	defer b.bufAllocator.put(buf1)
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -1180,7 +1180,7 @@ func (b *builtinSubDateAndStringSig) vecEvalString(sctx sessionctx.Context, inpu
 			result.AppendNull() // fixed: false
 			continue
 		}
-		sc := b.ctx.GetSessionVars().StmtCtx
+		sc := sctx.GetSessionVars().StmtCtx
 		arg1Duration, _, err := types.ParseDuration(sc, arg1, getFsp4TimeAddSub(arg1))
 		if err != nil {
 			if terror.ErrorEqual(err, types.ErrTruncatedWrongVal) {
@@ -1277,16 +1277,16 @@ func (b *builtinTimeStringTimeDiffSig) vecEvalDuration(sctx sessionctx.Context, 
 	}
 	defer b.bufAllocator.put(buf1)
 
-	if err := b.args[0].VecEvalTime(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalTime(sctx, input, buf0); err != nil {
 		return err
 	}
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, buf1); err != nil {
 		return err
 	}
 
 	result.MergeNulls(buf0, buf1)
 	arg0 := buf0.Times()
-	stmtCtx := b.ctx.GetSessionVars().StmtCtx
+	stmtCtx := sctx.GetSessionVars().StmtCtx
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
 			continue
@@ -1328,10 +1328,10 @@ func (b *builtinDurationStringTimeDiffSig) vecEvalDuration(sctx sessionctx.Conte
 	}
 	defer b.bufAllocator.put(buf1)
 
-	if err := b.args[0].VecEvalDuration(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalDuration(sctx, input, buf0); err != nil {
 		return err
 	}
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -1341,7 +1341,7 @@ func (b *builtinDurationStringTimeDiffSig) vecEvalDuration(sctx sessionctx.Conte
 		lhs types.Duration
 		rhs types.Duration
 	)
-	stmtCtx := b.ctx.GetSessionVars().StmtCtx
+	stmtCtx := sctx.GetSessionVars().StmtCtx
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
 			continue
@@ -1356,7 +1356,7 @@ func (b *builtinDurationStringTimeDiffSig) vecEvalDuration(sctx sessionctx.Conte
 			continue
 		}
 		rhs = rhsDur
-		d, isNull, err := calculateDurationTimeDiff(b.ctx, lhs, rhs)
+		d, isNull, err := calculateDurationTimeDiff(sctx, lhs, rhs)
 		if err != nil {
 			return err
 		}
@@ -1384,10 +1384,10 @@ func (b *builtinDurationDurationTimeDiffSig) vecEvalDuration(sctx sessionctx.Con
 	}
 	defer b.bufAllocator.put(buf1)
 
-	if err := b.args[0].VecEvalDuration(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalDuration(sctx, input, buf0); err != nil {
 		return err
 	}
-	if err := b.args[1].VecEvalDuration(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalDuration(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -1404,7 +1404,7 @@ func (b *builtinDurationDurationTimeDiffSig) vecEvalDuration(sctx sessionctx.Con
 		}
 		lhs.Duration = arg0[i]
 		rhs.Duration = arg1[i]
-		d, isNull, err := calculateDurationTimeDiff(b.ctx, lhs, rhs)
+		d, isNull, err := calculateDurationTimeDiff(sctx, lhs, rhs)
 		if err != nil {
 			return err
 		}
@@ -1437,16 +1437,16 @@ func (b *builtinStringTimeTimeDiffSig) vecEvalDuration(sctx sessionctx.Context, 
 	}
 	defer b.bufAllocator.put(buf1)
 
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(sctx, input, buf0); err != nil {
 		return err
 	}
-	if err := b.args[1].VecEvalTime(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalTime(sctx, input, buf1); err != nil {
 		return err
 	}
 
 	result.MergeNulls(buf0, buf1)
 	arg1 := buf1.Times()
-	stmtCtx := b.ctx.GetSessionVars().StmtCtx
+	stmtCtx := sctx.GetSessionVars().StmtCtx
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
 			continue
@@ -1488,10 +1488,10 @@ func (b *builtinStringDurationTimeDiffSig) vecEvalDuration(sctx sessionctx.Conte
 	}
 	defer b.bufAllocator.put(buf0)
 
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(sctx, input, buf0); err != nil {
 		return err
 	}
-	if err := b.args[1].VecEvalDuration(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalDuration(sctx, input, buf1); err != nil {
 		return err
 	}
 
@@ -1501,7 +1501,7 @@ func (b *builtinStringDurationTimeDiffSig) vecEvalDuration(sctx sessionctx.Conte
 		lhs types.Duration
 		rhs types.Duration
 	)
-	stmtCtx := b.ctx.GetSessionVars().StmtCtx
+	stmtCtx := sctx.GetSessionVars().StmtCtx
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
 			continue
@@ -1516,7 +1516,7 @@ func (b *builtinStringDurationTimeDiffSig) vecEvalDuration(sctx sessionctx.Conte
 		}
 		lhs = lhsDur
 		rhs.Duration = arg1[i]
-		d, isNull, err := calculateDurationTimeDiff(b.ctx, lhs, rhs)
+		d, isNull, err := calculateDurationTimeDiff(sctx, lhs, rhs)
 		if err != nil {
 			return err
 		}
@@ -1549,15 +1549,15 @@ func (b *builtinStringStringTimeDiffSig) vecEvalDuration(sctx sessionctx.Context
 	}
 	defer b.bufAllocator.put(buf1)
 
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(sctx, input, buf0); err != nil {
 		return err
 	}
-	if err := b.args[1].VecEvalString(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, buf1); err != nil {
 		return err
 	}
 
 	result.MergeNulls(buf0, buf1)
-	stmtCtx := b.ctx.GetSessionVars().StmtCtx
+	stmtCtx := sctx.GetSessionVars().StmtCtx
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
 			continue
@@ -1579,7 +1579,7 @@ func (b *builtinStringStringTimeDiffSig) vecEvalDuration(sctx sessionctx.Context
 			isNull bool
 		)
 		if lhsIsDuration {
-			d, isNull, err = calculateDurationTimeDiff(b.ctx, lhsDur, rhsDur)
+			d, isNull, err = calculateDurationTimeDiff(sctx, lhsDur, rhsDur)
 		} else {
 			d, isNull, err = calculateTimeDiff(stmtCtx, lhsTime, rhsTime)
 		}
@@ -1615,17 +1615,17 @@ func (b *builtinTimeTimeTimeDiffSig) vecEvalDuration(sctx sessionctx.Context, in
 	}
 	defer b.bufAllocator.put(buf1)
 
-	if err := b.args[0].VecEvalTime(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalTime(sctx, input, buf0); err != nil {
 		return err
 	}
-	if err := b.args[1].VecEvalTime(b.ctx, input, buf1); err != nil {
+	if err := b.args[1].VecEvalTime(sctx, input, buf1); err != nil {
 		return err
 	}
 
 	result.MergeNulls(buf0, buf1)
 	arg0 := buf0.Times()
 	arg1 := buf1.Times()
-	stmtCtx := b.ctx.GetSessionVars().StmtCtx
+	stmtCtx := sctx.GetSessionVars().StmtCtx
 	for i := 0; i < n; i++ {
 		if result.IsNull(i) {
 			continue

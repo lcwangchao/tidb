@@ -30,7 +30,7 @@ func (b *builtinFieldIntSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Ch
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalInt(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalInt(sctx, input, buf0); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -47,7 +47,7 @@ func (b *builtinFieldIntSig) vecEvalInt(sctx sessionctx.Context, input *chunk.Ch
 		i64s[i] = 0
 	}
 	for i := 1; i < len(b.args); i++ {
-		if err := b.args[i].VecEvalInt(b.ctx, input, buf1); err != nil {
+		if err := b.args[i].VecEvalInt(sctx, input, buf1); err != nil {
 			return err
 		}
 
@@ -80,7 +80,7 @@ func (b *builtinFieldRealSig) vecEvalInt(sctx sessionctx.Context, input *chunk.C
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalReal(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalReal(sctx, input, buf0); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -97,7 +97,7 @@ func (b *builtinFieldRealSig) vecEvalInt(sctx sessionctx.Context, input *chunk.C
 		i64s[i] = 0
 	}
 	for i := 1; i < len(b.args); i++ {
-		if err := b.args[i].VecEvalReal(b.ctx, input, buf1); err != nil {
+		if err := b.args[i].VecEvalReal(sctx, input, buf1); err != nil {
 			return err
 		}
 
@@ -130,7 +130,7 @@ func (b *builtinFieldStringSig) vecEvalInt(sctx sessionctx.Context, input *chunk
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEvalString(sctx, input, buf0); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -145,7 +145,7 @@ func (b *builtinFieldStringSig) vecEvalInt(sctx sessionctx.Context, input *chunk
 		i64s[i] = 0
 	}
 	for i := 1; i < len(b.args); i++ {
-		if err := b.args[i].VecEvalString(b.ctx, input, buf1); err != nil {
+		if err := b.args[i].VecEvalString(sctx, input, buf1); err != nil {
 			return err
 		}
 

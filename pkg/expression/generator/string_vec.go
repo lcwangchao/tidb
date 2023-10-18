@@ -65,7 +65,7 @@ func (b *builtinField{{ .TypeName }}Sig) vecEvalInt(input *chunk.Chunk, result *
 		return err
 	}
 	defer b.bufAllocator.put(buf0)
-	if err := b.args[0].VecEval{{ .TypeName }}(b.ctx, input, buf0); err != nil {
+	if err := b.args[0].VecEval{{ .TypeName }}(sctx, input, buf0); err != nil {
 		return err
 	}
 	buf1, err := b.bufAllocator.get()
@@ -82,7 +82,7 @@ func (b *builtinField{{ .TypeName }}Sig) vecEvalInt(input *chunk.Chunk, result *
 		i64s[i] = 0
 	}
 	for i := 1; i < len(b.args); i++ {
-		if err := b.args[i].VecEval{{ .TypeName }}(b.ctx, input, buf1); err != nil {
+		if err := b.args[i].VecEval{{ .TypeName }}(sctx, input, buf1); err != nil {
 			return err
 		}
 {{ if .Fixed }}

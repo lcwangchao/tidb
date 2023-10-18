@@ -342,7 +342,7 @@ func (sf *ScalarFunction) Equal(ctx sessionctx.Context, e Expression) bool {
 	if sf.FuncName.L != fun.FuncName.L {
 		return false
 	}
-	return sf.Function.equal(fun.Function)
+	return sf.Function.equal(ctx, fun.Function)
 }
 
 // IsCorrelated implements Expression interface.

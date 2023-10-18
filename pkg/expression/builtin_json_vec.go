@@ -114,7 +114,7 @@ func (b *builtinJSONStorageFreeSig) vecEvalInt(sctx sessionctx.Context, input *c
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, buf); err != nil {
 		return err
 	}
 	result.ResizeInt64(n, false)
@@ -141,7 +141,7 @@ func (b *builtinJSONStorageSizeSig) vecEvalInt(sctx sessionctx.Context, input *c
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, buf); err != nil {
 		return err
 	}
 	result.ResizeInt64(n, false)
@@ -169,7 +169,7 @@ func (b *builtinJSONDepthSig) vecEvalInt(sctx sessionctx.Context, input *chunk.C
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, buf); err != nil {
 		return err
 	}
 	result.ResizeInt64(n, false)
@@ -196,7 +196,7 @@ func (b *builtinJSONKeysSig) vecEvalJSON(sctx sessionctx.Context, input *chunk.C
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, buf); err != nil {
 		return err
 	}
 
@@ -223,7 +223,7 @@ func (b *builtinJSONInsertSig) vectorized() bool {
 }
 
 func (b *builtinJSONInsertSig) vecEvalJSON(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
-	err := vecJSONModify(b.ctx, b.args, b.bufAllocator, input, result, types.JSONModifyInsert)
+	err := vecJSONModify(sctx, b.args, b.bufAllocator, input, result, types.JSONModifyInsert)
 	return err
 }
 
@@ -232,7 +232,7 @@ func (b *builtinJSONReplaceSig) vectorized() bool {
 }
 
 func (b *builtinJSONReplaceSig) vecEvalJSON(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
-	err := vecJSONModify(b.ctx, b.args, b.bufAllocator, input, result, types.JSONModifyReplace)
+	err := vecJSONModify(sctx, b.args, b.bufAllocator, input, result, types.JSONModifyReplace)
 	return err
 }
 
@@ -252,7 +252,7 @@ func (b *builtinJSONArraySig) vecEvalJSON(sctx sessionctx.Context, input *chunk.
 			return err
 		}
 		defer b.bufAllocator.put(j)
-		if err = arg.VecEvalJSON(b.ctx, input, j); err != nil {
+		if err = arg.VecEvalJSON(sctx, input, j); err != nil {
 			return err
 		}
 		for i := 0; i < nr; i++ {
@@ -287,7 +287,7 @@ func (b *builtinJSONMemberOfSig) vecEvalInt(sctx sessionctx.Context, input *chun
 	}
 	defer b.bufAllocator.put(targetCol)
 
-	if err := b.args[0].VecEvalJSON(b.ctx, input, targetCol); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, targetCol); err != nil {
 		return err
 	}
 
@@ -297,7 +297,7 @@ func (b *builtinJSONMemberOfSig) vecEvalInt(sctx sessionctx.Context, input *chun
 	}
 	defer b.bufAllocator.put(objCol)
 
-	if err := b.args[1].VecEvalJSON(b.ctx, input, objCol); err != nil {
+	if err := b.args[1].VecEvalJSON(sctx, input, objCol); err != nil {
 		return err
 	}
 
@@ -340,7 +340,7 @@ func (b *builtinJSONContainsSig) vecEvalInt(sctx sessionctx.Context, input *chun
 	}
 	defer b.bufAllocator.put(objCol)
 
-	if err := b.args[0].VecEvalJSON(b.ctx, input, objCol); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, objCol); err != nil {
 		return err
 	}
 
@@ -350,7 +350,7 @@ func (b *builtinJSONContainsSig) vecEvalInt(sctx sessionctx.Context, input *chun
 	}
 	defer b.bufAllocator.put(targetCol)
 
-	if err := b.args[1].VecEvalJSON(b.ctx, input, targetCol); err != nil {
+	if err := b.args[1].VecEvalJSON(sctx, input, targetCol); err != nil {
 		return err
 	}
 
@@ -364,7 +364,7 @@ func (b *builtinJSONContainsSig) vecEvalInt(sctx sessionctx.Context, input *chun
 		}
 		defer b.bufAllocator.put(pathCol)
 
-		if err := b.args[2].VecEvalString(b.ctx, input, pathCol); err != nil {
+		if err := b.args[2].VecEvalString(sctx, input, pathCol); err != nil {
 			return err
 		}
 
@@ -425,7 +425,7 @@ func (b *builtinJSONOverlapsSig) vecEvalInt(sctx sessionctx.Context, input *chun
 	}
 	defer b.bufAllocator.put(objCol)
 
-	if err := b.args[0].VecEvalJSON(b.ctx, input, objCol); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, objCol); err != nil {
 		return err
 	}
 
@@ -435,7 +435,7 @@ func (b *builtinJSONOverlapsSig) vecEvalInt(sctx sessionctx.Context, input *chun
 	}
 	defer b.bufAllocator.put(targetCol)
 
-	if err := b.args[1].VecEvalJSON(b.ctx, input, targetCol); err != nil {
+	if err := b.args[1].VecEvalJSON(sctx, input, targetCol); err != nil {
 		return err
 	}
 
@@ -468,7 +468,7 @@ func (b *builtinJSONQuoteSig) vecEvalString(sctx sessionctx.Context, input *chun
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(sctx, input, buf); err != nil {
 		return err
 	}
 
@@ -494,7 +494,7 @@ func (b *builtinJSONSearchSig) vecEvalJSON(sctx sessionctx.Context, input *chunk
 		return err
 	}
 	defer b.bufAllocator.put(jsonBuf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, jsonBuf); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, jsonBuf); err != nil {
 		return err
 	}
 	typeBuf, err := b.bufAllocator.get()
@@ -502,7 +502,7 @@ func (b *builtinJSONSearchSig) vecEvalJSON(sctx sessionctx.Context, input *chunk
 		return err
 	}
 	defer b.bufAllocator.put(typeBuf)
-	if err := b.args[1].VecEvalString(b.ctx, input, typeBuf); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, typeBuf); err != nil {
 		return err
 	}
 	searchBuf, err := b.bufAllocator.get()
@@ -510,7 +510,7 @@ func (b *builtinJSONSearchSig) vecEvalJSON(sctx sessionctx.Context, input *chunk
 		return err
 	}
 	defer b.bufAllocator.put(searchBuf)
-	if err := b.args[2].VecEvalString(b.ctx, input, searchBuf); err != nil {
+	if err := b.args[2].VecEvalString(sctx, input, searchBuf); err != nil {
 		return err
 	}
 
@@ -521,7 +521,7 @@ func (b *builtinJSONSearchSig) vecEvalJSON(sctx sessionctx.Context, input *chunk
 			return err
 		}
 		defer b.bufAllocator.put(escapeBuf)
-		if err := b.args[3].VecEvalString(b.ctx, input, escapeBuf); err != nil {
+		if err := b.args[3].VecEvalString(sctx, input, escapeBuf); err != nil {
 			return err
 		}
 	}
@@ -536,7 +536,7 @@ func (b *builtinJSONSearchSig) vecEvalJSON(sctx sessionctx.Context, input *chunk
 				return err
 			}
 			defer b.bufAllocator.put(pathBufs[index])
-			if err := b.args[i].VecEvalString(b.ctx, input, pathBufs[index]); err != nil {
+			if err := b.args[i].VecEvalString(sctx, input, pathBufs[index]); err != nil {
 				return err
 			}
 		}
@@ -593,7 +593,7 @@ func (b *builtinJSONSetSig) vectorized() bool {
 }
 
 func (b *builtinJSONSetSig) vecEvalJSON(sctx sessionctx.Context, input *chunk.Chunk, result *chunk.Column) error {
-	err := vecJSONModify(b.ctx, b.args, b.bufAllocator, input, result, types.JSONModifySet)
+	err := vecJSONModify(sctx, b.args, b.bufAllocator, input, result, types.JSONModifySet)
 	return err
 }
 
@@ -624,7 +624,7 @@ func (b *builtinJSONObjectSig) vecEvalJSON(sctx sessionctx.Context, input *chunk
 				b.bufAllocator.put(buf)
 			}(argBuffers[i])
 
-			if err = b.args[i].VecEvalString(b.ctx, input, argBuffers[i]); err != nil {
+			if err = b.args[i].VecEvalString(sctx, input, argBuffers[i]); err != nil {
 				return err
 			}
 		} else {
@@ -635,7 +635,7 @@ func (b *builtinJSONObjectSig) vecEvalJSON(sctx sessionctx.Context, input *chunk
 				b.bufAllocator.put(buf)
 			}(argBuffers[i])
 
-			if err = b.args[i].VecEvalJSON(b.ctx, input, argBuffers[i]); err != nil {
+			if err = b.args[i].VecEvalJSON(sctx, input, argBuffers[i]); err != nil {
 				return err
 			}
 		}
@@ -686,7 +686,7 @@ func (b *builtinJSONArrayInsertSig) vecEvalJSON(sctx sessionctx.Context, input *
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, buf); err != nil {
 		return err
 	}
 	pathBufs := make([]*chunk.Column, (len(b.args)-1)/2)
@@ -698,7 +698,7 @@ func (b *builtinJSONArrayInsertSig) vecEvalJSON(sctx sessionctx.Context, input *
 				return err
 			}
 			defer b.bufAllocator.put(valueBufs[i/2-1])
-			if err := b.args[i].VecEvalJSON(b.ctx, input, valueBufs[i/2-1]); err != nil {
+			if err := b.args[i].VecEvalJSON(sctx, input, valueBufs[i/2-1]); err != nil {
 				return err
 			}
 		} else {
@@ -707,7 +707,7 @@ func (b *builtinJSONArrayInsertSig) vecEvalJSON(sctx sessionctx.Context, input *
 				return err
 			}
 			defer b.bufAllocator.put(pathBufs[(i-1)/2])
-			if err := b.args[i].VecEvalString(b.ctx, input, pathBufs[(i-1)/2]); err != nil {
+			if err := b.args[i].VecEvalString(sctx, input, pathBufs[(i-1)/2]); err != nil {
 				return err
 			}
 		}
@@ -765,7 +765,7 @@ func (b *builtinJSONKeys2ArgsSig) vecEvalJSON(sctx sessionctx.Context, input *ch
 		return err
 	}
 	defer b.bufAllocator.put(jsonBuf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, jsonBuf); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, jsonBuf); err != nil {
 		return err
 	}
 	pathBuf, err := b.bufAllocator.get()
@@ -773,7 +773,7 @@ func (b *builtinJSONKeys2ArgsSig) vecEvalJSON(sctx sessionctx.Context, input *ch
 		return err
 	}
 	defer b.bufAllocator.put(pathBuf)
-	if err := b.args[1].VecEvalString(b.ctx, input, pathBuf); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, pathBuf); err != nil {
 		return err
 	}
 
@@ -820,7 +820,7 @@ func (b *builtinJSONLengthSig) vecEvalInt(sctx sessionctx.Context, input *chunk.
 		return err
 	}
 	defer b.bufAllocator.put(jsonBuf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, jsonBuf); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, jsonBuf); err != nil {
 		return err
 	}
 	result.ResizeInt64(nr, false)
@@ -832,7 +832,7 @@ func (b *builtinJSONLengthSig) vecEvalInt(sctx sessionctx.Context, input *chunk.
 			return err
 		}
 		defer b.bufAllocator.put(pathBuf)
-		if err := b.args[1].VecEvalString(b.ctx, input, pathBuf); err != nil {
+		if err := b.args[1].VecEvalString(sctx, input, pathBuf); err != nil {
 			return err
 		}
 
@@ -902,7 +902,7 @@ func (b *builtinJSONTypeSig) vecEvalString(sctx sessionctx.Context, input *chunk
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, buf); err != nil {
 		return err
 	}
 
@@ -930,7 +930,7 @@ func (b *builtinJSONExtractSig) vecEvalJSON(sctx sessionctx.Context, input *chun
 		return err
 	}
 	defer b.bufAllocator.put(jsonBuf)
-	if err = b.args[0].VecEvalJSON(b.ctx, input, jsonBuf); err != nil {
+	if err = b.args[0].VecEvalJSON(sctx, input, jsonBuf); err != nil {
 		return err
 	}
 
@@ -944,7 +944,7 @@ func (b *builtinJSONExtractSig) vecEvalJSON(sctx sessionctx.Context, input *chun
 			b.bufAllocator.put(buf)
 		}(pathBuffers[k])
 
-		if err := pathArgs[k].VecEvalString(b.ctx, input, pathBuffers[k]); err != nil {
+		if err := pathArgs[k].VecEvalString(sctx, input, pathBuffers[k]); err != nil {
 			return err
 		}
 	}
@@ -995,7 +995,7 @@ func (b *builtinJSONRemoveSig) vecEvalJSON(sctx sessionctx.Context, input *chunk
 		return err
 	}
 	defer b.bufAllocator.put(jsonBuf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, jsonBuf); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, jsonBuf); err != nil {
 		return err
 	}
 
@@ -1006,7 +1006,7 @@ func (b *builtinJSONRemoveSig) vecEvalJSON(sctx sessionctx.Context, input *chunk
 			return err
 		}
 		defer b.bufAllocator.put(strBufs[i-1])
-		if err := b.args[i].VecEvalString(b.ctx, input, strBufs[i-1]); err != nil {
+		if err := b.args[i].VecEvalString(sctx, input, strBufs[i-1]); err != nil {
 			return err
 		}
 	}
@@ -1063,7 +1063,7 @@ func (b *builtinJSONMergeSig) vecEvalJSON(sctx sessionctx.Context, input *chunk.
 			b.bufAllocator.put(buf)
 		}(argBuffers[i])
 
-		if err := arg.VecEvalJSON(b.ctx, input, argBuffers[i]); err != nil {
+		if err := arg.VecEvalJSON(sctx, input, argBuffers[i]); err != nil {
 			return err
 		}
 	}
@@ -1104,7 +1104,7 @@ func (b *builtinJSONMergeSig) vecEvalJSON(sctx sessionctx.Context, input *chunk.
 			if result.IsNull(i) {
 				continue
 			}
-			b.ctx.GetSessionVars().StmtCtx.AppendWarning(errDeprecatedSyntaxNoReplacement.GenWithStackByArgs("JSON_MERGE"))
+			sctx.GetSessionVars().StmtCtx.AppendWarning(errDeprecatedSyntaxNoReplacement.GenWithStackByArgs("JSON_MERGE"))
 		}
 	}
 
@@ -1122,7 +1122,7 @@ func (b *builtinJSONContainsPathSig) vecEvalInt(sctx sessionctx.Context, input *
 		return err
 	}
 	defer b.bufAllocator.put(jsonBuf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, jsonBuf); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, jsonBuf); err != nil {
 		return err
 	}
 	typeBuf, err := b.bufAllocator.get()
@@ -1130,7 +1130,7 @@ func (b *builtinJSONContainsPathSig) vecEvalInt(sctx sessionctx.Context, input *
 		return err
 	}
 	defer b.bufAllocator.put(typeBuf)
-	if err := b.args[1].VecEvalString(b.ctx, input, typeBuf); err != nil {
+	if err := b.args[1].VecEvalString(sctx, input, typeBuf); err != nil {
 		return err
 	}
 	pathBufs := make([]*chunk.Column, len(b.args)-2)
@@ -1147,7 +1147,7 @@ func (b *builtinJSONContainsPathSig) vecEvalInt(sctx sessionctx.Context, input *
 			return err
 		}
 		pathBufs[i] = pathBuf
-		if err := b.args[2+i].VecEvalString(b.ctx, input, pathBuf); err != nil {
+		if err := b.args[2+i].VecEvalString(sctx, input, pathBuf); err != nil {
 			return err
 		}
 	}
@@ -1207,7 +1207,7 @@ func (b *builtinJSONArrayAppendSig) vecEvalJSON(sctx sessionctx.Context, input *
 		return err
 	}
 	defer b.bufAllocator.put(jsonBufs)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, jsonBufs); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, jsonBufs); err != nil {
 		return err
 	}
 
@@ -1227,14 +1227,14 @@ func (b *builtinJSONArrayAppendSig) vecEvalJSON(sctx sessionctx.Context, input *
 			return err
 		}
 		pathBufs = append(pathBufs, pathBuf)
-		if err := b.args[i].VecEvalString(b.ctx, input, pathBuf); err != nil {
+		if err := b.args[i].VecEvalString(sctx, input, pathBuf); err != nil {
 			return err
 		}
 		valBuf, err := b.bufAllocator.get()
 		if err != nil {
 			return err
 		}
-		if err := b.args[i+1].VecEvalJSON(b.ctx, input, valBuf); err != nil {
+		if err := b.args[i+1].VecEvalJSON(sctx, input, valBuf); err != nil {
 			return err
 		}
 		valBufs = append(valBufs, valBuf)
@@ -1289,7 +1289,7 @@ func (b *builtinJSONUnquoteSig) vecEvalString(sctx sessionctx.Context, input *ch
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalString(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalString(sctx, input, buf); err != nil {
 		return err
 	}
 
@@ -1323,7 +1323,7 @@ func (b *builtinJSONSPrettySig) vecEvalString(sctx sessionctx.Context, input *ch
 		return err
 	}
 	defer b.bufAllocator.put(buf)
-	if err := b.args[0].VecEvalJSON(b.ctx, input, buf); err != nil {
+	if err := b.args[0].VecEvalJSON(sctx, input, buf); err != nil {
 		return err
 	}
 	result.ReserveString(n)
@@ -1364,7 +1364,7 @@ func (b *builtinJSONMergePatchSig) vecEvalJSON(sctx sessionctx.Context, input *c
 			b.bufAllocator.put(buf)
 		}(argBuffers[i])
 
-		if err := arg.VecEvalJSON(b.ctx, input, argBuffers[i]); err != nil {
+		if err := arg.VecEvalJSON(sctx, input, argBuffers[i]); err != nil {
 			return err
 		}
 	}

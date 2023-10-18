@@ -334,7 +334,7 @@ func (s *propConstSolver) pickNewEQConds(visited []bool) (retMapper map[int]*Con
 	return
 }
 
-func (s *propConstSolver) solve(conditions []Expression) []Expression {
+func (s *propConstSolver) solve(sctx sessionctx.Context, conditions []Expression) []Expression {
 	cols := make([]*Column, 0, len(conditions))
 	for _, cond := range conditions {
 		s.conditions = append(s.conditions, SplitCNFItems(cond)...)
@@ -352,8 +352,8 @@ func (s *propConstSolver) solve(conditions []Expression) []Expression {
 	}
 	s.propagateConstantEQ()
 	s.propagateColumnEQ()
-	s.conditions = propagateConstantDNF(s.ctx, s.conditions)
-	s.conditions = RemoveDupExprs(s.ctx, s.conditions)
+	s.conditions = propagateConstantDNF(sctx, s.conditions)
+	s.conditions = RemoveDupExprs(sctx, s.conditions)
 	return s.conditions
 }
 
@@ -658,6 +658,5 @@ func newPropConstSolver() PropagateConstantSolver {
 
 // PropagateConstant propagate constant values of deterministic predicates in a condition.
 func (s *propConstSolver) PropagateConstant(ctx sessionctx.Context, conditions []Expression) []Expression {
-	s.ctx = ctx
-	return s.solve(conditions)
+	return s.solve(ctx, conditions)
 }

@@ -71,17 +71,17 @@ func (b *builtinIlikeSig) Clone() builtinFunc {
 
 // evalInt evals a builtinIlikeSig.
 func (b *builtinIlikeSig) evalInt(sctx sessionctx.Context, row chunk.Row) (int64, bool, error) {
-	valStr, isNull, err := b.args[0].EvalString(b.ctx, row)
+	valStr, isNull, err := b.args[0].EvalString(sctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 
-	patternStr, isNull, err := b.args[1].EvalString(b.ctx, row)
+	patternStr, isNull, err := b.args[1].EvalString(sctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
 
-	escape, isNull, err := b.args[2].EvalInt(b.ctx, row)
+	escape, isNull, err := b.args[2].EvalInt(sctx, row)
 	if isNull || err != nil {
 		return 0, isNull, err
 	}
@@ -102,7 +102,7 @@ func (b *builtinIlikeSig) evalInt(sctx sessionctx.Context, row chunk.Row) (int64
 	memorization := func() {
 		if b.pattern == nil {
 			b.pattern = collate.ConvertAndGetBinCollation(b.collation).Pattern()
-			if b.args[1].ConstItem(b.ctx.GetSessionVars().StmtCtx) && b.args[2].ConstItem(b.ctx.GetSessionVars().StmtCtx) {
+			if b.args[1].ConstItem(sctx.GetSessionVars().StmtCtx) && b.args[2].ConstItem(sctx.GetSessionVars().StmtCtx) {
 				b.pattern.Compile(patternStr, byte(escape))
 				b.isMemorizedPattern = true
 			}

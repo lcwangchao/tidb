@@ -165,6 +165,22 @@ func (ctx funcCtx) EvalArgs(row chunk.Row) ([]types.Datum, error) {
 	return result, nil
 }
 
+func (ctx funcCtx) ConnectionInfo() *variable.ConnectionInfo {
+	return ctx.sctx.GetSessionVars().ConnectionInfo
+}
+
+func (ctx funcCtx) User() *auth.UserIdentity {
+	return ctx.sctx.GetSessionVars().User
+}
+
+func (ctx funcCtx) ActiveRoles() []*auth.RoleIdentity {
+	return ctx.sctx.GetSessionVars().ActiveRoles
+}
+
+func (ctx funcCtx) CurrentDB() string {
+	return ctx.sctx.GetSessionVars().CurrentDB
+}
+
 type extensionFuncSig struct {
 	context.Context
 	baseBuiltinFunc
@@ -190,22 +206,6 @@ func (b *extensionFuncSig) evalInt(sctx sessionctx.Context, row chunk.Row) (int6
 		return b.EvalIntFunc(funcCtx{b, sctx}, row)
 	}
 	return b.baseBuiltinFunc.evalInt(nil, row)
-}
-
-func (b *extensionFuncSig) ConnectionInfo() *variable.ConnectionInfo {
-	return b.ctx.GetSessionVars().ConnectionInfo
-}
-
-func (b *extensionFuncSig) User() *auth.UserIdentity {
-	return b.ctx.GetSessionVars().User
-}
-
-func (b *extensionFuncSig) ActiveRoles() []*auth.RoleIdentity {
-	return b.ctx.GetSessionVars().ActiveRoles
-}
-
-func (b *extensionFuncSig) CurrentDB() string {
-	return b.ctx.GetSessionVars().CurrentDB
 }
 
 func init() {
