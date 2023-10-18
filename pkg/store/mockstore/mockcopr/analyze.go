@@ -16,6 +16,7 @@ package mockcopr
 
 import (
 	"context"
+	"github.com/pingcap/tidb/pkg/util/mock"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pingcap/errors"
@@ -135,7 +136,7 @@ func (h coprHandler) handleAnalyzeColumnsReq(req *coprocessor.Request, analyzeRe
 	}
 	sc.SetTimeZone(tz)
 
-	evalCtx := &evalContext{sc: sc}
+	evalCtx := &evalContext{sctx: mock.NewContext()}
 	columns := analyzeReq.ColReq.ColumnsInfo
 	evalCtx.setColumnInfo(columns)
 	ranges, err := h.extractKVRanges(req.Ranges, false)

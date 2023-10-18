@@ -30,7 +30,6 @@ import (
 	"github.com/pingcap/tidb/pkg/parser/mysql"
 	"github.com/pingcap/tidb/pkg/parser/terror"
 	"github.com/pingcap/tidb/pkg/sessionctx"
-	"github.com/pingcap/tidb/pkg/sessionctx/stmtctx"
 	"github.com/pingcap/tidb/pkg/store/mockstore/unistore/lockstore"
 	"github.com/pingcap/tidb/pkg/store/mockstore/unistore/tikv/dbreader"
 	"github.com/pingcap/tidb/pkg/store/mockstore/unistore/tikv/mvcc"
@@ -132,7 +131,7 @@ func buildClosureExecutorFromExecutorList(dagCtx *dagContext, executors []*tipb.
 	}
 	var err error
 	if secondExec := executors[1]; secondExec.Tp == tipb.ExecType_TypeSelection {
-		ce.selectionCtx.conditions, err = convertToExprs(ce.sc, ce.fieldTps, secondExec.Selection.Conditions)
+		ce.selectionCtx.conditions, err = convertToExprs(ce.sctx, ce.fieldTps, secondExec.Selection.Conditions)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -185,10 +184,10 @@ func buildClosureExecutor(dagCtx *dagContext, dagReq *tipb.DAGRequest) (*closure
 	return ce, nil
 }
 
-func convertToExprs(sc *stmtctx.StatementContext, fieldTps []*types.FieldType, pbExprs []*tipb.Expr) ([]expression.Expression, error) {
+func convertToExprs(sctx sessionctx.Context, fieldTps []*types.FieldType, pbExprs []*tipb.Expr) ([]expression.Expression, error) {
 	exprs := make([]expression.Expression, 0, len(pbExprs))
 	for _, expr := range pbExprs {
-		e, err := expression.PBToExpr(expr, fieldTps, sc)
+		e, err := expression.PBToExpr(expr, fieldTps, sctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1141,7 +1140,7 @@ func (e *hashAggProcessor) getContexts(groupKey []byte) []*aggregation.AggEvalua
 	if !ok {
 		aggCtxs = make([]*aggregation.AggEvaluateContext, 0, len(e.aggExprs))
 		for _, agg := range e.aggExprs {
-			aggCtxs = append(aggCtxs, agg.CreateContext(e.sc))
+			aggCtxs = append(aggCtxs, agg.CreateContext(e.seCtx))
 		}
 		e.aggCtxsMap[string(groupKey)] = aggCtxs
 	}

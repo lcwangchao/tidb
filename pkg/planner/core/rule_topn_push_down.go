@@ -134,7 +134,7 @@ func (p *LogicalProjection) pushDownTopN(topN *LogicalTopN, opt *logicalOptimize
 	}
 	if topN != nil {
 		for _, by := range topN.ByItems {
-			by.Expr = expression.FoldConstant(expression.ColumnSubstitute(by.Expr, p.schema, p.Exprs))
+			by.Expr = expression.FoldConstant(p.SCtx(), expression.ColumnSubstitute(p.SCtx(), by.Expr, p.schema, p.Exprs))
 		}
 
 		// remove meaningless constant sort items.

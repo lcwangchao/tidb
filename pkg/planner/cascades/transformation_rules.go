@@ -331,7 +331,7 @@ func (*PushSelDownTiKVSingleGather) OnTransform(old *memo.ExprIter) (newExprs []
 	childGroup := old.Children[0].Children[0].Group
 	var pushed, remained []expression.Expression
 	sctx := sg.SCtx()
-	pushed, remained = expression.PushDownExprs(sctx.GetSessionVars().StmtCtx, sel.Conditions, sctx.GetClient(), kv.TiKV)
+	pushed, remained = expression.PushDownExprs(sctx, sel.Conditions, sctx.GetClient(), kv.TiKV)
 	if len(pushed) == 0 {
 		return nil, false, false, nil
 	}
@@ -550,7 +550,7 @@ func (*PushSelDownProjection) OnTransform(old *memo.ExprIter) (newExprs []*memo.
 	canBePushed := make([]expression.Expression, 0, len(sel.Conditions))
 	canNotBePushed := make([]expression.Expression, 0, len(sel.Conditions))
 	for _, cond := range sel.Conditions {
-		substituted, hasFailed, newFilter := expression.ColumnSubstituteImpl(cond, projSchema, proj.Exprs, true)
+		substituted, hasFailed, newFilter := expression.ColumnSubstituteImpl(sel.SCtx(), cond, projSchema, proj.Exprs, true)
 		if substituted && !hasFailed && !expression.HasGetSetVarFunc(newFilter) {
 			canBePushed = append(canBePushed, newFilter)
 		} else {
@@ -1311,7 +1311,7 @@ func (*PushTopNDownProjection) OnTransform(old *memo.ExprIter) (newExprs []*memo
 	newTopN.ByItems = make([]*util.ByItems, 0, len(topN.ByItems))
 	for _, by := range topN.ByItems {
 		newTopN.ByItems = append(newTopN.ByItems, &util.ByItems{
-			Expr: expression.ColumnSubstitute(by.Expr, old.Children[0].Group.Prop.Schema, proj.Exprs),
+			Expr: expression.ColumnSubstitute(topN.SCtx(), by.Expr, old.Children[0].Group.Prop.Schema, proj.Exprs),
 			Desc: by.Desc,
 		})
 	}
@@ -1524,7 +1524,7 @@ func (*MergeAggregationProjection) OnTransform(old *memo.ExprIter) (newExprs []*
 
 	groupByItems := make([]expression.Expression, len(oldAgg.GroupByItems))
 	for i, item := range oldAgg.GroupByItems {
-		groupByItems[i] = expression.ColumnSubstitute(item, projSchema, proj.Exprs)
+		groupByItems[i] = expression.ColumnSubstitute(oldAgg.SCtx(), item, projSchema, proj.Exprs)
 	}
 
 	aggFuncs := make([]*aggregation.AggFuncDesc, len(oldAgg.AggFuncs))
@@ -1532,7 +1532,7 @@ func (*MergeAggregationProjection) OnTransform(old *memo.ExprIter) (newExprs []*
 		aggFuncs[i] = aggFunc.Clone()
 		newArgs := make([]expression.Expression, len(aggFunc.Args))
 		for j, arg := range aggFunc.Args {
-			newArgs[j] = expression.ColumnSubstitute(arg, projSchema, proj.Exprs)
+			newArgs[j] = expression.ColumnSubstitute(oldAgg.SCtx(), arg, projSchema, proj.Exprs)
 		}
 		aggFuncs[i].Args = newArgs
 	}

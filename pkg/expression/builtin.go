@@ -435,10 +435,6 @@ func (b *baseBuiltinFunc) equal(fun builtinFunc) bool {
 	return true
 }
 
-func (b *baseBuiltinFunc) getCtx() sessionctx.Context {
-	return b.ctx
-}
-
 func (b *baseBuiltinFunc) cloneFrom(from *baseBuiltinFunc) {
 	b.args = make([]Expression, 0, len(b.args))
 	for _, arg := range from.args {
@@ -550,8 +546,6 @@ type builtinFunc interface {
 	getArgs() []Expression
 	// equal check if this function equals to another function.
 	equal(builtinFunc) bool
-	// getCtx returns this function's context.
-	getCtx() sessionctx.Context
 	// getRetTp returns the return type of the built-in function.
 	getRetTp() *types.FieldType
 	// setPbCode sets pbCode for signature.

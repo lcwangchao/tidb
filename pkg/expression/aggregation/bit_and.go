@@ -15,7 +15,7 @@
 package aggregation
 
 import (
-	"github.com/pingcap/tidb/pkg/expression"
+	"github.com/pingcap/tidb/pkg/sessionctx"
 	"math"
 
 	"github.com/pingcap/tidb/pkg/sessionctx/stmtctx"
@@ -27,20 +27,20 @@ type bitAndFunction struct {
 	aggFunction
 }
 
-func (bf *bitAndFunction) CreateContext(sc *stmtctx.StatementContext) *AggEvaluateContext {
-	evalCtx := bf.aggFunction.CreateContext(sc)
+func (bf *bitAndFunction) CreateContext(sctx sessionctx.Context) *AggEvaluateContext {
+	evalCtx := bf.aggFunction.CreateContext(sctx)
 	evalCtx.Value.SetUint64(math.MaxUint64)
 	return evalCtx
 }
 
-func (*bitAndFunction) ResetContext(_ *stmtctx.StatementContext, evalCtx *AggEvaluateContext) {
+func (*bitAndFunction) ResetContext(sctx sessionctx.Context, evalCtx *AggEvaluateContext) {
 	evalCtx.Value.SetUint64(math.MaxUint64)
 }
 
 // Update implements Aggregation interface.
 func (bf *bitAndFunction) Update(evalCtx *AggEvaluateContext, sc *stmtctx.StatementContext, row chunk.Row) error {
 	a := bf.Args[0]
-	value, err := a.Eval(expression.NilEvalCtx, row)
+	value, err := a.Eval(evalCtx.Sctx, row)
 	if err != nil {
 		return err
 	}

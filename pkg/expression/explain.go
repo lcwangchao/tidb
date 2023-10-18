@@ -22,7 +22,6 @@ import (
 
 	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/pingcap/tidb/pkg/types"
-	"github.com/pingcap/tidb/pkg/util/chunk"
 )
 
 // ExplainInfo implements the Expression interface.
@@ -80,9 +79,13 @@ func (col *Column) ExplainNormalizedInfo() string {
 
 // ExplainInfo implements the Expression interface.
 func (expr *Constant) ExplainInfo() string {
-	dt, err := expr.Eval(NilEvalCtx, chunk.Row{})
-	if err != nil {
-		return "not recognized const vanue"
+	var dt types.Datum
+	if expr.ParamMarker != nil {
+		dt = expr.ParamMarker.GetUserVar()
+	} else if expr.DeferredExpr != nil {
+		return expr.DeferredExpr.ExplainInfo()
+	} else {
+		dt = expr.Value
 	}
 	return expr.format(dt)
 }

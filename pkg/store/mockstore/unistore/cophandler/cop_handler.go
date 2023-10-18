@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/sessionctx"
+	"github.com/pingcap/tidb/pkg/util/mock"
 	"strings"
 	"time"
 
@@ -295,6 +297,8 @@ func buildDAG(reader *dbreader.DBReader, lockStore *lockstore.MemStore, req *cop
 		return nil, nil, errors.Trace(err)
 	}
 	sc := flagsToStatementContext(dagReq.Flags)
+	sctx := mock.NewContext()
+	sctx.GetSessionVars().StmtCtx = sc
 	switch dagReq.TimeZoneName {
 	case "":
 		sc.SetTimeZone(time.FixedZone("UTC", int(dagReq.TimeZoneOffset)))
@@ -308,7 +312,7 @@ func buildDAG(reader *dbreader.DBReader, lockStore *lockstore.MemStore, req *cop
 		sc.SetTimeZone(tz)
 	}
 	ctx := &dagContext{
-		evalContext:   &evalContext{sc: sc},
+		evalContext:   &evalContext{sctx: sctx, sc: sc},
 		dbReader:      reader,
 		lockStore:     lockStore,
 		dagReq:        dagReq,
@@ -325,13 +329,13 @@ func getAggInfo(ctx *dagContext, pbAgg *tipb.Aggregation) ([]aggregation.Aggrega
 	var err error
 	for _, expr := range pbAgg.AggFunc {
 		var aggExpr aggregation.Aggregation
-		aggExpr, err = aggregation.NewDistAggFunc(expr, ctx.fieldTps, ctx.sc)
+		aggExpr, err = aggregation.NewDistAggFunc(expr, ctx.fieldTps, ctx.sctx)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
 		aggs = append(aggs, aggExpr)
 	}
-	groupBys, err := convertToExprs(ctx.sc, ctx.fieldTps, pbAgg.GetGroupBy())
+	groupBys, err := convertToExprs(ctx.sctx, ctx.fieldTps, pbAgg.GetGroupBy())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -351,7 +355,7 @@ func getTopNInfo(ctx *evalContext, topN *tipb.TopN) (heap *topNHeap, conds []exp
 			sc:           ctx.sc,
 		},
 	}
-	if conds, err = convertToExprs(ctx.sc, ctx.fieldTps, pbConds); err != nil {
+	if conds, err = convertToExprs(ctx.sctx, ctx.fieldTps, pbConds); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -362,6 +366,7 @@ type evalContext struct {
 	columnInfos []*tipb.ColumnInfo
 	fieldTps    []*types.FieldType
 	primaryCols []int64
+	sctx        sessionctx.Context
 	sc          *stmtctx.StatementContext
 }
 

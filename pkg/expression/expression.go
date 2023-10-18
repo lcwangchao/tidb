@@ -62,8 +62,6 @@ var EvalAstExpr func(sctx sessionctx.Context, expr ast.ExprNode) (types.Datum, e
 // import expression and planner/core together to use EvalAstExpr
 var RewriteAstExpr func(sctx sessionctx.Context, expr ast.ExprNode, schema *Schema, names types.NameSlice, allowCastArray bool) (Expression, error)
 
-var NilEvalCtx sessionctx.Context = nil
-
 // VecExpr contains all vectorized evaluation methods.
 type VecExpr interface {
 	// Vectorized returns if this expression supports vectorized evaluation.
@@ -846,7 +844,7 @@ func evaluateExprWithNull(ctx sessionctx.Context, schema *Schema, expr Expressio
 		return &Constant{Value: types.Datum{}, RetType: types.NewFieldType(mysql.TypeNull)}
 	case *Constant:
 		if x.DeferredExpr != nil {
-			return FoldConstant(x)
+			return FoldConstant(ctx, x)
 		}
 	}
 	return expr
@@ -911,7 +909,7 @@ func evaluateExprWithNullInNullRejectCheck(ctx sessionctx.Context, schema *Schem
 		return &Constant{Value: types.Datum{}, RetType: types.NewFieldType(mysql.TypeNull)}, true
 	case *Constant:
 		if x.DeferredExpr != nil {
-			return FoldConstant(x), false
+			return FoldConstant(ctx, x), false
 		}
 	}
 	return expr, false
@@ -1444,8 +1442,8 @@ func canExprPushDown(expr Expression, pc PbConverter, storeType kv.StoreType, ca
 }
 
 // PushDownExprsWithExtraInfo split the input exprs into pushed and remained, pushed include all the exprs that can be pushed down
-func PushDownExprsWithExtraInfo(sc *stmtctx.StatementContext, exprs []Expression, client kv.Client, storeType kv.StoreType, canEnumPush bool) (pushed []Expression, remained []Expression) {
-	pc := PbConverter{sc: sc, client: client}
+func PushDownExprsWithExtraInfo(sctx sessionctx.Context, exprs []Expression, client kv.Client, storeType kv.StoreType, canEnumPush bool) (pushed []Expression, remained []Expression) {
+	pc := NewPBConverter(client, sctx)
 	for _, expr := range exprs {
 		if canExprPushDown(expr, pc, storeType, canEnumPush) {
 			pushed = append(pushed, expr)
@@ -1457,19 +1455,19 @@ func PushDownExprsWithExtraInfo(sc *stmtctx.StatementContext, exprs []Expression
 }
 
 // PushDownExprs split the input exprs into pushed and remained, pushed include all the exprs that can be pushed down
-func PushDownExprs(sc *stmtctx.StatementContext, exprs []Expression, client kv.Client, storeType kv.StoreType) (pushed []Expression, remained []Expression) {
-	return PushDownExprsWithExtraInfo(sc, exprs, client, storeType, false)
+func PushDownExprs(sctx sessionctx.Context, exprs []Expression, client kv.Client, storeType kv.StoreType) (pushed []Expression, remained []Expression) {
+	return PushDownExprsWithExtraInfo(sctx, exprs, client, storeType, false)
 }
 
 // CanExprsPushDownWithExtraInfo return true if all the expr in exprs can be pushed down
-func CanExprsPushDownWithExtraInfo(sc *stmtctx.StatementContext, exprs []Expression, client kv.Client, storeType kv.StoreType, canEnumPush bool) bool {
-	_, remained := PushDownExprsWithExtraInfo(sc, exprs, client, storeType, canEnumPush)
+func CanExprsPushDownWithExtraInfo(sctx sessionctx.Context, exprs []Expression, client kv.Client, storeType kv.StoreType, canEnumPush bool) bool {
+	_, remained := PushDownExprsWithExtraInfo(sctx, exprs, client, storeType, canEnumPush)
 	return len(remained) == 0
 }
 
 // CanExprsPushDown return true if all the expr in exprs can be pushed down
-func CanExprsPushDown(sc *stmtctx.StatementContext, exprs []Expression, client kv.Client, storeType kv.StoreType) bool {
-	return CanExprsPushDownWithExtraInfo(sc, exprs, client, storeType, false)
+func CanExprsPushDown(sctx sessionctx.Context, exprs []Expression, client kv.Client, storeType kv.StoreType) bool {
+	return CanExprsPushDownWithExtraInfo(sctx, exprs, client, storeType, false)
 }
 
 // wrapWithIsTrue wraps `arg` with istrue function if the return type of expr is not
@@ -1508,7 +1506,7 @@ func wrapWithIsTrue(ctx sessionctx.Context, keepNull bool, arg Expression, wrapF
 	if keepNull {
 		sf.FuncName = model.NewCIStr(ast.IsTruthWithNull)
 	}
-	return FoldConstant(sf), nil
+	return FoldConstant(ctx, sf), nil
 }
 
 // PropagateType propagates the type information to the `expr`.

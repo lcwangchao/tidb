@@ -17,6 +17,7 @@ package ranger
 import (
 	"cmp"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/sessionctx"
 	"math"
 	"sort"
 
@@ -182,8 +183,8 @@ func NullRange() Ranges {
 
 // builder is the range builder struct.
 type builder struct {
-	err error
-	sc  *stmtctx.StatementContext
+	err  error
+	sctx sessionctx.Context
 }
 
 func (r *builder) build(expr expression.Expression, collator collate.Collator) []*point {
@@ -200,7 +201,7 @@ func (r *builder) build(expr expression.Expression, collator collate.Collator) [
 }
 
 func (r *builder) buildFromConstant(expr *expression.Constant) []*point {
-	dt, err := expr.Eval(expression.NilEvalCtx, chunk.Row{})
+	dt, err := expr.Eval(r.sctx, chunk.Row{})
 	if err != nil {
 		r.err = err
 		return nil
@@ -209,7 +210,7 @@ func (r *builder) buildFromConstant(expr *expression.Constant) []*point {
 		return nil
 	}
 
-	val, err := dt.ToBool(r.sc)
+	val, err := dt.ToBool(r.sctx.GetSessionVars().StmtCtx)
 	if err != nil {
 		r.err = err
 		return nil
@@ -254,11 +255,11 @@ func (r *builder) buildFromBinOp(expr *expression.ScalarFunction) []*point {
 			// If the original value is adjusted, we need to change the condition.
 			// For example, col < 2156. Since the max year is 2155, 2156 is changed to 2155.
 			// col < 2155 is wrong. It should be col <= 2155.
-			preValue, err1 := value.ToInt64(r.sc)
+			preValue, err1 := value.ToInt64(r.sctx.GetSessionVars().StmtCtx)
 			if err1 != nil {
 				return err1
 			}
-			*value, err = value.ConvertToMysqlYear(r.sc, col.RetType)
+			*value, err = value.ConvertToMysqlYear(r.sctx.GetSessionVars().StmtCtx, col.RetType)
 			if errors.ErrorEqual(err, types.ErrWarnDataOutOfRange) {
 				// Keep err for EQ and NE.
 				switch *op {
@@ -283,7 +284,7 @@ func (r *builder) buildFromBinOp(expr *expression.ScalarFunction) []*point {
 	var ok bool
 	if col, ok = expr.GetArgs()[0].(*expression.Column); ok {
 		ft = col.RetType
-		value, err = expr.GetArgs()[1].Eval(expression.NilEvalCtx, chunk.Row{})
+		value, err = expr.GetArgs()[1].Eval(r.sctx, chunk.Row{})
 		if err != nil {
 			return nil
 		}
@@ -294,7 +295,7 @@ func (r *builder) buildFromBinOp(expr *expression.ScalarFunction) []*point {
 			return nil
 		}
 		ft = col.RetType
-		value, err = expr.GetArgs()[0].Eval(expression.NilEvalCtx, chunk.Row{})
+		value, err = expr.GetArgs()[0].Eval(r.sctx, chunk.Row{})
 		if err != nil {
 			return nil
 		}
@@ -335,7 +336,7 @@ func (r *builder) buildFromBinOp(expr *expression.ScalarFunction) []*point {
 	}
 
 	if ft.GetType() == mysql.TypeEnum && ft.EvalType() == types.ETString {
-		return handleEnumFromBinOp(r.sc, ft, value, op)
+		return handleEnumFromBinOp(r.sctx.GetSessionVars().StmtCtx, ft, value, op)
 	}
 
 	switch op {
@@ -564,7 +565,7 @@ func (r *builder) buildFromIn(expr *expression.ScalarFunction) ([]*point, bool) 
 			r.err = ErrUnsupportedType.GenWithStack("expr:%v is not constant", e)
 			return getFullRange(), hasNull
 		}
-		dt, err := v.Eval(expression.NilEvalCtx, chunk.Row{})
+		dt, err := v.Eval(r.sctx, chunk.Row{})
 		if err != nil {
 			r.err = ErrUnsupportedType.GenWithStack("expr:%v is not evaluated", e)
 			return getFullRange(), hasNull
@@ -585,7 +586,7 @@ func (r *builder) buildFromIn(expr *expression.ScalarFunction) ([]*point, bool) 
 					err = parseErr
 				}
 			default:
-				dt, err = dt.ConvertTo(r.sc, expr.GetArgs()[0].GetType())
+				dt, err = dt.ConvertTo(r.sctx.GetSessionVars().StmtCtx, expr.GetArgs()[0].GetType())
 			}
 
 			if err != nil {
@@ -594,7 +595,7 @@ func (r *builder) buildFromIn(expr *expression.ScalarFunction) ([]*point, bool) 
 			}
 		}
 		if expr.GetArgs()[0].GetType().GetType() == mysql.TypeYear {
-			dt, err = dt.ConvertToMysqlYear(r.sc, expr.GetArgs()[0].GetType())
+			dt, err = dt.ConvertToMysqlYear(r.sctx.GetSessionVars().StmtCtx, expr.GetArgs()[0].GetType())
 			if err != nil {
 				// in (..., an impossible value (not valid year), ...), the range is empty, so skip it.
 				continue
@@ -610,7 +611,7 @@ func (r *builder) buildFromIn(expr *expression.ScalarFunction) ([]*point, bool) 
 		endPoint := &point{value: endValue}
 		rangePoints = append(rangePoints, startPoint, endPoint)
 	}
-	sorter := pointSorter{points: rangePoints, sc: r.sc, collator: collate.GetCollator(colCollate)}
+	sorter := pointSorter{points: rangePoints, sc: r.sctx.GetSessionVars().StmtCtx, collator: collate.GetCollator(colCollate)}
 	sort.Sort(&sorter)
 	if sorter.err != nil {
 		r.err = sorter.err
@@ -637,7 +638,7 @@ func (r *builder) newBuildFromPatternLike(expr *expression.ScalarFunction) []*po
 	if !collate.CompatibleCollate(expr.GetArgs()[0].GetType().GetCollate(), collation) {
 		return getFullRange()
 	}
-	pdt, err := expr.GetArgs()[1].(*expression.Constant).Eval(expression.NilEvalCtx, chunk.Row{})
+	pdt, err := expr.GetArgs()[1].(*expression.Constant).Eval(r.sctx, chunk.Row{})
 	tpOfPattern := expr.GetArgs()[0].GetType()
 	if err != nil {
 		r.err = errors.Trace(err)
@@ -654,7 +655,7 @@ func (r *builder) newBuildFromPatternLike(expr *expression.ScalarFunction) []*po
 		return []*point{startPoint, endPoint}
 	}
 	lowValue := make([]byte, 0, len(pattern))
-	edt, err := expr.GetArgs()[2].(*expression.Constant).Eval(expression.NilEvalCtx, chunk.Row{})
+	edt, err := expr.GetArgs()[2].(*expression.Constant).Eval(r.sctx, chunk.Row{})
 	if err != nil {
 		r.err = errors.Trace(err)
 		return getFullRange()
@@ -812,7 +813,7 @@ func (r *builder) mergeSorted(a, b []*point, collator collate.Collator) []*point
 	ret := make([]*point, 0, len(a)+len(b))
 	i, j := 0, 0
 	for i < len(a) && j < len(b) {
-		less, err := rangePointLess(r.sc, a[i], b[j], collator)
+		less, err := rangePointLess(r.sctx.GetSessionVars().StmtCtx, a[i], b[j], collator)
 		if err != nil {
 			r.err = err
 			return nil

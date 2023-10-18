@@ -453,26 +453,26 @@ func (p *LogicalJoin) columnSubstituteAll(schema *expression.Schema, exprs []exp
 
 	// try to substitute columns in these condition.
 	for i, cond := range cpLeftConditions {
-		if hasFail, cpLeftConditions[i] = expression.ColumnSubstituteAll(cond, schema, exprs); hasFail {
+		if hasFail, cpLeftConditions[i] = expression.ColumnSubstituteAll(p.SCtx(), cond, schema, exprs); hasFail {
 			return
 		}
 	}
 
 	for i, cond := range cpRightConditions {
-		if hasFail, cpRightConditions[i] = expression.ColumnSubstituteAll(cond, schema, exprs); hasFail {
+		if hasFail, cpRightConditions[i] = expression.ColumnSubstituteAll(p.SCtx(), cond, schema, exprs); hasFail {
 			return
 		}
 	}
 
 	for i, cond := range cpOtherConditions {
-		if hasFail, cpOtherConditions[i] = expression.ColumnSubstituteAll(cond, schema, exprs); hasFail {
+		if hasFail, cpOtherConditions[i] = expression.ColumnSubstituteAll(p.SCtx(), cond, schema, exprs); hasFail {
 			return
 		}
 	}
 
 	for i, cond := range cpEqualConditions {
 		var tmp expression.Expression
-		if hasFail, tmp = expression.ColumnSubstituteAll(cond, schema, exprs); hasFail {
+		if hasFail, tmp = expression.ColumnSubstituteAll(p.SCtx(), cond, schema, exprs); hasFail {
 			return
 		}
 		cpEqualConditions[i] = tmp.(*expression.ScalarFunction)

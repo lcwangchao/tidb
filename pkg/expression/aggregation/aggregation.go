@@ -16,6 +16,7 @@ package aggregation
 
 import (
 	"bytes"
+	"github.com/pingcap/tidb/pkg/sessionctx"
 	"strings"
 
 	"github.com/pingcap/errors"
@@ -43,17 +44,17 @@ type Aggregation interface {
 	GetResult(evalCtx *AggEvaluateContext) types.Datum
 
 	// CreateContext creates a new AggEvaluateContext for the aggregation function.
-	CreateContext(sc *stmtctx.StatementContext) *AggEvaluateContext
+	CreateContext(sctx sessionctx.Context) *AggEvaluateContext
 
 	// ResetContext resets the content of the evaluate context.
-	ResetContext(sc *stmtctx.StatementContext, evalCtx *AggEvaluateContext)
+	ResetContext(sctx sessionctx.Context, evalCtx *AggEvaluateContext)
 }
 
 // NewDistAggFunc creates new Aggregate function for mock tikv.
-func NewDistAggFunc(expr *tipb.Expr, fieldTps []*types.FieldType, sc *stmtctx.StatementContext) (Aggregation, error) {
+func NewDistAggFunc(expr *tipb.Expr, fieldTps []*types.FieldType, ctx sessionctx.Context) (Aggregation, error) {
 	args := make([]expression.Expression, 0, len(expr.Children))
 	for _, child := range expr.Children {
-		arg, err := expression.PBToExpr(child, fieldTps, sc)
+		arg, err := expression.PBToExpr(child, fieldTps, ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -86,6 +87,7 @@ func NewDistAggFunc(expr *tipb.Expr, fieldTps []*types.FieldType, sc *stmtctx.St
 
 // AggEvaluateContext is used to store intermediate result when calculating aggregate functions.
 type AggEvaluateContext struct {
+	Sctx            sessionctx.Context
 	DistinctChecker *distinctChecker
 	Count           int64
 	Value           types.Datum
@@ -125,24 +127,25 @@ func newAggFunc(funcName string, args []expression.Expression, hasDistinct bool)
 }
 
 // CreateContext implements Aggregation interface.
-func (af *aggFunction) CreateContext(sc *stmtctx.StatementContext) *AggEvaluateContext {
-	evalCtx := &AggEvaluateContext{}
+func (af *aggFunction) CreateContext(sctx sessionctx.Context) *AggEvaluateContext {
+	evalCtx := &AggEvaluateContext{Sctx: sctx}
 	if af.HasDistinct {
-		evalCtx.DistinctChecker = createDistinctChecker(sc)
+		evalCtx.DistinctChecker = createDistinctChecker(sctx.GetSessionVars().StmtCtx)
 	}
 	return evalCtx
 }
 
-func (af *aggFunction) ResetContext(sc *stmtctx.StatementContext, evalCtx *AggEvaluateContext) {
+func (af *aggFunction) ResetContext(sctx sessionctx.Context, evalCtx *AggEvaluateContext) {
 	if af.HasDistinct {
-		evalCtx.DistinctChecker = createDistinctChecker(sc)
+		evalCtx.DistinctChecker = createDistinctChecker(sctx.GetSessionVars().StmtCtx)
 	}
+	evalCtx.Sctx = sctx
 	evalCtx.Value.SetNull()
 }
 
 func (af *aggFunction) updateSum(sc *stmtctx.StatementContext, evalCtx *AggEvaluateContext, row chunk.Row) error {
 	a := af.Args[0]
-	value, err := a.Eval(expression.NilEvalCtx, row)
+	value, err := a.Eval(evalCtx.Sctx, row)
 	if err != nil {
 		return err
 	}

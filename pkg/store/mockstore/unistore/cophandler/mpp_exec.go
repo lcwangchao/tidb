@@ -17,6 +17,7 @@ package cophandler
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/pingcap/tidb/pkg/sessionctx"
 	"hash/fnv"
 	"io"
 	"math"
@@ -61,7 +62,8 @@ type mppExec interface {
 }
 
 type baseMPPExec struct {
-	sc *stmtctx.StatementContext
+	sc   *stmtctx.StatementContext
+	sctx sessionctx.Context
 
 	mppCtx *MPPCtx
 
@@ -559,7 +561,7 @@ func (e *topNExec) open() error {
 		for i := 0; i < numRows; i++ {
 			row := chk.GetRow(i)
 			for j, cond := range e.conds {
-				d, err := cond.Eval(expression.NilEvalCtx, row)
+				d, err := cond.Eval(e.sctx, row)
 				if err != nil {
 					return err
 				}
@@ -1007,7 +1009,7 @@ func (e *aggExec) getGroupKey(row chunk.Row) (*chunk.MutRow, []byte, error) {
 	key := make([]byte, 0, DefaultBatchSize)
 	gbyRow := chunk.MutRowFromTypes(e.groupByTypes)
 	for i, item := range e.groupByExprs {
-		v, err := item.Eval(expression.NilEvalCtx, row)
+		v, err := item.Eval(e.sctx, row)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -1026,7 +1028,7 @@ func (e *aggExec) getContexts(groupKey []byte) []*aggregation.AggEvaluateContext
 	if !ok {
 		aggCtxs = make([]*aggregation.AggEvaluateContext, 0, len(e.aggExprs))
 		for _, agg := range e.aggExprs {
-			aggCtxs = append(aggCtxs, agg.CreateContext(e.sc))
+			aggCtxs = append(aggCtxs, agg.CreateContext(e.sctx))
 		}
 		e.aggCtxsMap[string(groupKey)] = aggCtxs
 	}
@@ -1125,7 +1127,7 @@ func (e *selExec) next() (*chunk.Chunk, error) {
 			row := chk.GetRow(rows)
 			passCheck := true
 			for _, cond := range e.conditions {
-				d, err := cond.Eval(expression.NilEvalCtx, row)
+				d, err := cond.Eval(e.sctx, row)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -1180,7 +1182,7 @@ func (e *projExec) next() (*chunk.Chunk, error) {
 		row := chk.GetRow(i)
 		newRow := chunk.MutRowFromTypes(e.fieldTypes)
 		for i, expr := range e.exprs {
-			d, err := expr.Eval(expression.NilEvalCtx, row)
+			d, err := expr.Eval(e.sctx, row)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

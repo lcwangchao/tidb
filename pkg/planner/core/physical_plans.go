@@ -941,7 +941,7 @@ func (ts *PhysicalTableScan) ResolveCorrelatedColumns() ([]*ranger.Range, error)
 		pkIdx := tables.FindPrimaryIndex(ts.Table)
 		idxCols, idxColLens := expression.IndexInfo2PrefixCols(ts.Columns, ts.Schema().Columns, pkIdx)
 		for _, cond := range access {
-			newCond, err := expression.SubstituteCorCol2Constant(cond)
+			newCond, err := expression.SubstituteCorCol2Constant(ts.SCtx(), cond)
 			if err != nil {
 				return nil, err
 			}

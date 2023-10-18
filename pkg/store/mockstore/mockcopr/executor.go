@@ -17,6 +17,7 @@ package mockcopr
 import (
 	"bytes"
 	"context"
+	"github.com/pingcap/tidb/pkg/sessionctx"
 	"sort"
 	"time"
 
@@ -404,9 +405,9 @@ func (e *selectionExec) Counts() []int64 {
 }
 
 // evalBool evaluates expression to a boolean value.
-func evalBool(exprs []expression.Expression, row []types.Datum, ctx *stmtctx.StatementContext) (bool, error) {
+func evalBool(sctx sessionctx.Context, exprs []expression.Expression, row []types.Datum, ctx *stmtctx.StatementContext) (bool, error) {
 	for _, expr := range exprs {
-		data, err := expr.Eval(expression.NilEvalCtx, chunk.MutRowFromDatums(row).ToRow())
+		data, err := expr.Eval(sctx, chunk.MutRowFromDatums(row).ToRow())
 		if err != nil {
 			return false, errors.Trace(err)
 		}
@@ -443,7 +444,7 @@ func (e *selectionExec) Next(ctx context.Context) (value [][]byte, err error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		match, err := evalBool(e.conditions, e.row, e.evalCtx.sc)
+		match, err := evalBool(e.evalCtx.sctx, e.conditions, e.row, e.evalCtx.sctx.GetSessionVars().StmtCtx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -542,7 +543,7 @@ func (e *topNExec) evalTopN(value [][]byte) error {
 		return errors.Trace(err)
 	}
 	for i, expr := range e.orderByExprs {
-		newRow.key[i], err = expr.Eval(expression.NilEvalCtx, chunk.MutRowFromDatums(e.row).ToRow())
+		newRow.key[i], err = expr.Eval(e.evalCtx.sctx, chunk.MutRowFromDatums(e.row).ToRow())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -662,10 +663,10 @@ func getRowData(columns []*tipb.ColumnInfo, colIDs map[int64]int, handle int64, 
 	return values, nil
 }
 
-func convertToExprs(sc *stmtctx.StatementContext, fieldTps []*types.FieldType, pbExprs []*tipb.Expr) ([]expression.Expression, error) {
+func convertToExprs(ctx sessionctx.Context, fieldTps []*types.FieldType, pbExprs []*tipb.Expr) ([]expression.Expression, error) {
 	exprs := make([]expression.Expression, 0, len(pbExprs))
 	for _, expr := range pbExprs {
-		e, err := expression.PBToExpr(expr, fieldTps, sc)
+		e, err := expression.PBToExpr(expr, fieldTps, ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

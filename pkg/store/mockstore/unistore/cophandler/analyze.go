@@ -17,6 +17,7 @@ package cophandler
 import (
 	"bytes"
 	"context"
+	"github.com/pingcap/tidb/pkg/util/mock"
 	"math"
 	"math/rand"
 	"slices"
@@ -268,7 +269,9 @@ type analyzeColumnsExec struct {
 func buildBaseAnalyzeColumnsExec(dbReader *dbreader.DBReader, rans []kv.KeyRange, analyzeReq *tipb.AnalyzeReq, startTS uint64) (*analyzeColumnsExec, *statistics.SampleBuilder, int64, error) {
 	sc := flagsToStatementContext(analyzeReq.Flags)
 	sc.SetTimeZone(time.FixedZone("UTC", int(analyzeReq.TimeZoneOffset)))
-	evalCtx := &evalContext{sc: sc}
+	sctx := mock.NewContext()
+	sctx.GetSessionVars().StmtCtx = sc
+	evalCtx := &evalContext{sctx: sctx, sc: sc}
 	columns := analyzeReq.ColReq.ColumnsInfo
 	evalCtx.setColumnInfo(columns)
 	if len(analyzeReq.ColReq.PrimaryColumnIds) > 0 {
@@ -374,7 +377,9 @@ func handleAnalyzeFullSamplingReq(
 ) (*coprocessor.Response, error) {
 	sc := flagsToStatementContext(analyzeReq.Flags)
 	sc.SetTimeZone(time.FixedZone("UTC", int(analyzeReq.TimeZoneOffset)))
-	evalCtx := &evalContext{sc: sc}
+	sctx := mock.NewContext()
+	sctx.GetSessionVars().StmtCtx = sc
+	evalCtx := &evalContext{sctx: sctx, sc: sc}
 	columns := analyzeReq.ColReq.ColumnsInfo
 	evalCtx.setColumnInfo(columns)
 	if len(analyzeReq.ColReq.PrimaryColumnIds) > 0 {

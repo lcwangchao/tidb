@@ -229,7 +229,7 @@ func BuildToBinaryFunction(ctx sessionctx.Context, expr Expression) (res Express
 		RetType:  f.getRetTp(),
 		Function: f,
 	}
-	return FoldConstant(res)
+	return FoldConstant(ctx, res)
 }
 
 // BuildFromBinaryFunction builds from_binary function.
@@ -244,7 +244,7 @@ func BuildFromBinaryFunction(ctx sessionctx.Context, expr Expression, tp *types.
 		RetType:  tp,
 		Function: f,
 	}
-	return FoldConstant(res)
+	return FoldConstant(ctx, res)
 }
 
 type funcProp int8

@@ -105,11 +105,6 @@ func (sf *ScalarFunction) ReverseEval(sc *stmtctx.StatementContext, res types.Da
 	return sf.Function.reverseEval(sc, res, rType)
 }
 
-// GetCtx gets the context of function.
-func (sf *ScalarFunction) GetCtx() sessionctx.Context {
-	return sf.Function.getCtx()
-}
-
 // String implements fmt.Stringer interface.
 func (sf *ScalarFunction) String() string {
 	var buffer bytes.Buffer
@@ -249,12 +244,12 @@ func newFunctionImpl(ctx sessionctx.Context, fold int, funcName string, retType 
 		Function: f,
 	}
 	if fold == 1 {
-		return FoldConstant(sf), nil
+		return FoldConstant(ctx, sf), nil
 	} else if fold == -1 {
 		// try to fold constants, and return the original function if errors/warnings occur
 		sc := ctx.GetSessionVars().StmtCtx
 		beforeWarns := sc.WarningCount()
-		newSf := FoldConstant(sf)
+		newSf := FoldConstant(ctx, sf)
 		afterWarns := sc.WarningCount()
 		if afterWarns > beforeWarns {
 			sc.TruncateWarnings(int(beforeWarns))
@@ -393,10 +388,6 @@ func (sf *ScalarFunction) Eval(sctx sessionctx.Context, row chunk.Row) (d types.
 		res    interface{}
 		isNull bool
 	)
-
-	if sctx == nil {
-		sctx = sf.GetCtx()
-	}
 
 	switch tp, evalType := sf.GetType(), sf.GetType().EvalType(); evalType {
 	case types.ETInt:

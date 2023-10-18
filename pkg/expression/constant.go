@@ -19,7 +19,6 @@ import (
 	"unsafe"
 
 	"github.com/pingcap/tidb/pkg/parser/mysql"
-	"github.com/pingcap/tidb/pkg/parser/terror"
 	"github.com/pingcap/tidb/pkg/sessionctx"
 	"github.com/pingcap/tidb/pkg/sessionctx/stmtctx"
 	"github.com/pingcap/tidb/pkg/types"
@@ -448,10 +447,6 @@ func (c *Constant) HashCode(sc *stmtctx.StatementContext) []byte {
 		return c.hashcode
 	}
 
-	_, err := c.Eval(NilEvalCtx, chunk.Row{})
-	if err != nil {
-		terror.Log(err)
-	}
 	c.hashcode = append(c.hashcode, constantFlag)
 	c.hashcode = codec.HashCode(c.hashcode, c.Value)
 	return c.hashcode

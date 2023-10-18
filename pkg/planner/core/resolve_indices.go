@@ -94,7 +94,7 @@ func (p *PhysicalHashJoin) ResolveIndicesItself() (err error) {
 			return err
 		}
 		p.RightJoinKeys[i] = rArg.(*expression.Column)
-		p.EqualConditions[i] = expression.NewFunctionInternal(fun.GetCtx(), fun.FuncName.L, fun.GetType(), lArg, rArg).(*expression.ScalarFunction)
+		p.EqualConditions[i] = expression.NewFunctionInternal(p.SCtx(), fun.FuncName.L, fun.GetType(), lArg, rArg).(*expression.ScalarFunction)
 	}
 	for i, fun := range p.NAEqualConditions {
 		lArg, err := fun.GetArgs()[0].ResolveIndices(lSchema)
@@ -107,7 +107,7 @@ func (p *PhysicalHashJoin) ResolveIndicesItself() (err error) {
 			return err
 		}
 		p.RightNAJoinKeys[i] = rArg.(*expression.Column)
-		p.NAEqualConditions[i] = expression.NewFunctionInternal(fun.GetCtx(), fun.FuncName.L, fun.GetType(), lArg, rArg).(*expression.ScalarFunction)
+		p.NAEqualConditions[i] = expression.NewFunctionInternal(p.SCtx(), fun.FuncName.L, fun.GetType(), lArg, rArg).(*expression.ScalarFunction)
 	}
 	for i, expr := range p.LeftConditions {
 		p.LeftConditions[i], err = expr.ResolveIndices(lSchema)

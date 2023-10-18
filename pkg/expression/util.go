@@ -409,8 +409,8 @@ func SetExprColumnInOperand(expr Expression) Expression {
 
 // ColumnSubstitute substitutes the columns in filter to expressions in select fields.
 // e.g. select * from (select b as a from t) k where a < 10 => select * from (select b as a from t where b < 10) k.
-func ColumnSubstitute(expr Expression, schema *Schema, newExprs []Expression) Expression {
-	_, _, resExpr := ColumnSubstituteImpl(expr, schema, newExprs, false)
+func ColumnSubstitute(sctx sessionctx.Context, expr Expression, schema *Schema, newExprs []Expression) Expression {
+	_, _, resExpr := ColumnSubstituteImpl(sctx, expr, schema, newExprs, false)
 	return resExpr
 }
 
@@ -419,8 +419,8 @@ func ColumnSubstitute(expr Expression, schema *Schema, newExprs []Expression) Ex
 //
 //	1: substitute them all once find col in schema.
 //	2: nothing in expr can be substituted.
-func ColumnSubstituteAll(expr Expression, schema *Schema, newExprs []Expression) (bool, Expression) {
-	_, hasFail, resExpr := ColumnSubstituteImpl(expr, schema, newExprs, true)
+func ColumnSubstituteAll(sctx sessionctx.Context, expr Expression, schema *Schema, newExprs []Expression) (bool, Expression) {
+	_, hasFail, resExpr := ColumnSubstituteImpl(sctx, expr, schema, newExprs, true)
 	return hasFail, resExpr
 }
 
@@ -429,7 +429,7 @@ func ColumnSubstituteAll(expr Expression, schema *Schema, newExprs []Expression)
 // @return bool means whether the expr has changed.
 // @return bool means whether the expr should change (has the dependency in schema, while the corresponding expr has some compatibility), but finally fallback.
 // @return Expression, the original expr or the changed expr, it depends on the first @return bool.
-func ColumnSubstituteImpl(expr Expression, schema *Schema, newExprs []Expression, fail1Return bool) (bool, bool, Expression) {
+func ColumnSubstituteImpl(sctx sessionctx.Context, expr Expression, schema *Schema, newExprs []Expression, fail1Return bool) (bool, bool, Expression) {
 	switch v := expr.(type) {
 	case *Column:
 		id := schema.ColumnIndex(v)
@@ -446,7 +446,7 @@ func ColumnSubstituteImpl(expr Expression, schema *Schema, newExprs []Expression
 		hasFail := false
 		if v.FuncName.L == ast.Cast || v.FuncName.L == ast.Grouping {
 			var newArg Expression
-			substituted, hasFail, newArg = ColumnSubstituteImpl(v.GetArgs()[0], schema, newExprs, fail1Return)
+			substituted, hasFail, newArg = ColumnSubstituteImpl(sctx, v.GetArgs()[0], schema, newExprs, fail1Return)
 			if fail1Return && hasFail {
 				return substituted, hasFail, v
 			}
@@ -454,7 +454,7 @@ func ColumnSubstituteImpl(expr Expression, schema *Schema, newExprs []Expression
 				flag := v.RetType.GetFlag()
 				var e Expression
 				if v.FuncName.L == ast.Cast {
-					e = BuildCastFunction(v.GetCtx(), newArg, v.RetType)
+					e = BuildCastFunction(sctx, newArg, v.RetType)
 				} else {
 					// for grouping function recreation, use clone (meta included) instead of newFunction
 					e = v.Clone()
@@ -469,7 +469,7 @@ func ColumnSubstituteImpl(expr Expression, schema *Schema, newExprs []Expression
 		// cowExprRef is a copy-on-write util, args array allocation happens only
 		// when expr in args is changed
 		refExprArr := cowExprRef{v.GetArgs(), nil}
-		oldCollEt, err := CheckAndDeriveCollationFromExprs(v.GetCtx(), v.FuncName.L, v.RetType.EvalType(), v.GetArgs()...)
+		oldCollEt, err := CheckAndDeriveCollationFromExprs(sctx, v.FuncName.L, v.RetType.EvalType(), v.GetArgs()...)
 		if err != nil {
 			logutil.BgLogger().Error("Unexpected error happened during ColumnSubstitution", zap.Stack("stack"))
 			return false, false, v
@@ -479,7 +479,7 @@ func ColumnSubstituteImpl(expr Expression, schema *Schema, newExprs []Expression
 			tmpArgForCollCheck = make([]Expression, len(v.GetArgs()))
 		}
 		for idx, arg := range v.GetArgs() {
-			changed, failed, newFuncExpr := ColumnSubstituteImpl(arg, schema, newExprs, fail1Return)
+			changed, failed, newFuncExpr := ColumnSubstituteImpl(sctx, arg, schema, newExprs, fail1Return)
 			if fail1Return && failed {
 				return changed, failed, v
 			}
@@ -489,7 +489,7 @@ func ColumnSubstituteImpl(expr Expression, schema *Schema, newExprs []Expression
 				changed = false
 				copy(tmpArgForCollCheck, refExprArr.Result())
 				tmpArgForCollCheck[idx] = newFuncExpr
-				newCollEt, err := CheckAndDeriveCollationFromExprs(v.GetCtx(), v.FuncName.L, v.RetType.EvalType(), tmpArgForCollCheck...)
+				newCollEt, err := CheckAndDeriveCollationFromExprs(sctx, v.FuncName.L, v.RetType.EvalType(), tmpArgForCollCheck...)
 				if err != nil {
 					logutil.BgLogger().Error("Unexpected error happened during ColumnSubstitution", zap.Stack("stack"))
 					return false, failed, v
@@ -518,7 +518,7 @@ func ColumnSubstituteImpl(expr Expression, schema *Schema, newExprs []Expression
 			}
 		}
 		if substituted {
-			return true, hasFail, NewFunctionInternal(v.GetCtx(), v.FuncName.L, v.RetType, refExprArr.Result()...)
+			return true, hasFail, NewFunctionInternal(sctx, v.FuncName.L, v.RetType, refExprArr.Result()...)
 		}
 	}
 	return false, false, expr
@@ -585,13 +585,13 @@ Loop:
 
 // SubstituteCorCol2Constant will substitute correlated column to constant value which it contains.
 // If the args of one scalar function are all constant, we will substitute it to constant.
-func SubstituteCorCol2Constant(expr Expression) (Expression, error) {
+func SubstituteCorCol2Constant(sctx sessionctx.Context, expr Expression) (Expression, error) {
 	switch x := expr.(type) {
 	case *ScalarFunction:
 		allConstant := true
 		newArgs := make([]Expression, 0, len(x.GetArgs()))
 		for _, arg := range x.GetArgs() {
-			newArg, err := SubstituteCorCol2Constant(arg)
+			newArg, err := SubstituteCorCol2Constant(sctx, arg)
 			if err != nil {
 				return nil, err
 			}
@@ -600,7 +600,7 @@ func SubstituteCorCol2Constant(expr Expression) (Expression, error) {
 			allConstant = allConstant && ok
 		}
 		if allConstant {
-			val, err := x.Eval(NilEvalCtx, chunk.Row{})
+			val, err := x.Eval(sctx, chunk.Row{})
 			if err != nil {
 				return nil, err
 			}
@@ -611,19 +611,19 @@ func SubstituteCorCol2Constant(expr Expression) (Expression, error) {
 			newSf Expression
 		)
 		if x.FuncName.L == ast.Cast {
-			newSf = BuildCastFunction(x.GetCtx(), newArgs[0], x.RetType)
+			newSf = BuildCastFunction(sctx, newArgs[0], x.RetType)
 		} else if x.FuncName.L == ast.Grouping {
 			newSf = x.Clone()
 			newSf.(*ScalarFunction).GetArgs()[0] = newArgs[0]
 		} else {
-			newSf, err = NewFunction(x.GetCtx(), x.FuncName.L, x.GetType(), newArgs...)
+			newSf, err = NewFunction(sctx, x.FuncName.L, x.GetType(), newArgs...)
 		}
 		return newSf, err
 	case *CorrelatedColumn:
 		return &Constant{Value: *x.Data, RetType: x.GetType()}, nil
 	case *Constant:
 		if x.DeferredExpr != nil {
-			newExpr := FoldConstant(x)
+			newExpr := FoldConstant(sctx, x)
 			return &Constant{Value: newExpr.(*Constant).Value, RetType: x.GetType()}, nil
 		}
 	}
@@ -1082,12 +1082,11 @@ func extractFiltersFromDNF(ctx sessionctx.Context, dnfFunc *ScalarFunction) ([]E
 // the original expression must satisfy the derived expression. Return nil when the derived expression is universal set.
 // A running example is: for schema of t1, `(t1.a=1 and t2.a=1) or (t1.a=2 and t2.a=2)` would be derived as
 // `t1.a=1 or t1.a=2`, while `t1.a=1 or t2.a=1` would get nil.
-func DeriveRelaxedFiltersFromDNF(expr Expression, schema *Schema) Expression {
+func DeriveRelaxedFiltersFromDNF(ctx sessionctx.Context, expr Expression, schema *Schema) Expression {
 	sf, ok := expr.(*ScalarFunction)
 	if !ok || sf.FuncName.L != ast.LogicOr {
 		return nil
 	}
-	ctx := sf.GetCtx()
 	dnfItems := FlattenDNFConditions(sf)
 	newDNFItems := make([]Expression, 0, len(dnfItems))
 	for _, dnfItem := range dnfItems {
@@ -1095,7 +1094,7 @@ func DeriveRelaxedFiltersFromDNF(expr Expression, schema *Schema) Expression {
 		newCNFItems := make([]Expression, 0, len(cnfItems))
 		for _, cnfItem := range cnfItems {
 			if itemSF, ok := cnfItem.(*ScalarFunction); ok && itemSF.FuncName.L == ast.LogicOr {
-				relaxedCNFItem := DeriveRelaxedFiltersFromDNF(cnfItem, schema)
+				relaxedCNFItem := DeriveRelaxedFiltersFromDNF(ctx, cnfItem, schema)
 				if relaxedCNFItem != nil {
 					newCNFItems = append(newCNFItems, relaxedCNFItem)
 				}
@@ -1394,7 +1393,7 @@ func RemoveDupExprs(ctx sessionctx.Context, exprs []Expression) []Expression {
 }
 
 // GetUint64FromConstant gets a uint64 from constant expression.
-func GetUint64FromConstant(expr Expression) (uint64, bool, bool) {
+func GetUint64FromConstant(sctx sessionctx.Context, expr Expression) (uint64, bool, bool) {
 	con, ok := expr.(*Constant)
 	if !ok {
 		logutil.BgLogger().Warn("not a constant expression", zap.String("expression", expr.ExplainInfo()))
@@ -1405,7 +1404,7 @@ func GetUint64FromConstant(expr Expression) (uint64, bool, bool) {
 		dt = con.ParamMarker.GetUserVar()
 	} else if con.DeferredExpr != nil {
 		var err error
-		dt, err = con.DeferredExpr.Eval(NilEvalCtx, chunk.Row{})
+		dt, err = con.DeferredExpr.Eval(sctx, chunk.Row{})
 		if err != nil {
 			logutil.BgLogger().Warn("eval deferred expr failed", zap.Error(err))
 			return 0, false, false
