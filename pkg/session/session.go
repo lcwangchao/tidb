@@ -2774,6 +2774,7 @@ func (s *session) Auth(user *auth.UserIdentity, authentication, salt []byte, aut
 	user.AuthHostname = authUser.Hostname
 	s.sessionVars.User = user
 	s.sessionVars.ActiveRoles = pm.GetDefaultRoles(user.AuthUsername, user.AuthHostname)
+	s.sessionVars.AuthenticateCommand = info.AuthenticateCommand
 	return nil
 }
 

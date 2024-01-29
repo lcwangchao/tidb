@@ -22,6 +22,7 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/pkg/domain"
 	"github.com/pingcap/tidb/pkg/executor/internal/exec"
+	"github.com/pingcap/tidb/pkg/extension"
 	"github.com/pingcap/tidb/pkg/infoschema"
 	"github.com/pingcap/tidb/pkg/kv"
 	"github.com/pingcap/tidb/pkg/parser/ast"
@@ -165,15 +166,15 @@ func (e *GrantExec) Next(ctx context.Context, _ *chunk.Chunk) error {
 			// It is required for compatibility with 5.7 but removed from 8.0
 			// since it results in a massive security issue:
 			// spelling errors will create users with no passwords.
-			pwd, ok := user.EncodedPassword()
-			if !ok {
-				return errors.Trace(exeerrors.ErrPasswordFormat)
+			pwd, err := encodePassWord(user)
+			if err != nil {
+				return err
 			}
 			authPlugin := mysql.AuthNativePassword
 			if user.AuthOpt != nil && user.AuthOpt.AuthPlugin != "" {
 				authPlugin = user.AuthOpt.AuthPlugin
 			}
-			_, err := internalSession.GetSQLExecutor().ExecuteInternal(internalCtx,
+			_, err = internalSession.GetSQLExecutor().ExecuteInternal(internalCtx,
 				`INSERT INTO %n.%n (Host, User, authentication_string, plugin) VALUES (%?, %?, %?, %?);`,
 				mysql.SystemDB, mysql.UserTable, user.User.Hostname, user.User.Username, pwd, authPlugin)
 			if err != nil {
@@ -807,4 +808,21 @@ func getRowFromRecordSet(ctx context.Context, se sessionctx.Context, rs sqlexec.
 		}
 		req = chunk.Renew(req, se.GetSessionVars().MaxChunkSize)
 	}
+}
+
+func encodePassWord(spec *ast.UserSpec) (string, error) {
+	opt := spec.AuthOpt
+	if opt == nil {
+		return "", nil
+	}
+
+	if pl, ok := extension.GetMysqlAuthPlugins().Plugin(opt.AuthPlugin); ok {
+		return pl.GenerateAuthString(opt.AuthString)
+	}
+
+	pwd, ok := spec.EncodedPassword()
+	if !ok {
+		return "", errors.Trace(exeerrors.ErrPasswordFormat)
+	}
+	return pwd, nil
 }

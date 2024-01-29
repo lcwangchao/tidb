@@ -60,6 +60,18 @@ func (es *Extensions) GetAccessCheckFuncs() (funcs []AccessCheckFunc) {
 	return funcs
 }
 
+func (es *Extensions) GetMysqlAuthPlugins() MysqlAuthPlugins {
+	if es == nil {
+		return nil
+	}
+
+	plugins := make([]*MysqlAuthPlugin, 0, len(es.manifests))
+	for _, m := range es.manifests {
+		plugins = append(plugins, m.mysqlAuthPlugins...)
+	}
+	return plugins
+}
+
 // NewSessionExtensions creates a new ConnExtensions object
 func (es *Extensions) NewSessionExtensions() *SessionExtensions {
 	if es == nil {

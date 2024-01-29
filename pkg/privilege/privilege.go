@@ -39,6 +39,8 @@ type VerificationInfo struct {
 	FailedDueToWrongPassword bool
 	// ResourceGroupName records the resource group name for the user.
 	ResourceGroupName string
+	// AuthenticateCommand is used to authenticate the command for each new mysql command
+	AuthenticateCommand func(cmd byte, data []byte) error
 }
 
 // Manager is the interface for providing privilege related operations.

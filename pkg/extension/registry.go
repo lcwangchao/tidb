@@ -15,10 +15,13 @@
 package extension
 
 import (
+	"github.com/pingcap/tidb/pkg/parser/mysql"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/pingcap/errors"
+	"github.com/pingcap/tidb/pkg/util/intest"
 )
 
 type registry struct {
@@ -103,6 +106,18 @@ func (r *registry) doSetup() (_ *Extensions, err error) {
 	}()
 
 	manifests := make([]*Manifest, 0, len(r.factories))
+	checkPlugins := map[string]struct{}{
+		mysql.AuthNativePassword:      {},
+		mysql.AuthCachingSha2Password: {},
+		mysql.AuthTiDBSM3Password:     {},
+		mysql.AuthMySQLClearPassword:  {},
+		mysql.AuthSocket:              {},
+		mysql.AuthTiDBSessionToken:    {},
+		mysql.AuthTiDBAuthToken:       {},
+		mysql.AuthLDAPSimple:          {},
+		mysql.AuthLDAPSASL:            {},
+	}
+
 	for i := range r.extensionNames {
 		name := r.extensionNames[i]
 		err = clearBuilder.DoWithCollectClear(func() (func(), error) {
@@ -111,6 +126,30 @@ func (r *registry) doSetup() (_ *Extensions, err error) {
 			if err != nil {
 				return nil, err
 			}
+
+			// check mysql auth plugins
+			for _, plugin := range m.mysqlAuthPlugins {
+				if plugin.Name == "" {
+					return nil, errors.New("mysql auth plugin name should not be empty")
+				}
+
+				if plugin.AuthenticateUser == nil {
+					return nil, errors.New("`AuthenticateUser` should be specified for mysql auth plugin")
+				}
+
+				if plugin.GenerateAuthString != nil || plugin.ValidateAuthString != nil {
+					if plugin.GenerateAuthString == nil || plugin.ValidateAuthString == nil {
+						return nil, errors.New("`GenerateAuthString` and `ValidateAuthString` should be specified together for mysql auth plugin")
+					}
+				}
+
+				plName := strings.ToLower(plugin.Name)
+				if _, ok := checkPlugins[plName]; ok {
+					return nil, errors.Errorf("mysql auth plugin with name '%s' already registered", plName)
+				}
+				checkPlugins[plName] = struct{}{}
+			}
+
 			manifests = append(manifests, m)
 			return clear, nil
 		})
@@ -162,6 +201,16 @@ func Setup() error {
 // GetExtensions returns all extensions after setup
 func GetExtensions() (*Extensions, error) {
 	return globalRegistry.Extensions()
+}
+
+// GetMysqlAuthPlugins returns the mysql auth plugins
+func GetMysqlAuthPlugins() MysqlAuthPlugins {
+	extensions, err := GetExtensions()
+	intest.AssertNoError(err)
+	if err != nil {
+		return nil
+	}
+	return extensions.GetMysqlAuthPlugins()
 }
 
 // Reset resets the registry. It is only used by test

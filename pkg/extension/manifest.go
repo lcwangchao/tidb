@@ -72,6 +72,13 @@ func WithSessionHandlerFactory(factory func() *SessionHandler) Option {
 	}
 }
 
+// WithMysqlAuthPlugins specifies a plugin list for mysql authentication
+func WithMysqlAuthPlugins(plugins []*MysqlAuthPlugin) Option {
+	return func(m *Manifest) {
+		m.mysqlAuthPlugins = plugins
+	}
+}
+
 // WithClose specifies the close function of an extension.
 // It will be invoked when `extension.Reset` is called
 func WithClose(fn func()) Option {
@@ -119,6 +126,7 @@ type Manifest struct {
 	funcs                 []*FunctionDef
 	accessCheckFunc       AccessCheckFunc
 	sessionHandlerFactory func() *SessionHandler
+	mysqlAuthPlugins      []*MysqlAuthPlugin
 	close                 func()
 }
 

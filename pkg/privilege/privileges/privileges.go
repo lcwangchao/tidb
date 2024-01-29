@@ -211,6 +211,10 @@ func (p *UserPrivileges) RequestVerificationWithUser(db, table, column string, p
 }
 
 func (p *UserPrivileges) isValidHash(record *UserRecord) bool {
+	if pl, ok := extension.GetMysqlAuthPlugins().Plugin(record.AuthPlugin); ok {
+		return pl.ValidateAuthString(record.AuthenticationString)
+	}
+
 	pwd := record.AuthenticationString
 	if pwd == "" {
 		return true
@@ -275,6 +279,10 @@ func (p *UserPrivileges) GetAuthPluginForConnection(user, host string) (string, 
 	switch record.AuthPlugin {
 	case mysql.AuthTiDBAuthToken, mysql.AuthLDAPSASL, mysql.AuthLDAPSimple:
 		return record.AuthPlugin, nil
+	default:
+		if extension.GetMysqlAuthPlugins().HasPlugin(record.AuthPlugin) {
+			return record.AuthPlugin, nil
+		}
 	}
 
 	// zero-length auth string means no password for native and caching_sha2 auth.
@@ -546,8 +554,22 @@ func (p *UserPrivileges) ConnectionVerification(user *auth.UserIdentity, authUse
 		return info, ErrAccessDenied.FastGenByArgs(user.Username, user.Hostname, hasPassword)
 	}
 
-	// If the user uses session token to log in, skip checking record.AuthPlugin.
-	if user.AuthPlugin == mysql.AuthTiDBSessionToken {
+	if pl, ok := extension.GetMysqlAuthPlugins().Plugin(record.AuthPlugin); ok {
+		authInfo := &extension.MysqlAuthInfo{
+			ConnectionID:         sessionVars.ConnectionID,
+			UserName:             authUser,
+			HostName:             authHost,
+			AuthenticationString: record.AuthenticationString,
+			TLSConnState:         sessionVars.TLSConnectionState,
+			UserData:             authentication,
+			ClientPlugin:         user.AuthPlugin,
+		}
+		if err = pl.AuthenticateUser(authInfo); err != nil {
+			return info, err
+		}
+		info.AuthenticateCommand = authInfo.GetAuthCommand()
+	} else if user.AuthPlugin == mysql.AuthTiDBSessionToken {
+		// If the user uses session token to log in, skip checking record.AuthPlugin.
 		if err = sessionstates.ValidateSessionToken(authentication, user.Username); err != nil {
 			logutil.BgLogger().Warn("verify session token failed", zap.String("username", user.Username), zap.Error(err))
 			return info, ErrAccessDenied.FastGenByArgs(user.Username, user.Hostname, hasPassword)

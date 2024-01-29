@@ -306,7 +306,7 @@ func (cc *clientConn) handshake(ctx context.Context) error {
 		}
 		return err
 	}
-	if err := cc.readOptionalSSLRequestAndHandshakeResponse(ctx); err != nil {
+	if err := cc.readOptionalSSLRequestAndHandshakeResponse(ctx, extension.GetMysqlAuthPlugins()); err != nil {
 		err1 := cc.writeError(ctx, err)
 		if err1 != nil {
 			logutil.Logger(ctx).Debug("writeError failed", zap.Error(err1))
@@ -509,7 +509,7 @@ func (cc *clientConn) getSessionVarsWaitTimeout(ctx context.Context) uint64 {
 	return waitTimeout
 }
 
-func (cc *clientConn) readOptionalSSLRequestAndHandshakeResponse(ctx context.Context) error {
+func (cc *clientConn) readOptionalSSLRequestAndHandshakeResponse(ctx context.Context, authPlugins extension.MysqlAuthPlugins) error {
 	// Read a packet. It may be a SSLRequest or HandshakeResponse.
 	data, err := cc.readPacket()
 	if err != nil {
@@ -597,7 +597,7 @@ func (cc *clientConn) readOptionalSSLRequestAndHandshakeResponse(ctx context.Con
 	cc.attrs = resp.Attrs
 	cc.pkt.SetZstdLevel(zstd.EncoderLevelFromZstd(resp.ZstdLevel))
 
-	err = cc.handleAuthPlugin(ctx, &resp)
+	err = cc.handleAuthPlugin(ctx, &resp, authPlugins)
 	if err != nil {
 		return err
 	}
@@ -621,7 +621,9 @@ func (cc *clientConn) readOptionalSSLRequestAndHandshakeResponse(ctx context.Con
 	case mysql.AuthLDAPSASL:
 	case mysql.AuthLDAPSimple:
 	default:
-		return errors.New("Unknown auth plugin")
+		if !authPlugins.HasPlugin(resp.AuthPlugin) {
+			return errors.New("Unknown auth plugin")
+		}
 	}
 
 	err = cc.openSessionAndDoAuth(resp.Auth, resp.AuthPlugin, resp.ZstdLevel)
@@ -631,9 +633,9 @@ func (cc *clientConn) readOptionalSSLRequestAndHandshakeResponse(ctx context.Con
 	return err
 }
 
-func (cc *clientConn) handleAuthPlugin(ctx context.Context, resp *handshake.Response41) error {
+func (cc *clientConn) handleAuthPlugin(ctx context.Context, resp *handshake.Response41, authPlugins extension.MysqlAuthPlugins) error {
 	if resp.Capability&mysql.ClientPluginAuth > 0 {
-		newAuth, err := cc.checkAuthPlugin(ctx, resp)
+		newAuth, err := cc.checkAuthPlugin(ctx, resp, authPlugins)
 		if err != nil {
 			logutil.Logger(ctx).Warn("failed to check the user authplugin", zap.Error(err))
 			return err
@@ -652,12 +654,14 @@ func (cc *clientConn) handleAuthPlugin(ctx context.Context, resp *handshake.Resp
 		case mysql.AuthLDAPSASL:
 		case mysql.AuthLDAPSimple:
 		default:
-			logutil.Logger(ctx).Warn("Unknown Auth Plugin", zap.String("plugin", resp.AuthPlugin))
+			if !authPlugins.HasPlugin(resp.AuthPlugin) {
+				logutil.Logger(ctx).Warn("Unknown Auth Plugin", zap.String("plugin", resp.AuthPlugin))
+			}
 		}
 	} else {
 		// MySQL 5.1 and older clients don't support authentication plugins.
 		logutil.Logger(ctx).Warn("Client without Auth Plugin support; Please upgrade client")
-		_, err := cc.checkAuthPlugin(ctx, resp)
+		_, err := cc.checkAuthPlugin(ctx, resp, nil)
 		if err != nil {
 			return err
 		}
@@ -805,7 +809,7 @@ func (cc *clientConn) openSessionAndDoAuth(authData []byte, authPlugin string, z
 }
 
 // Check if the Authentication Plugin of the server, client and user configuration matches
-func (cc *clientConn) checkAuthPlugin(ctx context.Context, resp *handshake.Response41) ([]byte, error) {
+func (cc *clientConn) checkAuthPlugin(ctx context.Context, resp *handshake.Response41, authPlugins extension.MysqlAuthPlugins) ([]byte, error) {
 	// Open a context unless this was done before.
 	if ctx := cc.getCtx(); ctx == nil {
 		err := cc.openSession()
@@ -869,6 +873,10 @@ func (cc *clientConn) checkAuthPlugin(ctx context.Context, resp *handshake.Respo
 			}
 		}
 		return nil, nil
+	}
+
+	if h, ok := authPlugins.Plugin(userplugin); ok {
+		userplugin = h.SwitchClientPlugin(cc.connectionID, resp.AuthPlugin)
 	}
 
 	// If the authentication method send by the server (cc.authPlugin) doesn't match
@@ -1315,6 +1323,12 @@ func (cc *clientConn) dispatch(ctx context.Context, data []byte) error {
 	vars.SQLKiller.Reset()
 	if cmd < mysql.ComEnd {
 		cc.ctx.SetCommandValue(cmd)
+	}
+
+	if fn := vars.AuthenticateCommand; fn != nil {
+		if err := fn(cmd, data); err != nil {
+			return err
+		}
 	}
 
 	dataStr := string(hack.String(data))
@@ -2514,7 +2528,7 @@ func (cc *clientConn) handleChangeUser(ctx context.Context, data []byte) error {
 		failpoint.Inject("ChangeUserAuthSwitch", func(val failpoint.Value) {
 			failpoint.Return(errors.Errorf("%v", val))
 		})
-		newpass, err := cc.checkAuthPlugin(ctx, fakeResp)
+		newpass, err := cc.checkAuthPlugin(ctx, fakeResp, extension.GetMysqlAuthPlugins())
 		if err != nil {
 			return err
 		}

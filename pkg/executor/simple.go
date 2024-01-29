@@ -39,6 +39,7 @@ import (
 	"github.com/pingcap/tidb/pkg/executor/internal/querywatch"
 	executor_metrics "github.com/pingcap/tidb/pkg/executor/metrics"
 	"github.com/pingcap/tidb/pkg/expression"
+	"github.com/pingcap/tidb/pkg/extension"
 	"github.com/pingcap/tidb/pkg/infoschema"
 	"github.com/pingcap/tidb/pkg/kv"
 	"github.com/pingcap/tidb/pkg/meta"
@@ -1164,16 +1165,17 @@ func (e *SimpleExec) executeCreateUser(ctx context.Context, s *ast.CreateUserStm
 				return err
 			}
 		}
-		pwd, ok := spec.EncodedPassword()
-
-		if !ok {
-			return errors.Trace(exeerrors.ErrPasswordFormat)
+		pwd, err := encodePassWord(spec)
+		if err != nil {
+			return err
 		}
 
 		switch authPlugin {
 		case mysql.AuthNativePassword, mysql.AuthCachingSha2Password, mysql.AuthTiDBSM3Password, mysql.AuthSocket, mysql.AuthTiDBAuthToken, mysql.AuthLDAPSimple, mysql.AuthLDAPSASL:
 		default:
-			return exeerrors.ErrPluginIsNotLoaded.GenWithStackByArgs(spec.AuthOpt.AuthPlugin)
+			if !extension.GetMysqlAuthPlugins().HasPlugin(authPlugin) {
+				return exeerrors.ErrPluginIsNotLoaded.GenWithStackByArgs(spec.AuthOpt.AuthPlugin)
+			}
 		}
 
 		recordTokenIssuer := tokenIssuer
@@ -1813,9 +1815,9 @@ func (e *SimpleExec) executeAlterUser(ctx context.Context, s *ast.AlterUserStmt)
 					return err
 				}
 			}
-			pwd, ok := spec.EncodedPassword()
-			if !ok {
-				return errors.Trace(exeerrors.ErrPasswordFormat)
+			pwd, err := encodePassWord(spec)
+			if err != nil {
+				return err
 			}
 			// for Support Password Reuse Policy.
 			// The empty password does not count in the password history and is subject to reuse at any time.
