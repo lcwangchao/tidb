@@ -708,8 +708,6 @@ type SessionVars struct {
 	// ActiveRoles stores active roles for current user
 	ActiveRoles []*auth.RoleIdentity
 
-	AuthenticateCommand func(cmd byte, data []byte) error
-
 	RetryInfo *RetryInfo
 	// TxnCtx Should be reset on transaction finished.
 	TxnCtx *TransactionContext

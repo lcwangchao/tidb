@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pingcap/tidb/pkg/extension"
@@ -48,7 +49,49 @@ func (obj *authenticateJSON) CheckPwd(info *extension.MysqlAuthInfo) error {
 	return nil
 }
 
+type authSessionHandler struct {
+	expire  *time.Time
+	expires *sync.Map
+}
+
+func newAuthSessionHandler(expires *sync.Map) *authSessionHandler {
+	h := &authSessionHandler{
+		expires: expires,
+	}
+	return h
+}
+
+func (h *authSessionHandler) onConnEvent(tp extension.ConnEventTp, info *extension.ConnEventInfo) {
+	switch tp {
+	case extension.ConnHandshakeAccepted, extension.ConnReset:
+		if v, ok := h.expires.LoadAndDelete(info.ConnectionInfo.ConnectionID); ok {
+			h.expire = v.(*time.Time)
+		}
+	default:
+	}
+}
+
+func (h *authSessionHandler) interceptBeforeCommand(cmd byte, _ []byte) error {
+	if h.expire == nil || cmd == mysql.ComQuit {
+		return nil
+	}
+
+	if h.expire.Before(time.Now()) {
+		return extension.ErrAccessDenied.FastGen("Access denied; connection expired.")
+	}
+
+	return nil
+}
+
+func (h *authSessionHandler) Handler() *extension.SessionHandler {
+	return &extension.SessionHandler{
+		OnConnectionEvent:      h.onConnEvent,
+		InterceptBeforeCommand: h.interceptBeforeCommand,
+	}
+}
+
 func init() {
+	var expires sync.Map
 	err := extension.Register(
 		"my_auth",
 		extension.WithMysqlAuthPlugins([]*extension.MysqlAuthPlugin{
@@ -63,18 +106,10 @@ func init() {
 						return err
 					}
 
-					info.NeedAuthCommand(func(cmd byte, _ []byte) error {
-						switch cmd {
-						case mysql.ComQuit:
-							return nil
-						default:
-						}
-
-						if obj.Expire > 0 && time.Now().Unix() > obj.Expire {
-							return extension.ErrAccessDenied.FastGen("Access denied; connection expired.")
-						}
-						return nil
-					})
+					if obj.Expire > 0 {
+						expire := time.Unix(obj.Expire, 0)
+						expires.Store(info.ConnectionID, &expire)
+					}
 
 					return nil
 				},
@@ -107,6 +142,9 @@ func init() {
 					return len(obj.Hash) == mysql.SHAPWDHashLen
 				},
 			},
+		}),
+		extension.WithSessionHandlerFactory(func() *extension.SessionHandler {
+			return newAuthSessionHandler(&expires).Handler()
 		}),
 	)
 	terror.MustNil(err)

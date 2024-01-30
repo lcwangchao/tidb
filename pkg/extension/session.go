@@ -97,8 +97,9 @@ type StmtEventInfo interface {
 
 // SessionHandler is used to listen session events
 type SessionHandler struct {
-	OnConnectionEvent func(ConnEventTp, *ConnEventInfo)
-	OnStmtEvent       func(StmtEventTp, StmtEventInfo)
+	OnConnectionEvent      func(ConnEventTp, *ConnEventInfo)
+	OnStmtEvent            func(StmtEventTp, StmtEventInfo)
+	InterceptBeforeCommand func(cmd byte, data []byte) error
 }
 
 func newSessionExtensions(es *Extensions) *SessionExtensions {
@@ -112,6 +113,9 @@ func newSessionExtensions(es *Extensions) *SessionExtensions {
 				if fn := handler.OnStmtEvent; fn != nil {
 					connExtensions.stmtEventFuncs = append(connExtensions.stmtEventFuncs, fn)
 				}
+				if fn := handler.InterceptBeforeCommand; fn != nil {
+					connExtensions.beforeCmdFuncs = append(connExtensions.beforeCmdFuncs, fn)
+				}
 			}
 		}
 	}
@@ -122,6 +126,7 @@ func newSessionExtensions(es *Extensions) *SessionExtensions {
 type SessionExtensions struct {
 	connectionEventFuncs []func(ConnEventTp, *ConnEventInfo)
 	stmtEventFuncs       []func(StmtEventTp, StmtEventInfo)
+	beforeCmdFuncs       []func(cmd byte, data []byte) error
 }
 
 // OnConnectionEvent will be called when a connection event happens
@@ -149,4 +154,17 @@ func (es *SessionExtensions) OnStmtEvent(tp StmtEventTp, event StmtEventInfo) {
 	for _, fn := range es.stmtEventFuncs {
 		fn(tp, event)
 	}
+}
+
+func (es *SessionExtensions) InterceptBeforeCommand(cmd byte, data []byte) error {
+	if es == nil {
+		return nil
+	}
+
+	for _, fn := range es.beforeCmdFuncs {
+		if err := fn(cmd, data); err != nil {
+			return err
+		}
+	}
+	return nil
 }

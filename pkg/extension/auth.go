@@ -38,16 +38,6 @@ type MysqlAuthInfo struct {
 	TLSConnState         *tls.ConnectionState
 	UserData             []byte
 	ClientPlugin         string
-	authCommand          func(byte, []byte) error
-}
-
-// NeedAuthCommand indicates each command need to be authenticated too
-func (i *MysqlAuthInfo) NeedAuthCommand(fn func(byte, []byte) error) {
-	i.authCommand = fn
-}
-
-func (i *MysqlAuthInfo) GetAuthCommand() func(byte, []byte) error {
-	return i.authCommand
 }
 
 // ErrAccessDenied returns an ErrAccessDenied error

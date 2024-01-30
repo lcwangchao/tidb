@@ -567,7 +567,6 @@ func (p *UserPrivileges) ConnectionVerification(user *auth.UserIdentity, authUse
 		if err = pl.AuthenticateUser(authInfo); err != nil {
 			return info, err
 		}
-		info.AuthenticateCommand = authInfo.GetAuthCommand()
 	} else if user.AuthPlugin == mysql.AuthTiDBSessionToken {
 		// If the user uses session token to log in, skip checking record.AuthPlugin.
 		if err = sessionstates.ValidateSessionToken(authentication, user.Username); err != nil {

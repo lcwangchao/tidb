@@ -1325,10 +1325,8 @@ func (cc *clientConn) dispatch(ctx context.Context, data []byte) error {
 		cc.ctx.SetCommandValue(cmd)
 	}
 
-	if fn := vars.AuthenticateCommand; fn != nil {
-		if err := fn(cmd, data); err != nil {
-			return err
-		}
+	if err := cc.extensions.InterceptBeforeCommand(cmd, data); err != nil {
+		return err
 	}
 
 	dataStr := string(hack.String(data))
