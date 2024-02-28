@@ -94,7 +94,7 @@ func getKeysNeedCheck(sctx sessionctx.Context, t table.Mutator, rows [][]types.D
 	return toBeCheckRows, nil
 }
 
-func getKeysNeedCheckOneRow(ctx sessionctx.Context, t table.Mutator, row []types.Datum, nUnique int, handleCols []*table.Column,
+func getKeysNeedCheckOneRow(ctx sessionctx.Context, t table.Table, row []types.Datum, nUnique int, handleCols []*table.Column,
 	pkIdxInfo *model.IndexInfo, result []toBeCheckedRow) ([]toBeCheckedRow, error) {
 	var err error
 	if p, ok := t.(table.PartitionedTableMutator); ok {
@@ -224,7 +224,7 @@ func getKeysNeedCheckOneRow(ctx sessionctx.Context, t table.Mutator, row []types
 		row:        row,
 		handleKey:  handleKey,
 		uniqueKeys: uniqueKeys,
-		t:          t,
+		t:          t.(table.Mutator),
 	})
 	return result, nil
 }

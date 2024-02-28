@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/pingcap/tidb/pkg/sessionctx"
 	"strconv"
 	"strings"
 	"time"
@@ -2588,7 +2589,7 @@ func decodeKeyFromString(ctx expression.EvalContext, s string) string {
 		return s
 	}
 
-	is, ok := ctx.GetDomainInfoSchema().(infoschema.InfoSchema)
+	is, ok := ctx.(sessionctx.Context).GetDomainInfoSchema().(infoschema.InfoSchema)
 	if !ok {
 		sc.AppendWarning(errors.NewNoStackErrorf("infoschema not found when decoding key: %X", key))
 		return s

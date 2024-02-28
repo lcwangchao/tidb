@@ -15,9 +15,11 @@
 package briefapi
 
 import (
+	exprctx "github.com/pingcap/tidb/pkg/expression/context"
 	"github.com/pingcap/tidb/pkg/kv"
 	"github.com/pingcap/tidb/pkg/meta/autoid"
 	"github.com/pingcap/tidb/pkg/parser/model"
+	"github.com/pingcap/tidb/pkg/types"
 	"github.com/pingcap/tidb/pkg/util/tableutil"
 )
 
@@ -90,4 +92,6 @@ type PartitionedTable interface {
 	GetAllPartitionIDs() []int64
 	GetPartitionColumnIDs() []int64
 	GetPartitionColumnNames() []model.CIStr
+	GetPartitionByRow(exprctx.BuildContext, []types.Datum) (PhysicalTable, error)
+	CheckForExchangePartition(ctx exprctx.BuildContext, pi *model.PartitionInfo, r []types.Datum, partID, ntID int64) error
 }

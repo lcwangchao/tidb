@@ -23,7 +23,6 @@ import (
 	"time"
 
 	mysql "github.com/pingcap/tidb/pkg/errno"
-	"github.com/pingcap/tidb/pkg/expression"
 	"github.com/pingcap/tidb/pkg/kv"
 	"github.com/pingcap/tidb/pkg/meta/autoid"
 	"github.com/pingcap/tidb/pkg/parser/model"
@@ -199,8 +198,6 @@ type PartitionedTableMutator interface {
 	Mutator
 	PartitionedTable
 	GetPartitionForMutate(pid int64) PhysicalTableMutator
-	GetPartitionByRow(expression.BuildContext, []types.Datum) (PhysicalTableMutator, error)
-	CheckForExchangePartition(ctx expression.BuildContext, pi *model.PartitionInfo, r []types.Datum, partID, ntID int64) error
 }
 
 // TableFromMeta builds a table.Table from *model.TableInfo.

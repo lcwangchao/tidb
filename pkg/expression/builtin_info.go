@@ -21,6 +21,7 @@ package expression
 import (
 	"context"
 	"encoding/json"
+	"github.com/pingcap/tidb/pkg/sessionctx"
 	"slices"
 	"strings"
 	"time"
@@ -1123,7 +1124,7 @@ func (b *builtinNextValSig) evalInt(ctx EvalContext, row chunk.Row) (int64, bool
 		db = ctx.GetSessionVars().CurrentDB
 	}
 	// Check the tableName valid.
-	sequence, err := util.GetSequenceByName(ctx.GetInfoSchema(), model.NewCIStr(db), model.NewCIStr(seq))
+	sequence, err := util.GetSequenceByName(ctx.(sessionctx.Context).GetInfoSchema(), model.NewCIStr(db), model.NewCIStr(seq))
 	if err != nil {
 		return 0, false, err
 	}
@@ -1179,7 +1180,7 @@ func (b *builtinLastValSig) evalInt(ctx EvalContext, row chunk.Row) (int64, bool
 		db = ctx.GetSessionVars().CurrentDB
 	}
 	// Check the tableName valid.
-	sequence, err := util.GetSequenceByName(ctx.GetInfoSchema(), model.NewCIStr(db), model.NewCIStr(seq))
+	sequence, err := util.GetSequenceByName(ctx.(sessionctx.Context).GetInfoSchema(), model.NewCIStr(db), model.NewCIStr(seq))
 	if err != nil {
 		return 0, false, err
 	}
@@ -1229,7 +1230,7 @@ func (b *builtinSetValSig) evalInt(ctx EvalContext, row chunk.Row) (int64, bool,
 		db = ctx.GetSessionVars().CurrentDB
 	}
 	// Check the tableName valid.
-	sequence, err := util.GetSequenceByName(ctx.GetInfoSchema(), model.NewCIStr(db), model.NewCIStr(seq))
+	sequence, err := util.GetSequenceByName(ctx.(sessionctx.Context).GetInfoSchema(), model.NewCIStr(db), model.NewCIStr(seq))
 	if err != nil {
 		return 0, false, err
 	}

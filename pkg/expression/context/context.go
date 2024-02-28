@@ -17,7 +17,6 @@ package context
 import (
 	"fmt"
 
-	infoschema "github.com/pingcap/tidb/pkg/infoschema/context"
 	"github.com/pingcap/tidb/pkg/kv"
 	"github.com/pingcap/tidb/pkg/parser/mysql"
 	"github.com/pingcap/tidb/pkg/sessionctx/variable"
@@ -43,10 +42,6 @@ type EvalContext interface {
 	ReleaseAllAdvisoryLocks() int
 	// GetStore returns the store of session.
 	GetStore() kv.Storage
-	// GetInfoSchema returns the current infoschema
-	GetInfoSchema() infoschema.InfoSchema
-	// GetDomainInfoSchema returns the latest information schema in domain
-	GetDomainInfoSchema() infoschema.InfoSchema
 }
 
 // BuildContext is used to build an expression

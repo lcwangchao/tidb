@@ -30,10 +30,12 @@ type PlanContext interface {
 	exprctx.BuildContext
 	contextutil.ValueStoreContext
 	tablelock.TableLockReadContext
-	// GetSessionVars gets the session variables.
-	GetSessionVars() *variable.SessionVars
 	// GetInfoSchema returns the current infoschema
 	GetInfoSchema() infoschema.InfoSchema
+	// GetDomainInfoSchema returns the latest information schema in domain
+	GetDomainInfoSchema() infoschema.InfoSchema
+	// GetSessionVars gets the session variables.
+	GetSessionVars() *variable.SessionVars
 	// UpdateColStatsUsage updates the column stats usage.
 	UpdateColStatsUsage(predicateColumns []model.TableItemID)
 	// GetClient gets a kv.Client.
