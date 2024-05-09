@@ -55,6 +55,8 @@ import (
 	"go.uber.org/zap"
 )
 
+var WaitChan chan struct{}
+
 // InitAndAddColumnToTable initializes the ColumnInfo in-place and adds it to the table.
 func InitAndAddColumnToTable(tblInfo *model.TableInfo, colInfo *model.ColumnInfo) *model.ColumnInfo {
 	cols := tblInfo.Columns
@@ -171,6 +173,10 @@ func onAddColumn(d *ddlCtx, t *meta.Meta, job *model.Job) (ver int64, err error)
 	case model.StateWriteReorganization:
 		// reorganization -> public
 		// Adjust table column offset.
+		if columnInfo.Name.L == "wait_notify" {
+			WaitChan <- struct{}{}
+			<-WaitChan
+		}
 		offset, err := LocateOffsetToMove(columnInfo.Offset, pos, tblInfo)
 		if err != nil {
 			return ver, errors.Trace(err)
