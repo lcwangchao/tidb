@@ -267,6 +267,18 @@ func TestOptionalEvalPropProviders(t *testing.T) {
 				isOwner = false
 				require.False(t, assertReaderFuncValue(t, ctx, r.IsDDLOwner))
 			}
+		case context.OptPropUserVars:
+			vars := variable.NewUserVars(nil)
+			p = NewUserVarsPropProvider(vars)
+			r := UserVarsReader{}
+			reader = r
+			verifyNoProvider = func(ctx context.EvalContext) {
+				assertReaderFuncReturnErr(t, ctx, r.GetUserVars)
+			}
+			verifyProvider = func(ctx context.EvalContext, val context.OptionalEvalPropProvider) {
+				require.Same(t, vars, val.(*UserVarsPropProvider).vars)
+				require.Same(t, vars, assertReaderFuncValue(t, ctx, r.GetUserVars))
+			}
 		default:
 			require.Fail(t, "unexpected optional property key")
 		}

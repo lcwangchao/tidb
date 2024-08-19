@@ -109,7 +109,7 @@ func TestSetVar(t *testing.T) {
 		if tc.args[1] != nil {
 			key, ok := tc.args[0].(string)
 			require.Equal(t, true, ok)
-			sessionVar, ok := ctx.GetSessionVars().GetUserVarVal(key)
+			sessionVar, ok := ctx.GetSessionVars().GetUserVars().GetUserVarVal(key)
 			require.Equal(t, true, ok)
 			require.Equal(t, tc.res, sessionVar.GetValue())
 		}
@@ -132,8 +132,9 @@ func TestGetVar(t *testing.T) {
 		{"g", dec},
 		{"h", timeDec},
 	}
+	userVars := ctx.GetSessionVars().GetUserVars()
 	for _, kv := range sessionVars {
-		ctx.GetSessionVars().SetUserVarVal(kv.key, types.NewDatum(kv.val))
+		userVars.SetUserVarVal(kv.key, types.NewDatum(kv.val))
 		var tp *types.FieldType
 		if _, ok := kv.val.(types.Time); ok {
 			tp = types.NewFieldType(mysql.TypeDatetime)
@@ -141,7 +142,7 @@ func TestGetVar(t *testing.T) {
 			tp = types.NewFieldType(mysql.TypeVarString)
 		}
 		types.InferParamTypeFromUnderlyingValue(kv.val, tp)
-		ctx.GetSessionVars().SetUserVarType(kv.key, tp)
+		userVars.SetUserVarType(kv.key, tp)
 	}
 
 	testCases := []struct {
@@ -158,7 +159,7 @@ func TestGetVar(t *testing.T) {
 		{[]any{"h"}, timeDec.String()},
 	}
 	for _, tc := range testCases {
-		tp, ok := ctx.GetSessionVars().GetUserVarType(tc.args[0].(string))
+		tp, ok := userVars.GetUserVarType(tc.args[0].(string))
 		if !ok {
 			tp = types.NewFieldType(mysql.TypeVarString)
 		}
@@ -175,9 +176,10 @@ func TestTypeConversion(t *testing.T) {
 	// Set value as int64
 	key := "a"
 	val := int64(3)
-	ctx.GetSessionVars().SetUserVarVal(key, types.NewDatum(val))
+	userVars := ctx.GetSessionVars().GetUserVars()
+	userVars.SetUserVarVal(key, types.NewDatum(val))
 	tp := types.NewFieldType(mysql.TypeLonglong)
-	ctx.GetSessionVars().SetUserVarType(key, tp)
+	userVars.SetUserVarType(key, tp)
 
 	args := []any{"a"}
 	// To Decimal.
@@ -269,7 +271,7 @@ func TestSetVarFromColumn(t *testing.T) {
 
 	// Check whether the user variable changed.
 	sessionVars := ctx.GetSessionVars()
-	sessionVar, ok := sessionVars.GetUserVarVal("a")
+	sessionVar, ok := sessionVars.GetUserVars().GetUserVarVal("a")
 	require.Equal(t, true, ok)
 	require.Equal(t, "a", sessionVar.GetString())
 }

@@ -715,7 +715,7 @@ func parseParamTypes(sctx sessionctx.Context, params []expression.Expression) (p
 
 		// from text protocol, there must be a GetVar function
 		name := param.(*expression.ScalarFunction).GetArgs()[0].StringWithCtx(ectx, errors.RedactLogDisable)
-		tp, ok := sctx.GetSessionVars().GetUserVarType(name)
+		tp, ok := sctx.GetSessionVars().GetUserVars().GetUserVarType(name)
 		if !ok {
 			tp = types.NewFieldType(mysql.TypeNull)
 		}

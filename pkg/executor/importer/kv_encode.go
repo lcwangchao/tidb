@@ -104,15 +104,15 @@ func (en *tableKVEncoder) GetColumnSize() map[int64]int64 {
 // todo merge with code in load_data.go
 func (en *tableKVEncoder) parserData2TableData(parserData []types.Datum, rowID int64) ([]types.Datum, error) {
 	row := make([]types.Datum, 0, len(en.insertColumns))
-	sessionVars := en.SessionCtx.GetSessionVars()
+	userVars := en.SessionCtx.GetSessionVars().GetUserVars()
 	setVar := func(name string, col *types.Datum) {
 		// User variable names are not case-sensitive
 		// https://dev.mysql.com/doc/refman/8.0/en/user-variables.html
 		name = strings.ToLower(name)
 		if col == nil || col.IsNull() {
-			sessionVars.UnsetUserVar(name)
+			userVars.UnsetUserVar(name)
 		} else {
-			sessionVars.SetUserVarVal(name, *col)
+			userVars.SetUserVarVal(name, *col)
 		}
 	}
 

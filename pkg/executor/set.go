@@ -59,7 +59,7 @@ func (e *SetExecutor) Next(ctx context.Context, req *chunk.Chunk) error {
 	}
 	e.done = true
 	sctx := e.Ctx()
-	sessionVars := sctx.GetSessionVars()
+	userVars := sctx.GetSessionVars().GetUserVars()
 	for _, v := range e.vars {
 		// Variable is case insensitive, we use lower case.
 		if v.Name == ast.SetNames || v.Name == ast.SetCharset {
@@ -94,10 +94,10 @@ func (e *SetExecutor) Next(ctx context.Context, req *chunk.Chunk) error {
 				return err
 			}
 			if value.IsNull() {
-				sessionVars.UnsetUserVar(name)
+				userVars.UnsetUserVar(name)
 			} else {
-				sessionVars.SetUserVarVal(name, value)
-				sessionVars.SetUserVarType(name, v.Expr.GetType(sctx.GetExprCtx().GetEvalCtx()))
+				userVars.SetUserVarVal(name, value)
+				userVars.SetUserVarType(name, v.Expr.GetType(sctx.GetExprCtx().GetEvalCtx()))
 			}
 			continue
 		}

@@ -261,6 +261,11 @@ func TestSessionEvalContextOptProps(t *testing.T) {
 	require.False(t, ddlInfoProvider())
 	ctx.SetIsDDLOwner(true)
 	require.True(t, ddlInfoProvider())
+
+	// test for OptPropUserVars
+	userVarsProvider := getProvider[*contextopt.UserVarsPropProvider](t, impl, context.OptPropUserVars)
+	require.Same(t, ctx.GetSessionVars().GetUserVars(), userVarsProvider.GetUserVars())
+
 }
 
 func TestSessionBuildContext(t *testing.T) {

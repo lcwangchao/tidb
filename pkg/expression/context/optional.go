@@ -87,6 +87,8 @@ const (
 	OptPropAdvisoryLock
 	// OptPropDDLOwnerInfo indicates to provide DDL owner information.
 	OptPropDDLOwnerInfo
+	// OptPropUserVars indicates to provide variables custom by user.
+	OptPropUserVars
 	// optPropsCnt is the count of optional properties. DO NOT use it as a property key.
 	optPropsCnt
 )
@@ -146,6 +148,10 @@ var optionalPropertyDescList = []OptionalEvalPropDesc{
 	{
 		key: OptPropDDLOwnerInfo,
 		str: "OptPropDDLOwnerInfo",
+	},
+	{
+		key: OptPropUserVars,
+		str: "OptPropUserVars",
 	},
 }
 

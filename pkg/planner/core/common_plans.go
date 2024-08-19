@@ -206,7 +206,7 @@ func isGetVarBinaryLiteral(sctx base.PlanContext, expr expression.Expression) (r
 		name, isNull, err := scalarFunc.GetArgs()[0].EvalString(sctx.GetExprCtx().GetEvalCtx(), chunk.Row{})
 		if err != nil || isNull {
 			res = false
-		} else if dt, ok2 := sctx.GetSessionVars().GetUserVarVal(name); ok2 {
+		} else if dt, ok2 := sctx.GetSessionVars().GetUserVars().GetUserVarVal(name); ok2 {
 			res = dt.Kind() == types.KindBinaryLiteral
 		}
 	}

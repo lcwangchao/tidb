@@ -752,7 +752,7 @@ func (c *setVarFunctionClass) getFunction(ctx BuildContext, args []Expression) (
 
 type builtinSetStringVarSig struct {
 	baseBuiltinFunc
-	contextopt.SessionVarsPropReader
+	contextopt.UserVarsReader
 }
 
 func (b *builtinSetStringVarSig) Clone() builtinFunc {
@@ -762,12 +762,12 @@ func (b *builtinSetStringVarSig) Clone() builtinFunc {
 }
 
 func (b *builtinSetStringVarSig) RequiredOptionalEvalProps() OptionalEvalPropKeySet {
-	return b.SessionVarsPropReader.RequiredOptionalEvalProps()
+	return b.UserVarsReader.RequiredOptionalEvalProps()
 }
 
 func (b *builtinSetStringVarSig) evalString(ctx EvalContext, row chunk.Row) (res string, isNull bool, err error) {
 	var varName string
-	sessionVars, err := b.GetSessionVars(ctx)
+	userVars, err := b.GetUserVars(ctx)
 	if err != nil {
 		return "", true, err
 	}
@@ -784,13 +784,13 @@ func (b *builtinSetStringVarSig) evalString(ctx EvalContext, row chunk.Row) (res
 	if err != nil {
 		return "", isNull, err
 	}
-	sessionVars.SetStringUserVar(varName, stringutil.Copy(res), datum.Collation())
+	userVars.SetStringUserVar(varName, stringutil.Copy(res), datum.Collation())
 	return res, false, nil
 }
 
 type builtinSetRealVarSig struct {
 	baseBuiltinFunc
-	contextopt.SessionVarsPropReader
+	contextopt.UserVarsReader
 }
 
 func (b *builtinSetRealVarSig) Clone() builtinFunc {
@@ -800,12 +800,12 @@ func (b *builtinSetRealVarSig) Clone() builtinFunc {
 }
 
 func (b *builtinSetRealVarSig) RequiredOptionalEvalProps() OptionalEvalPropKeySet {
-	return b.SessionVarsPropReader.RequiredOptionalEvalProps()
+	return b.UserVarsReader.RequiredOptionalEvalProps()
 }
 
 func (b *builtinSetRealVarSig) evalReal(ctx EvalContext, row chunk.Row) (res float64, isNull bool, err error) {
 	var varName string
-	sessionVars, err := b.GetSessionVars(ctx)
+	userVars, err := b.GetUserVars(ctx)
 	if err != nil {
 		return 0, true, err
 	}
@@ -820,13 +820,13 @@ func (b *builtinSetRealVarSig) evalReal(ctx EvalContext, row chunk.Row) (res flo
 	}
 	res = datum.GetFloat64()
 	varName = strings.ToLower(varName)
-	sessionVars.SetUserVarVal(varName, datum)
+	userVars.SetUserVarVal(varName, datum)
 	return res, false, nil
 }
 
 type builtinSetDecimalVarSig struct {
 	baseBuiltinFunc
-	contextopt.SessionVarsPropReader
+	contextopt.UserVarsReader
 }
 
 func (b *builtinSetDecimalVarSig) Clone() builtinFunc {
@@ -836,11 +836,11 @@ func (b *builtinSetDecimalVarSig) Clone() builtinFunc {
 }
 
 func (b *builtinSetDecimalVarSig) RequiredOptionalEvalProps() OptionalEvalPropKeySet {
-	return b.SessionVarsPropReader.RequiredOptionalEvalProps()
+	return b.UserVarsReader.RequiredOptionalEvalProps()
 }
 
 func (b *builtinSetDecimalVarSig) evalDecimal(ctx EvalContext, row chunk.Row) (*types.MyDecimal, bool, error) {
-	sessionVars, err := b.GetSessionVars(ctx)
+	userVars, err := b.GetUserVars(ctx)
 	if err != nil {
 		return nil, true, err
 	}
@@ -855,13 +855,13 @@ func (b *builtinSetDecimalVarSig) evalDecimal(ctx EvalContext, row chunk.Row) (*
 	}
 	res := datum.GetMysqlDecimal()
 	varName = strings.ToLower(varName)
-	sessionVars.SetUserVarVal(varName, datum)
+	userVars.SetUserVarVal(varName, datum)
 	return res, false, nil
 }
 
 type builtinSetIntVarSig struct {
 	baseBuiltinFunc
-	contextopt.SessionVarsPropReader
+	contextopt.UserVarsReader
 }
 
 func (b *builtinSetIntVarSig) Clone() builtinFunc {
@@ -871,11 +871,11 @@ func (b *builtinSetIntVarSig) Clone() builtinFunc {
 }
 
 func (b *builtinSetIntVarSig) RequiredOptionalEvalProps() OptionalEvalPropKeySet {
-	return b.SessionVarsPropReader.RequiredOptionalEvalProps()
+	return b.UserVarsReader.RequiredOptionalEvalProps()
 }
 
 func (b *builtinSetIntVarSig) evalInt(ctx EvalContext, row chunk.Row) (int64, bool, error) {
-	sessionVars, err := b.GetSessionVars(ctx)
+	userVars, err := b.GetUserVars(ctx)
 	if err != nil {
 		return 0, true, err
 	}
@@ -890,13 +890,13 @@ func (b *builtinSetIntVarSig) evalInt(ctx EvalContext, row chunk.Row) (int64, bo
 	}
 	res := datum.GetInt64()
 	varName = strings.ToLower(varName)
-	sessionVars.SetUserVarVal(varName, datum)
+	userVars.SetUserVarVal(varName, datum)
 	return res, false, nil
 }
 
 type builtinSetTimeVarSig struct {
 	baseBuiltinFunc
-	contextopt.SessionVarsPropReader
+	contextopt.UserVarsReader
 }
 
 func (b *builtinSetTimeVarSig) Clone() builtinFunc {
@@ -906,11 +906,11 @@ func (b *builtinSetTimeVarSig) Clone() builtinFunc {
 }
 
 func (b *builtinSetTimeVarSig) RequiredOptionalEvalProps() OptionalEvalPropKeySet {
-	return b.SessionVarsPropReader.RequiredOptionalEvalProps()
+	return b.UserVarsReader.RequiredOptionalEvalProps()
 }
 
 func (b *builtinSetTimeVarSig) evalTime(ctx EvalContext, row chunk.Row) (types.Time, bool, error) {
-	sessionVars, err := b.GetSessionVars(ctx)
+	userVals, err := b.GetUserVars(ctx)
 	if err != nil {
 		return types.ZeroTime, true, err
 	}
@@ -924,7 +924,7 @@ func (b *builtinSetTimeVarSig) evalTime(ctx EvalContext, row chunk.Row) (types.T
 	}
 	res := datum.GetMysqlTime()
 	varName = strings.ToLower(varName)
-	sessionVars.SetUserVarVal(varName, datum)
+	userVals.SetUserVarVal(varName, datum)
 	return res, false, nil
 }
 
@@ -986,7 +986,7 @@ func (c *getStringVarFunctionClass) getFunction(ctx BuildContext, args []Express
 
 type builtinGetStringVarSig struct {
 	baseBuiltinFunc
-	contextopt.SessionVarsPropReader
+	contextopt.UserVarsReader
 }
 
 func (b *builtinGetStringVarSig) Clone() builtinFunc {
@@ -996,11 +996,11 @@ func (b *builtinGetStringVarSig) Clone() builtinFunc {
 }
 
 func (b *builtinGetStringVarSig) RequiredOptionalEvalProps() OptionalEvalPropKeySet {
-	return b.SessionVarsPropReader.RequiredOptionalEvalProps()
+	return b.UserVarsReader.RequiredOptionalEvalProps()
 }
 
 func (b *builtinGetStringVarSig) evalString(ctx EvalContext, row chunk.Row) (string, bool, error) {
-	sessionVars, err := b.GetSessionVars(ctx)
+	userVars, err := b.GetUserVars(ctx)
 	if err != nil {
 		return "", true, err
 	}
@@ -1009,7 +1009,7 @@ func (b *builtinGetStringVarSig) evalString(ctx EvalContext, row chunk.Row) (str
 		return "", isNull, err
 	}
 	varName = strings.ToLower(varName)
-	if v, ok := sessionVars.GetUserVarVal(varName); ok {
+	if v, ok := userVars.GetUserVarVal(varName); ok {
 		// We cannot use v.GetString() here, because the datum may be in KindMysqlTime, which
 		// stores the data in datum.x.
 		// This seems controversial with https://dev.mysql.com/doc/refman/8.0/en/user-variables.html:
@@ -1046,7 +1046,7 @@ func (c *getIntVarFunctionClass) getFunction(ctx BuildContext, args []Expression
 
 type builtinGetIntVarSig struct {
 	baseBuiltinFunc
-	contextopt.SessionVarsPropReader
+	contextopt.UserVarsReader
 }
 
 func (b *builtinGetIntVarSig) Clone() builtinFunc {
@@ -1056,11 +1056,11 @@ func (b *builtinGetIntVarSig) Clone() builtinFunc {
 }
 
 func (b *builtinGetIntVarSig) RequiredOptionalEvalProps() OptionalEvalPropKeySet {
-	return b.SessionVarsPropReader.RequiredOptionalEvalProps()
+	return b.UserVarsReader.RequiredOptionalEvalProps()
 }
 
 func (b *builtinGetIntVarSig) evalInt(ctx EvalContext, row chunk.Row) (int64, bool, error) {
-	sessionVars, err := b.GetSessionVars(ctx)
+	sessionVars, err := b.GetUserVars(ctx)
 	if err != nil {
 		return 0, true, err
 	}
@@ -1094,7 +1094,7 @@ func (c *getRealVarFunctionClass) getFunction(ctx BuildContext, args []Expressio
 
 type builtinGetRealVarSig struct {
 	baseBuiltinFunc
-	contextopt.SessionVarsPropReader
+	contextopt.UserVarsReader
 }
 
 func (b *builtinGetRealVarSig) Clone() builtinFunc {
@@ -1104,11 +1104,11 @@ func (b *builtinGetRealVarSig) Clone() builtinFunc {
 }
 
 func (b *builtinGetRealVarSig) RequiredOptionalEvalProps() OptionalEvalPropKeySet {
-	return b.SessionVarsPropReader.RequiredOptionalEvalProps()
+	return b.UserVarsReader.RequiredOptionalEvalProps()
 }
 
 func (b *builtinGetRealVarSig) evalReal(ctx EvalContext, row chunk.Row) (float64, bool, error) {
-	sessionVars, err := b.GetSessionVars(ctx)
+	userVars, err := b.GetUserVars(ctx)
 	if err != nil {
 		return 0, true, err
 	}
@@ -1117,7 +1117,7 @@ func (b *builtinGetRealVarSig) evalReal(ctx EvalContext, row chunk.Row) (float64
 		return 0, isNull, err
 	}
 	varName = strings.ToLower(varName)
-	if v, ok := sessionVars.GetUserVarVal(varName); ok {
+	if v, ok := userVars.GetUserVarVal(varName); ok {
 		d, err := v.ToFloat64(typeCtx(ctx))
 		if err != nil {
 			return 0, false, err
@@ -1146,7 +1146,7 @@ func (c *getDecimalVarFunctionClass) getFunction(ctx BuildContext, args []Expres
 
 type builtinGetDecimalVarSig struct {
 	baseBuiltinFunc
-	contextopt.SessionVarsPropReader
+	contextopt.UserVarsReader
 }
 
 func (b *builtinGetDecimalVarSig) Clone() builtinFunc {
@@ -1156,11 +1156,11 @@ func (b *builtinGetDecimalVarSig) Clone() builtinFunc {
 }
 
 func (b *builtinGetDecimalVarSig) RequiredOptionalEvalProps() OptionalEvalPropKeySet {
-	return b.SessionVarsPropReader.RequiredOptionalEvalProps()
+	return b.UserVarsReader.RequiredOptionalEvalProps()
 }
 
 func (b *builtinGetDecimalVarSig) evalDecimal(ctx EvalContext, row chunk.Row) (*types.MyDecimal, bool, error) {
-	sessionVars, err := b.GetSessionVars(ctx)
+	sessionVars, err := b.GetUserVars(ctx)
 	if err != nil {
 		return nil, true, err
 	}
@@ -1206,7 +1206,7 @@ func (c *getTimeVarFunctionClass) getFunction(ctx BuildContext, args []Expressio
 
 type builtinGetTimeVarSig struct {
 	baseBuiltinFunc
-	contextopt.SessionVarsPropReader
+	contextopt.UserVarsReader
 }
 
 func (b *builtinGetTimeVarSig) Clone() builtinFunc {
@@ -1216,11 +1216,11 @@ func (b *builtinGetTimeVarSig) Clone() builtinFunc {
 }
 
 func (b *builtinGetTimeVarSig) RequiredOptionalEvalProps() OptionalEvalPropKeySet {
-	return b.SessionVarsPropReader.RequiredOptionalEvalProps()
+	return b.UserVarsReader.RequiredOptionalEvalProps()
 }
 
 func (b *builtinGetTimeVarSig) evalTime(ctx EvalContext, row chunk.Row) (types.Time, bool, error) {
-	sessionVars, err := b.GetSessionVars(ctx)
+	userVars, err := b.GetUserVars(ctx)
 	if err != nil {
 		return types.ZeroTime, true, err
 	}
@@ -1229,7 +1229,7 @@ func (b *builtinGetTimeVarSig) evalTime(ctx EvalContext, row chunk.Row) (types.T
 		return types.ZeroTime, isNull, err
 	}
 	varName = strings.ToLower(varName)
-	if v, ok := sessionVars.GetUserVarVal(varName); ok {
+	if v, ok := userVars.GetUserVarVal(varName); ok {
 		return v.GetMysqlTime(), false, nil
 	}
 	return types.ZeroTime, true, nil

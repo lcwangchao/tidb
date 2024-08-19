@@ -78,6 +78,9 @@ func (o *OptionalEvalPropProviders) Add(val context.OptionalEvalPropProvider) {
 		case context.OptPropSequenceOperator:
 			_, ok := val.(SequenceOperatorProvider)
 			intest.Assert(ok)
+		case context.OptPropUserVars:
+			_, ok := val.(*UserVarsPropProvider)
+			intest.Assert(ok)
 		default:
 			intest.Assert(false)
 		}

@@ -525,8 +525,9 @@ func TestUserVarConcurrently(t *testing.T) {
 			select {
 			case <-time.After(time.Millisecond):
 				name := strconv.Itoa(i)
-				sv.SetUserVarVal(name, types.Datum{})
-				sv.GetUserVarVal(name)
+				userVars := sv.GetUserVars()
+				userVars.SetUserVarVal(name, types.Datum{})
+				userVars.GetUserVarVal(name)
 			case <-ctx.Done():
 				return
 			}

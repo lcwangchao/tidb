@@ -1676,10 +1676,10 @@ func (er *expressionRewriter) rewriteVariable(planCtx *exprRewriterPlanCtx, v *a
 			// Store the field type of the variable into SessionVars.UserVarTypes.
 			// Normally we can infer the type from SessionVars.User, but we need SessionVars.UserVarTypes when
 			// GetVar has not been executed to fill the SessionVars.Users.
-			sessionVars.SetUserVarType(name, tp)
+			sessionVars.GetUserVars().SetUserVarType(name, tp)
 			return
 		}
-		tp, ok := sessionVars.GetUserVarType(name)
+		tp, ok := sessionVars.GetUserVars().GetUserVarType(name)
 		if !ok {
 			tp = types.NewFieldType(mysql.TypeVarString)
 			tp.SetFlen(mysql.MaxFieldVarCharLength)

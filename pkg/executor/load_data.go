@@ -498,15 +498,15 @@ func (w *encodeWorker) parserData2TableData(
 	}
 
 	row := make([]types.Datum, 0, len(w.insertColumns))
-	sessionVars := w.Ctx().GetSessionVars()
+	userVars := w.Ctx().GetSessionVars().GetUserVars()
 	setVar := func(name string, col *types.Datum) {
 		// User variable names are not case-sensitive
 		// https://dev.mysql.com/doc/refman/8.0/en/user-variables.html
 		name = strings.ToLower(name)
 		if col == nil || col.IsNull() {
-			sessionVars.UnsetUserVar(name)
+			userVars.UnsetUserVar(name)
 		} else {
-			sessionVars.SetUserVarVal(name, *col)
+			userVars.SetUserVarVal(name, *col)
 		}
 	}
 

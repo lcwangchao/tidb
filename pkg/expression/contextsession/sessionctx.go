@@ -175,6 +175,7 @@ func NewSessionEvalContext(sctx sessionctx.Context) *SessionEvalContext {
 	ctx.setOptionalProp(sequenceOperatorProp(sctx))
 	ctx.setOptionalProp(contextopt.NewAdvisoryLockPropProvider(sctx))
 	ctx.setOptionalProp(contextopt.DDLOwnerInfoProvider(sctx.IsDDLOwner))
+	ctx.setOptionalProp(contextopt.NewUserVarsPropProvider(sctx.GetSessionVars().GetUserVars()))
 	// When EvalContext is created from a session, it should contain all the optional properties.
 	intest.Assert(ctx.props.PropKeySet().IsFull())
 	return ctx
