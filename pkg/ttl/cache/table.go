@@ -15,6 +15,7 @@
 package cache
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/hex"
@@ -274,6 +275,187 @@ func (t *PhysicalTable) EvalExpireTime(ctx context.Context, se session.Session,
 	return expire.In(now.Location()), nil
 }
 
+// LocateRegionRangeEnd locates the end key of the nearest region after the start key.
+// The argument `maxEnd` is used to limit the end key of the range, a `nil` value of maxEnd means no limit.
+// The first return value returns the query end key, and if it is nil, it means we should scan to the end.
+// The second return value returns whether the maxEnd is reached.
+func (t *PhysicalTable) LocateRegionRangeEnd(
+	ctx context.Context, loc *time.Location, store kv.Storage, start []types.Datum, maxEnd []types.Datum,
+) ([]types.Datum, bool, error) {
+	intest.Assert(len(start) <= len(t.KeyColumns))
+	intest.Assert(len(maxEnd) <= len(t.KeyColumns))
+	tc := types.StrictContext.WithLocation(loc)
+	start, err := convertRow(tc, start, t.KeyColumnTypes)
+	if err != nil {
+		return nil, false, err
+	}
+
+	maxEnd, err = convertRow(tc, maxEnd, t.KeyColumnTypes)
+	if err != nil {
+		return nil, false, err
+	}
+
+	kvStore, ok := store.(tikv.Storage)
+	if !ok {
+		return maxEnd, true, nil
+	}
+
+	ft := t.KeyColumns[0].FieldType
+	hasStart, hasMaxEnd := len(start) > 0, len(maxEnd) > 0
+	if !t.IsCommonHandle {
+		if mysql.HasUnsignedFlag(ft.GetFlag()) {
+			startUint := uint64(0)
+			if hasStart {
+				startUint = start[0].GetUint64()
+			}
+
+			maxEndUint := uint64(math.MaxInt64)
+			if hasMaxEnd {
+				maxEndUint = maxEnd[0].GetUint64()
+			}
+
+			end, reachEnd, err := t.locateUnsignedIntHandleRegionEnd(ctx, kvStore, startUint, maxEndUint)
+			if err != nil {
+				return nil, false, err
+			}
+
+			return []types.Datum{types.NewUintDatum(end)}, reachEnd, nil
+		} else {
+			startInt := int64(math.MinInt64)
+			if hasStart {
+				startInt = start[0].GetInt64()
+			}
+
+			maxEndInt := int64(math.MaxInt64)
+			if hasMaxEnd {
+				maxEndInt = maxEnd[0].GetInt64()
+			}
+
+			end, reachEnd, err := t.locateIntHandleRegionEnd(ctx, kvStore, startInt, maxEndInt)
+			if err != nil {
+				return nil, false, err
+			}
+
+			return []types.Datum{types.NewIntDatum(end)}, reachEnd, nil
+		}
+	}
+
+	tblPrefix := tablecodec.GenTableRecordPrefix(t.ID)
+	startKey := tblPrefix
+	if hasStart {
+		startKey, err = codec.EncodeKey(loc, tblPrefix, start...)
+		if err != nil {
+			return nil, false, err
+		}
+	}
+
+	regionCache := kvStore.GetRegionCache()
+	var region *tikv.KeyLocation
+	for {
+		locKey := startKey
+		if region != nil {
+			locKey = region.EndKey
+		}
+		region, err = regionCache.LocateKey(tikv.NewBackofferWithVars(ctx, 20000, nil), locKey)
+		if err != nil {
+			return nil, false, err
+		}
+
+		if !bytes.HasPrefix(region.EndKey, tblPrefix) {
+			return maxEnd, true, nil
+		}
+
+		_, d, decodeErr := codec.DecodeOne(region.EndKey[len(tblPrefix):])
+		if decodeErr != nil {
+			continue
+		}
+
+		newD, decodeErr := d.ConvertTo(tc, t.KeyColumnTypes[0])
+		if decodeErr != nil {
+			continue
+		}
+
+		if newD.Kind() != d.Kind() {
+			continue
+		}
+
+		d = newD
+		if len(start) != 0 {
+			cmp, err := d.Compare(tc, &start[0], collate.GetCollator(ft.GetCollate()))
+			if err != nil {
+				return nil, false, err
+			}
+			if cmp <= 0 {
+				continue
+			}
+		}
+
+		if hasMaxEnd {
+			cmp, err := d.Compare(tc, &maxEnd[0], collate.GetCollator(ft.GetCollate()))
+			if err != nil {
+				return nil, false, err
+			}
+			if cmp >= 0 {
+				return maxEnd, true, nil
+			}
+		}
+
+		return []types.Datum{d}, false, nil
+	}
+}
+
+func (t *PhysicalTable) locateUnsignedIntHandleRegionEnd(
+	ctx context.Context, store tikv.Storage, start uint64, maxEnd uint64,
+) (uint64, bool, error) {
+	tblPrefix := tablecodec.GenTableRecordPrefix(t.ID)
+	startKey := codec.EncodeInt(tblPrefix, int64(start))
+	region, err := store.GetRegionCache().LocateKey(tikv.NewBackofferWithVars(ctx, 20000, nil), startKey)
+	if err != nil {
+		return 0, false, err
+	}
+
+	var scanEnd uint64
+	if h := GetNextIntHandle(region.EndKey, tblPrefix); h != nil {
+		scanEnd = uint64(h.IntValue())
+		if scanEnd <= start {
+			scanEnd = math.MaxUint64
+		}
+	} else if start <= math.MaxInt64 {
+		scanEnd = math.MaxInt64 + 1
+	} else {
+		scanEnd = math.MaxUint64
+	}
+
+	if scanEnd >= maxEnd {
+		return maxEnd, true, nil
+	}
+
+	return scanEnd, false, nil
+}
+
+func (t *PhysicalTable) locateIntHandleRegionEnd(
+	ctx context.Context, store tikv.Storage, start int64, maxEnd int64,
+) (int64, bool, error) {
+	tblPrefix := tablecodec.GenTableRecordPrefix(t.ID)
+	startKey := codec.EncodeInt(tblPrefix, start)
+	region, err := store.GetRegionCache().LocateKey(tikv.NewBackofferWithVars(ctx, 20000, nil), startKey)
+	if err != nil {
+		return 0, false, err
+	}
+
+	var scanEnd int64
+	if h := GetNextIntHandle(region.EndKey, tblPrefix); h != nil {
+		scanEnd = h.IntValue()
+	} else {
+		scanEnd = math.MaxInt64
+	}
+
+	if scanEnd >= maxEnd {
+		return maxEnd, true, nil
+	}
+	return scanEnd, false, nil
+}
+
 // SplitScanRanges split ranges for TTL scan
 func (t *PhysicalTable) SplitScanRanges(ctx context.Context, store kv.Storage, splitCnt int) ([]ScanRange, error) {
 	if len(t.KeyColumns) < 1 || splitCnt <= 1 {
@@ -484,6 +666,24 @@ func (t *PhysicalTable) splitRawKeyRanges(ctx context.Context, store tikv.Storag
 		regionIDs = regionIDs[endRegionIdx+1:]
 	}
 	return ranges, nil
+}
+
+func convertRow(ctx types.Context, row []types.Datum, fields []*types.FieldType) ([]types.Datum, error) {
+	if len(row) == 0 {
+		return row, nil
+	}
+	ret := make([]types.Datum, 0, len(fields))
+	for i, d := range row {
+		if i >= len(fields) {
+			break
+		}
+		newD, err := d.ConvertTo(ctx, fields[i])
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, newD)
+	}
+	return ret, nil
 }
 
 var commonHandleBytesByte byte

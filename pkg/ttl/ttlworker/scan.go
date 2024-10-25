@@ -26,6 +26,7 @@ import (
 	"github.com/pingcap/tidb/pkg/sessionctx/variable"
 	"github.com/pingcap/tidb/pkg/ttl/cache"
 	"github.com/pingcap/tidb/pkg/ttl/metrics"
+	"github.com/pingcap/tidb/pkg/ttl/session"
 	"github.com/pingcap/tidb/pkg/ttl/sqlbuilder"
 	"github.com/pingcap/tidb/pkg/types"
 	"github.com/pingcap/tidb/pkg/util"
@@ -97,6 +98,64 @@ func (t *ttlScanTask) getDatumRows(rows []chunk.Row) [][]types.Datum {
 		datums[i] = row.GetDatumRow(t.tbl.KeyColumnTypes)
 	}
 	return datums
+}
+
+type ttlScanSQLGenerator struct {
+	t             *ttlScanTask
+	se            session.Session
+	generator     *sqlbuilder.ScanQueryGenerator
+	lastGenerator bool
+}
+
+func newTTLScanSQLGenerator(t *ttlScanTask, se session.Session) *ttlScanSQLGenerator {
+	return &ttlScanSQLGenerator{
+		t:  t,
+		se: se,
+	}
+}
+
+func (g *ttlScanSQLGenerator) NextSQL(
+	ctx context.Context, continueFromResult [][]types.Datum, nextLimit int,
+) (string, error) {
+	var nextGenStart []types.Datum
+	if g.generator != nil {
+		sql, err := g.generator.NextSQL(continueFromResult, nextLimit)
+		if err != nil {
+			return "", err
+		}
+
+		if sql != "" {
+			return sql, nil
+		}
+
+		if g.lastGenerator {
+			return "", nil
+		}
+
+		_, nextGenStart = g.generator.GetRange()
+	}
+
+	loc := g.se.GetSessionVars().Location()
+	genEnd, last, locErr := g.t.tbl.LocateRegionRangeEnd(
+		ctx, loc, g.se.GetStore(), nextGenStart, g.t.ScanRangeEnd,
+	)
+
+	if locErr != nil {
+		logutil.BgLogger().Warn(
+			"locate next generator scan range end failed",
+			zap.Int64("tableID", g.t.TableID),
+			zap.Error(locErr),
+		)
+	}
+
+	generator, err := sqlbuilder.NewScanQueryGenerator(g.t.tbl, g.t.ExpireTime, nextGenStart, genEnd)
+	if err != nil {
+		return "", err
+	}
+
+	g.generator = generator
+	g.lastGenerator = last
+	return generator.NextSQL(nil, nextLimit)
 }
 
 func (t *ttlScanTask) doScan(ctx context.Context, delCh chan<- *ttlDeleteTask, sessPool util.SessionPool) *ttlScanTaskExecResult {
@@ -181,11 +240,7 @@ func (t *ttlScanTask) doScan(ctx context.Context, delCh chan<- *ttlDeleteTask, s
 	}()
 
 	sess := newTableSession(rawSess, t.tbl, t.ExpireTime)
-	generator, err := sqlbuilder.NewScanQueryGenerator(t.tbl, t.ExpireTime, t.ScanRangeStart, t.ScanRangeEnd)
-	if err != nil {
-		return t.result(err)
-	}
-
+	generator := newTTLScanSQLGenerator(t, rawSess)
 	retrySQL := ""
 	retryTimes := 0
 	var lastResult [][]types.Datum
@@ -206,9 +261,11 @@ func (t *ttlScanTask) doScan(ctx context.Context, delCh chan<- *ttlDeleteTask, s
 		sql := retrySQL
 		if sql == "" {
 			limit := int(variable.TTLScanBatchSize.Load())
-			if sql, err = generator.NextSQL(lastResult, limit); err != nil {
+			tracer.EnterPhase(metrics.PhaseBuildSQL)
+			if sql, err = generator.NextSQL(ctx, lastResult, limit); err != nil {
 				return t.result(err)
 			}
+			tracer.EnterPhase(metrics.PhaseOther)
 		}
 
 		if sql == "" {

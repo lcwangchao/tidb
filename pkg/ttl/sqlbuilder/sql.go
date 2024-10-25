@@ -335,6 +335,11 @@ func NewScanQueryGenerator(tbl *cache.PhysicalTable, expire time.Time,
 	}, nil
 }
 
+// GetRange returns the key range
+func (g *ScanQueryGenerator) GetRange() ([]types.Datum, []types.Datum) {
+	return g.keyRangeStart, g.keyRangeEnd
+}
+
 // NextSQL creates next sql of the scan task
 func (g *ScanQueryGenerator) NextSQL(continueFromResult [][]types.Datum, nextLimit int) (string, error) {
 	if g.exhausted {

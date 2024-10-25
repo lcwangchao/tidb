@@ -33,6 +33,7 @@ var (
 	PhaseWaitRetry = "wait_retry"
 	PhaseDispatch  = "dispatch"
 	PhaseWaitToken = "wait_token"
+	PhaseBuildSQL  = "build_sql"
 	PhaseOther     = "other"
 )
 
