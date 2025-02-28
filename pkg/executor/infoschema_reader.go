@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"math"
 	"slices"
 	"strconv"
@@ -1655,7 +1656,7 @@ type DDLJobsReaderExec struct {
 
 	cacheJobs []*model.Job
 	is        infoschema.InfoSchema
-	sess      sessionctx.Context
+	sess      *internalsession.Session
 }
 
 // Open implements the Executor Next interface.

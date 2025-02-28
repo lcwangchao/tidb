@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"strconv"
 	"strings"
 	"time"
@@ -28,7 +29,6 @@ import (
 	"github.com/pingcap/tidb/pkg/sessionctx"
 	"github.com/pingcap/tidb/pkg/sessionctx/vardef"
 	"github.com/pingcap/tidb/pkg/timer/api"
-	"github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/util/chunk"
 	"github.com/pingcap/tidb/pkg/util/sqlexec"
 	"github.com/pingcap/tidb/pkg/util/timeutil"
@@ -37,14 +37,14 @@ import (
 )
 
 type tableTimerStoreCore struct {
-	pool     util.DestroyableSessionPool
+	pool     *internalsession.Pool
 	dbName   string
 	tblName  string
 	notifier api.TimerWatchEventNotifier
 }
 
 // NewTableTimerStore create a new timer store based on table
-func NewTableTimerStore(clusterID uint64, pool util.DestroyableSessionPool, dbName, tblName string, etcd *clientv3.Client) *api.TimerStore {
+func NewTableTimerStore(clusterID uint64, pool *internalsession.Pool, dbName, tblName string, etcd *clientv3.Client) *api.TimerStore {
 	var notifier api.TimerWatchEventNotifier
 	if etcd != nil {
 		notifier = NewEtcdNotifier(clusterID, etcd)
@@ -331,7 +331,7 @@ func (s *tableTimerStoreCore) Close() {
 }
 
 func (s *tableTimerStoreCore) takeSession() (sessionctx.Context, func(), error) {
-	r, err := s.pool.Get()
+	sctx, err := s.pool.Get()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -339,14 +339,9 @@ func (s *tableTimerStoreCore) takeSession() (sessionctx.Context, func(), error) 
 	success := false
 	defer func() {
 		if !success {
-			s.pool.Destroy(r)
+			sctx.Destroy()
 		}
 	}()
-
-	sctx, ok := r.(sessionctx.Context)
-	if !ok {
-		return nil, nil, errors.New("session is not the type sessionctx.Context")
-	}
 
 	ctx := context.Background()
 
@@ -377,17 +372,17 @@ func (s *tableTimerStoreCore) takeSession() (sessionctx.Context, func(), error) 
 			// to handle it here to make sure the code is strong.
 			terror.Log(err)
 			// call `Destroy` to make sure the resource is released to avoid memory leak
-			s.pool.Destroy(r)
+			sctx.Destroy()
 			return
 		}
 
 		if _, err = executeSQL(ctx, exec, "SET @@time_zone=%?", originalTimeZone); err != nil {
 			terror.Log(err)
-			s.pool.Destroy(r)
+			sctx.Destroy()
 			return
 		}
 
-		s.pool.Put(r)
+		s.pool.Put(sctx)
 	}
 
 	success = true

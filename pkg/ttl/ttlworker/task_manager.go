@@ -17,6 +17,7 @@ package ttlworker
 import (
 	"context"
 	"encoding/json"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"time"
 
 	"github.com/pingcap/errors"
@@ -26,7 +27,6 @@ import (
 	"github.com/pingcap/tidb/pkg/ttl/cache"
 	"github.com/pingcap/tidb/pkg/ttl/metrics"
 	"github.com/pingcap/tidb/pkg/ttl/session"
-	"github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/util/intest"
 	"github.com/pingcap/tidb/pkg/util/logutil"
 	"github.com/tikv/client-go/v2/tikv"
@@ -101,7 +101,7 @@ var errTooManyRunningTasks = errors.New("there are too many running tasks")
 // taskManager schedules and manages the ttl tasks on this instance
 type taskManager struct {
 	ctx      context.Context
-	sessPool util.SessionPool
+	sessPool *internalsession.Pool
 
 	id string
 
@@ -117,7 +117,7 @@ type taskManager struct {
 	notifyStateCh chan any
 }
 
-func newTaskManager(ctx context.Context, sessPool util.SessionPool, infoSchemaCache *cache.InfoSchemaCache, id string, store kv.Storage) *taskManager {
+func newTaskManager(ctx context.Context, sessPool *internalsession.Pool, infoSchemaCache *cache.InfoSchemaCache, id string, store kv.Storage) *taskManager {
 	ctx = logutil.WithKeyValue(ctx, "ttl-worker", "task-manager")
 	if intest.InTest {
 		// in test environment, in the same log there will be multiple ttl managers, so we need to distinguish them

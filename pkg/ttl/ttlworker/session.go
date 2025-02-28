@@ -17,17 +17,16 @@ package ttlworker
 import (
 	"context"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"time"
 
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/pkg/kv"
 	"github.com/pingcap/tidb/pkg/parser/terror"
-	"github.com/pingcap/tidb/pkg/sessionctx"
 	"github.com/pingcap/tidb/pkg/sessionctx/vardef"
 	"github.com/pingcap/tidb/pkg/ttl/cache"
 	"github.com/pingcap/tidb/pkg/ttl/metrics"
 	"github.com/pingcap/tidb/pkg/ttl/session"
-	"github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/util/chunk"
 	"github.com/pingcap/tidb/pkg/util/intest"
 	"github.com/pingcap/tidb/pkg/util/logutil"
@@ -62,21 +61,10 @@ var allIsolationReadEngines = map[kv.StoreType]struct{}{
 	kv.TiDB:    {},
 }
 
-func getSession(pool util.SessionPool) (session.Session, error) {
-	resource, err := pool.Get()
+func getSession(pool *internalsession.Pool) (session.Session, error) {
+	sctx, err := pool.Get()
 	if err != nil {
 		return nil, err
-	}
-
-	if se, ok := resource.(session.Session); ok {
-		// Only for test, in this case, the return session is mockSession
-		return se, nil
-	}
-
-	sctx, ok := resource.(sessionctx.Context)
-	if !ok {
-		pool.Put(resource)
-		return nil, errors.Errorf("%T cannot be casted to sessionctx.Context", sctx)
 	}
 
 	exec := sctx.GetSQLExecutor()
@@ -119,7 +107,7 @@ func getSession(pool util.SessionPool) (session.Session, error) {
 
 		DetachStatsCollector(exec)
 
-		pool.Put(resource)
+		pool.Put(sctx)
 	})
 
 	exec = AttachStatsCollector(exec)

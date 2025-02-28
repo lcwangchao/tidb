@@ -17,6 +17,7 @@ package ttlworker
 import (
 	"context"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"sync/atomic"
 	"time"
 
@@ -126,7 +127,7 @@ func (t *ttlScanTask) taskLogger(l *zap.Logger) *zap.Logger {
 	)
 }
 
-func (t *ttlScanTask) doScan(ctx context.Context, delCh chan<- *ttlDeleteTask, sessPool util.SessionPool) *ttlScanTaskExecResult {
+func (t *ttlScanTask) doScan(ctx context.Context, delCh chan<- *ttlDeleteTask, sessPool *internalsession.Pool) *ttlScanTaskExecResult {
 	// TODO: merge the ctx and the taskCtx in ttl scan task, to allow both "cancel" and gracefully stop workers
 	// now, the taskCtx is only check at the beginning of every loop
 	taskCtx := t.ctx
@@ -304,10 +305,10 @@ type ttlScanWorker struct {
 	curTaskResult *ttlScanTaskExecResult
 	delCh         chan<- *ttlDeleteTask
 	notifyStateCh chan<- any
-	sessionPool   util.SessionPool
+	sessionPool   *internalsession.Pool
 }
 
-func newScanWorker(delCh chan<- *ttlDeleteTask, notifyStateCh chan<- any, sessPool util.SessionPool) *ttlScanWorker {
+func newScanWorker(delCh chan<- *ttlDeleteTask, notifyStateCh chan<- any, sessPool *internalsession.Pool) *ttlScanWorker {
 	w := &ttlScanWorker{
 		delCh:         delCh,
 		notifyStateCh: notifyStateCh,

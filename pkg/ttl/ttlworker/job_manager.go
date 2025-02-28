@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"strconv"
 	"strings"
 	"time"
@@ -34,7 +35,6 @@ import (
 	"github.com/pingcap/tidb/pkg/ttl/client"
 	"github.com/pingcap/tidb/pkg/ttl/metrics"
 	"github.com/pingcap/tidb/pkg/ttl/session"
-	"github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/util/intest"
 	"github.com/pingcap/tidb/pkg/util/logutil"
 	"github.com/pingcap/tidb/pkg/util/timeutil"
@@ -101,7 +101,7 @@ type JobManager struct {
 	// `scanWorkers` and `delWorkers` can be modified by setting variables at any time
 	baseWorker
 
-	sessPool util.DestroyableSessionPool
+	sessPool *internalsession.Pool
 
 	// id is the ddl id of this instance
 	id string
@@ -129,7 +129,7 @@ type JobManager struct {
 }
 
 // NewJobManager creates a new ttl job manager
-func NewJobManager(id string, sessPool util.DestroyableSessionPool, store kv.Storage, etcdCli *clientv3.Client, leaderFunc func() bool) (manager *JobManager) {
+func NewJobManager(id string, sessPool *internalsession.Pool, store kv.Storage, etcdCli *clientv3.Client, leaderFunc func() bool) (manager *JobManager) {
 	manager = &JobManager{}
 	manager.id = id
 	manager.store = store
@@ -1217,12 +1217,12 @@ type SubmitTTLManagerJobRequest struct {
 
 type managerJobAdapter struct {
 	store     kv.Storage
-	sessPool  util.SessionPool
+	sessPool  *internalsession.Pool
 	requestCh chan<- *SubmitTTLManagerJobRequest
 }
 
 // NewManagerJobAdapter creates a managerJobAdapter
-func NewManagerJobAdapter(store kv.Storage, sessPool util.SessionPool, requestCh chan<- *SubmitTTLManagerJobRequest) TTLJobAdapter {
+func NewManagerJobAdapter(store kv.Storage, sessPool *internalsession.Pool, requestCh chan<- *SubmitTTLManagerJobRequest) TTLJobAdapter {
 	return &managerJobAdapter{store: store, sessPool: sessPool, requestCh: requestCh}
 }
 

@@ -17,6 +17,7 @@ package executor
 import (
 	"context"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"math"
 	"strings"
 	"time"
@@ -47,7 +48,7 @@ type ShowDDLJobsExec struct {
 
 	jobNumber int
 	is        infoschema.InfoSchema
-	sess      sessionctx.Context
+	sess      *internalsession.Session
 }
 
 var _ exec.Executor = &ShowDDLJobsExec{}

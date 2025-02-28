@@ -16,8 +16,8 @@ package extension
 
 import (
 	"context"
+	"github.com/pingcap/tidb/pkg/util/sqlexec"
 
-	"github.com/ngaut/pools"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/pkg/parser/mysql"
 	"github.com/pingcap/tidb/pkg/sessionctx/variable"
@@ -25,10 +25,14 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
+type Session interface {
+	GetSQLExecutor() sqlexec.SQLExecutor
+}
+
 // SessionPool is the pool for session
 type SessionPool interface {
-	Get() (pools.Resource, error)
-	Put(pools.Resource)
+	Get() (Session, error)
+	Put(Session)
 }
 
 // Option represents an option to initialize an extension

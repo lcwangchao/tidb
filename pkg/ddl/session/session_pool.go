@@ -17,6 +17,7 @@ package session
 import (
 	"context"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/util"
 	"sync"
 
 	"github.com/ngaut/pools"
@@ -66,7 +67,7 @@ func (sg *Pool) Get() (sessionctx.Context, error) {
 	ctx.GetSessionVars().SetStatusFlag(mysql.ServerStatusAutocommit, true)
 	ctx.GetSessionVars().InRestrictedSQL = true
 	ctx.GetSessionVars().StmtCtx.SetTimeZone(ctx.GetSessionVars().Location())
-	infosync.StoreInternalSession(ctx)
+	infosync.StoreInternalSession(ctx.(util.InternalSessionInfo))
 	return ctx, nil
 }
 
@@ -80,7 +81,7 @@ func (sg *Pool) Put(ctx sessionctx.Context) {
 	})
 	ctx.RollbackTxn(context.Background())
 	sg.resPool.Put(ctx.(pools.Resource))
-	infosync.DeleteInternalSession(ctx)
+	infosync.DeleteInternalSession(ctx.(util.InternalSessionInfo))
 }
 
 // Close clean up the Pool.

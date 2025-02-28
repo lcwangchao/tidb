@@ -16,10 +16,10 @@ package exec
 
 import (
 	"context"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"reflect"
 	"time"
 
-	"github.com/ngaut/pools"
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/tidb/pkg/domain"
 	"github.com/pingcap/tidb/pkg/expression"
@@ -382,30 +382,29 @@ func (e *BaseExecutor) UpdateDeltaForTableID(id int64) {
 }
 
 // GetSysSession gets a system session context from executor.
-func (e *BaseExecutor) GetSysSession() (sessionctx.Context, error) {
+func (e *BaseExecutor) GetSysSession() (*internalsession.Session, error) {
 	dom := domain.GetDomain(e.Ctx())
 	sysSessionPool := dom.SysSessionPool()
 	ctx, err := sysSessionPool.Get()
 	if err != nil {
 		return nil, err
 	}
-	restrictedCtx := ctx.(sessionctx.Context)
-	restrictedCtx.GetSessionVars().InRestrictedSQL = true
-	return restrictedCtx, nil
+	ctx.GetSessionVars().InRestrictedSQL = true
+	return ctx, nil
 }
 
 // ReleaseSysSession releases a system session context to executor.
-func (e *BaseExecutor) ReleaseSysSession(ctx context.Context, sctx sessionctx.Context) {
+func (e *BaseExecutor) ReleaseSysSession(ctx context.Context, sctx *internalsession.Session) {
 	if sctx == nil {
 		return
 	}
 	dom := domain.GetDomain(e.Ctx())
 	sysSessionPool := dom.SysSessionPool()
 	if _, err := sctx.GetSQLExecutor().ExecuteInternal(ctx, "rollback"); err != nil {
-		sctx.(pools.Resource).Close()
+		sctx.Destroy()
 		return
 	}
-	sysSessionPool.Put(sctx.(pools.Resource))
+	sysSessionPool.Put(sctx)
 }
 
 // TryNewCacheChunk tries to get a cached chunk

@@ -98,9 +98,8 @@ func upsertHistSnapshot(ctx context.Context, sctx sessionctx.Context, snapID uin
 }
 
 func (w *worker) updateHistSnapshot(ctx context.Context, snapID uint64, errs []error) error {
-	_sessctx := w.getSessionWithRetry()
-	defer w.sesspool.Put(_sessctx)
-	sctx := _sessctx.(sessionctx.Context)
+	sctx := w.getSessionWithRetry()
+	defer w.sesspool.Put(sctx)
 
 	var nerr any
 	if err := stderrors.Join(errs...); err != nil {
@@ -113,9 +112,8 @@ func (w *worker) updateHistSnapshot(ctx context.Context, snapID uint64, errs []e
 }
 
 func (w *worker) snapshotTable(ctx context.Context, snapID uint64, rt *repositoryTable) error {
-	_sessctx := w.getSessionWithRetry()
-	defer w.sesspool.Put(_sessctx)
-	sess := _sessctx.(sessionctx.Context)
+	sess := w.getSessionWithRetry()
+	defer w.sesspool.Put(sess)
 
 	if rt.insertStmt == "" {
 		if err := buildInsertQuery(ctx, sess, rt); err != nil {
@@ -133,9 +131,8 @@ func (w *worker) snapshotTable(ctx context.Context, snapID uint64, rt *repositor
 // takeSnapshot increments the value of snapIDKey, which triggers the tidb
 // nodes to run the snapshot process.  See the code in startSnapshot().
 func (w *worker) takeSnapshot(ctx context.Context) (uint64, error) {
-	_sessctx := w.getSessionWithRetry()
-	defer w.sesspool.Put(_sessctx)
-	sess := _sessctx.(sessionctx.Context)
+	sess := w.getSessionWithRetry()
+	defer w.sesspool.Put(sess)
 
 	var snapID uint64
 	var err error

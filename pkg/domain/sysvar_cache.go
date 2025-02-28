@@ -17,6 +17,7 @@ package domain
 import (
 	"context"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"maps"
 
 	"github.com/pingcap/tidb/pkg/kv"
@@ -102,16 +103,15 @@ func (*Domain) fetchTableValues(sctx sessionctx.Context) (map[string]string, err
 
 // rebuildSysVarCache rebuilds the sysvar cache both globally and for session vars.
 // It needs to be called when sysvars are added or removed.
-func (do *Domain) rebuildSysVarCache(ctx sessionctx.Context) error {
+func (do *Domain) rebuildSysVarCache(ctx *internalsession.Session) (err error) {
 	newSessionCache := make(map[string]string)
 	newGlobalCache := make(map[string]string)
 	if ctx == nil {
-		res, err := do.sysSessionPool.Get()
+		ctx, err = do.sysSessionPool.Get()
 		if err != nil {
 			return err
 		}
-		defer do.sysSessionPool.Put(res)
-		ctx = res.(sessionctx.Context)
+		defer do.sysSessionPool.Put(ctx)
 	}
 	// Only one rebuild can be in progress at a time, this prevents a lost update race
 	// where an earlier fetchTableValues() finishes last.

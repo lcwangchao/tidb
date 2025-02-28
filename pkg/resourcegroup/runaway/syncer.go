@@ -15,12 +15,12 @@
 package runaway
 
 import (
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"strings"
 	"sync"
 	"time"
 
 	rmpb "github.com/pingcap/kvproto/pkg/resource_manager"
-	"github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/util/chunk"
 )
 
@@ -33,12 +33,12 @@ const (
 type syncer struct {
 	newWatchReader      *systemTableReader
 	deletionWatchReader *systemTableReader
-	sysSessionPool      util.SessionPool
+	sysSessionPool      *internalsession.Pool
 
 	mu sync.Mutex
 }
 
-func newSyncer(sysSessionPool util.SessionPool) *syncer {
+func newSyncer(sysSessionPool *internalsession.Pool) *syncer {
 	return &syncer{
 		sysSessionPool: sysSessionPool,
 		newWatchReader: &systemTableReader{
@@ -71,7 +71,7 @@ func (s *syncer) getWatchDoneRecord(reader *systemTableReader, sqlGenFn func() (
 	return getRunawayWatchDoneRecord(s.sysSessionPool, reader, sqlGenFn, push)
 }
 
-func getRunawayWatchRecord(sysSessionPool util.SessionPool, reader *systemTableReader,
+func getRunawayWatchRecord(sysSessionPool *internalsession.Pool, reader *systemTableReader,
 	sqlGenFn func() (string, []any), push bool) ([]*QuarantineRecord, error) {
 	rs, err := reader.Read(sysSessionPool, sqlGenFn)
 	if err != nil {
@@ -113,7 +113,7 @@ func getRunawayWatchRecord(sysSessionPool util.SessionPool, reader *systemTableR
 	return ret, nil
 }
 
-func getRunawayWatchDoneRecord(sysSessionPool util.SessionPool, reader *systemTableReader,
+func getRunawayWatchDoneRecord(sysSessionPool *internalsession.Pool, reader *systemTableReader,
 	sqlGenFn func() (string, []any), push bool) ([]*QuarantineRecord, error) {
 	rs, err := reader.Read(sysSessionPool, sqlGenFn)
 	if err != nil {
@@ -187,7 +187,7 @@ func (r *systemTableReader) genSelectStmt() (string, []any) {
 	return builder.String(), params
 }
 
-func (*systemTableReader) Read(sysSessionPool util.SessionPool, genFn func() (string, []any)) ([]chunk.Row, error) {
+func (*systemTableReader) Read(sysSessionPool *internalsession.Pool, genFn func() (string, []any)) ([]chunk.Row, error) {
 	sql, params := genFn()
 	return ExecRCRestrictedSQL(sysSessionPool, sql, params)
 }

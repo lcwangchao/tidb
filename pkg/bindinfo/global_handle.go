@@ -17,6 +17,7 @@ package bindinfo
 import (
 	"context"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -34,7 +35,6 @@ import (
 	"github.com/pingcap/tidb/pkg/sessionctx/vardef"
 	"github.com/pingcap/tidb/pkg/sessionctx/variable"
 	"github.com/pingcap/tidb/pkg/types"
-	"github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/util/chunk"
 	"github.com/pingcap/tidb/pkg/util/hint"
 	"github.com/pingcap/tidb/pkg/util/logutil"
@@ -86,7 +86,7 @@ type GlobalBindingHandle interface {
 
 // globalBindingHandle is used to handle all global sql bind operations.
 type globalBindingHandle struct {
-	sPool        util.DestroyableSessionPool
+	sPool        *internalsession.Pool
 	bindingCache BindingCache
 
 	// lastTaskTime records the last update time for the global sql bind cache.
@@ -118,7 +118,7 @@ const (
 )
 
 // NewGlobalBindingHandle creates a new GlobalBindingHandle.
-func NewGlobalBindingHandle(sPool util.DestroyableSessionPool) GlobalBindingHandle {
+func NewGlobalBindingHandle(sPool *internalsession.Pool) GlobalBindingHandle {
 	h := &globalBindingHandle{sPool: sPool}
 	h.lastUpdateTime.Store(types.ZeroTimestamp)
 	h.bindingCache = newBindCache()
@@ -477,19 +477,18 @@ func GenerateBindingSQL(stmtNode ast.StmtNode, planHint string, defaultDB string
 }
 
 func (h *globalBindingHandle) callWithSCtx(wrapTxn bool, f func(sctx sessionctx.Context) error) (err error) {
-	resource, err := h.sPool.Get()
+	sctx, err := h.sPool.Get()
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err == nil { // only recycle when no error
-			h.sPool.Put(resource)
+			h.sPool.Put(sctx)
 		} else {
 			// Note: Otherwise, the session will be leaked.
-			h.sPool.Destroy(resource)
+			sctx.Destroy()
 		}
 	}()
-	sctx := resource.(sessionctx.Context)
 	if wrapTxn {
 		if _, err = exec(sctx, "BEGIN PESSIMISTIC"); err != nil {
 			return

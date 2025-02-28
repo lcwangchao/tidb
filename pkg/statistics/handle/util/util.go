@@ -16,6 +16,7 @@ package util
 
 import (
 	"context"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"strconv"
 	"time"
 
@@ -76,7 +77,7 @@ var (
 )
 
 // CallWithSCtx allocates a sctx from the pool and call the f().
-func CallWithSCtx(pool util.DestroyableSessionPool, f func(sctx sessionctx.Context) error, flags ...int) (err error) {
+func CallWithSCtx(pool *internalsession.Pool, f func(sctx sessionctx.Context) error, flags ...int) (err error) {
 	defer util.Recover(metrics.LabelStats, "CallWithSCtx", nil, false)
 	se, err := pool.Get()
 	if err != nil {
@@ -87,11 +88,10 @@ func CallWithSCtx(pool util.DestroyableSessionPool, f func(sctx sessionctx.Conte
 			pool.Put(se)
 		} else {
 			// Note: Otherwise, the session will be leaked.
-			pool.Destroy(se)
+			se.Destroy()
 		}
 	}()
-	sctx := se.(sessionctx.Context)
-	if err := UpdateSCtxVarsForStats(sctx); err != nil { // update stats variables automatically
+	if err := UpdateSCtxVarsForStats(se); err != nil { // update stats variables automatically
 		return errors.Trace(err)
 	}
 
@@ -102,9 +102,9 @@ func CallWithSCtx(pool util.DestroyableSessionPool, f func(sctx sessionctx.Conte
 		}
 	}
 	if wrapTxn {
-		err = WrapTxn(sctx, f)
+		err = WrapTxn(se, f)
 	} else {
-		err = f(sctx)
+		err = f(se)
 	}
 	return errors.Trace(err)
 }
@@ -187,7 +187,7 @@ func UpdateSCtxVarsForStats(sctx sessionctx.Context) error {
 }
 
 // GetCurrentPruneMode returns the current latest partitioning table prune mode.
-func GetCurrentPruneMode(pool util.DestroyableSessionPool) (mode string, err error) {
+func GetCurrentPruneMode(pool *internalsession.Pool) (mode string, err error) {
 	err = CallWithSCtx(pool, func(sctx sessionctx.Context) error {
 		mode = sctx.GetSessionVars().PartitionPruneMode.Load()
 		return nil

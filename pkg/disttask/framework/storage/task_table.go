@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	goerrors "errors"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -29,7 +30,6 @@ import (
 	"github.com/pingcap/tidb/pkg/kv"
 	"github.com/pingcap/tidb/pkg/sessionctx"
 	"github.com/pingcap/tidb/pkg/sessionctx/vardef"
-	"github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/util/chunk"
 	"github.com/pingcap/tidb/pkg/util/sqlexec"
 	clitutil "github.com/tikv/client-go/v2/util"
@@ -117,7 +117,7 @@ type TaskHandle interface {
 
 // TaskManager is the manager of task and subtask.
 type TaskManager struct {
-	sePool util.SessionPool
+	sePool *internalsession.Pool
 }
 
 var _ SessionExecutor = &TaskManager{}
@@ -130,7 +130,7 @@ var (
 )
 
 // NewTaskManager creates a new task manager.
-func NewTaskManager(sePool util.SessionPool) *TaskManager {
+func NewTaskManager(sePool *internalsession.Pool) *TaskManager {
 	return &TaskManager{
 		sePool: sePool,
 	}
@@ -152,17 +152,16 @@ func SetTaskManager(is *TaskManager) {
 
 // WithNewSession executes the function with a new session.
 func (mgr *TaskManager) WithNewSession(fn func(se sessionctx.Context) error) error {
-	v, err := mgr.sePool.Get()
+	se, err := mgr.sePool.Get()
 	if err != nil {
 		return err
 	}
 	// when using global sort, the subtask meta might quite large as it include
 	// filenames of all the generated kv/stat files.
-	se := v.(sessionctx.Context)
 	limitBak := se.GetSessionVars().TxnEntrySizeLimit
 	defer func() {
 		se.GetSessionVars().TxnEntrySizeLimit = limitBak
-		mgr.sePool.Put(v)
+		mgr.sePool.Put(se)
 	}()
 	se.GetSessionVars().TxnEntrySizeLimit = vardef.TxnEntrySizeLimit.Load()
 	return fn(se)

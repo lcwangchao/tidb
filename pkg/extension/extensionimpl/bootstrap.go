@@ -16,12 +16,11 @@ package extensionimpl
 
 import (
 	"context"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 
-	"github.com/pingcap/errors"
 	"github.com/pingcap/tidb/pkg/domain"
 	"github.com/pingcap/tidb/pkg/extension"
 	"github.com/pingcap/tidb/pkg/kv"
-	"github.com/pingcap/tidb/pkg/sessionctx"
 	"github.com/pingcap/tidb/pkg/util/chunk"
 	"github.com/pingcap/tidb/pkg/util/sqlexec"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -64,6 +63,18 @@ func (c *bootstrapContext) SessionPool() extension.SessionPool {
 	return c.sessionPool
 }
 
+type sessionPool struct {
+	pool *internalsession.Pool
+}
+
+func (p *sessionPool) Get() (extension.Session, error) {
+	return p.pool.Get()
+}
+
+func (p *sessionPool) Put(sess extension.Session) {
+	p.pool.Put(sess.(*internalsession.Session))
+}
+
 // Bootstrap bootstraps all extensions
 func Bootstrap(ctx context.Context, do *domain.Domain) error {
 	extensions, err := extension.GetExtensions()
@@ -76,21 +87,16 @@ func Bootstrap(ctx context.Context, do *domain.Domain) error {
 	}
 
 	pool := do.SysSessionPool()
-	r, err := pool.Get()
+	sctx, err := pool.Get()
 	if err != nil {
 		return err
 	}
-	defer pool.Put(r)
-
-	sctx, ok := r.(sessionctx.Context)
-	if !ok {
-		return errors.Errorf("type '%T' cannot be casted to 'sessionctx.Context'", sctx)
-	}
+	defer pool.Put(sctx)
 
 	executor := sctx.GetSQLExecutor()
 	return extensions.Bootstrap(&bootstrapContext{
 		Context:     ctx,
-		sessionPool: pool,
+		sessionPool: &sessionPool{pool: pool},
 		sqlExecutor: executor,
 		etcdCli:     do.GetEtcdClient(),
 	})

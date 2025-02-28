@@ -27,7 +27,6 @@ import (
 	"github.com/pingcap/tidb/pkg/meta/model"
 	"github.com/pingcap/tidb/pkg/parser/mysql"
 	"github.com/pingcap/tidb/pkg/parser/terror"
-	"github.com/pingcap/tidb/pkg/sessionctx"
 	"github.com/pingcap/tidb/pkg/sessionctx/vardef"
 	"github.com/pingcap/tidb/pkg/statistics"
 	"github.com/pingcap/tidb/pkg/statistics/handle/cache"
@@ -344,13 +343,12 @@ func (h *Handle) initStatsHistogramsByPaging(is infoschema.InfoSchema, cache sta
 			h.Pool.SPool().Put(se)
 		} else {
 			// Note: Otherwise, the session will be leaked.
-			h.Pool.SPool().Destroy(se)
+			se.Destroy()
 		}
 	}()
 
-	sctx := se.(sessionctx.Context)
 	sql := genInitStatsHistogramsSQL(true)
-	rc, err := util.Exec(sctx, sql, task.StartTid, task.EndTid)
+	rc, err := util.Exec(se, sql, task.StartTid, task.EndTid)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -473,12 +471,11 @@ func (h *Handle) initStatsTopNByPaging(cache statstypes.StatsCache, task initsta
 			h.Pool.SPool().Put(se)
 		} else {
 			// Note: Otherwise, the session will be leaked.
-			h.Pool.SPool().Destroy(se)
+			se.Destroy()
 		}
 	}()
-	sctx := se.(sessionctx.Context)
 	sql := genInitStatsTopNSQLForIndexes(true)
-	rc, err := util.Exec(sctx, sql, task.StartTid, task.EndTid)
+	rc, err := util.Exec(se, sql, task.StartTid, task.EndTid)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -675,12 +672,11 @@ func (h *Handle) initStatsBucketsByPaging(cache statstypes.StatsCache, task init
 			h.Pool.SPool().Put(se)
 		} else {
 			// Note: Otherwise, the session will be leaked.
-			h.Pool.SPool().Destroy(se)
+			se.Destroy()
 		}
 	}()
-	sctx := se.(sessionctx.Context)
 	sql := genInitStatsBucketsSQLForIndexes(true)
-	rc, err := util.Exec(sctx, sql, task.StartTid, task.EndTid)
+	rc, err := util.Exec(se, sql, task.StartTid, task.EndTid)
 	if err != nil {
 		return errors.Trace(err)
 	}

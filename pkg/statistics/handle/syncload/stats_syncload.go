@@ -292,8 +292,7 @@ func (s *statsSyncLoad) handleOneItemTask(task *statstypes.NeededItemTask) (err 
 	if err != nil {
 		return err
 	}
-	sctx := se.(sessionctx.Context)
-	sctx.GetSessionVars().StmtCtx.Priority = mysql.HighPriority
+	se.GetSessionVars().StmtCtx.Priority = mysql.HighPriority
 	defer func() {
 		// recover for each task, worker keeps working
 		if r := recover(); r != nil {
@@ -301,15 +300,15 @@ func (s *statsSyncLoad) handleOneItemTask(task *statstypes.NeededItemTask) (err 
 			err = errors.Errorf("stats loading panicked: %v", r)
 		}
 		if err == nil { // only recycle when no error
-			sctx.GetSessionVars().StmtCtx.Priority = mysql.NoPriority
+			se.GetSessionVars().StmtCtx.Priority = mysql.NoPriority
 			s.statsHandle.SPool().Put(se)
 		} else {
 			// Note: Otherwise, the session will be leaked.
-			s.statsHandle.SPool().Destroy(se)
+			se.Destroy()
 		}
 	}()
 	var skipTypes map[string]struct{}
-	val, err := sctx.GetSessionVars().GlobalVarsAccessor.GetGlobalSysVar(vardef.TiDBAnalyzeSkipColumnTypes)
+	val, err := se.GetSessionVars().GlobalVarsAccessor.GetGlobalSysVar(vardef.TiDBAnalyzeSkipColumnTypes)
 	if err != nil {
 		logutil.BgLogger().Warn("failed to get global variable", zap.Error(err))
 	} else {
@@ -322,7 +321,7 @@ func (s *statsSyncLoad) handleOneItemTask(task *statstypes.NeededItemTask) (err 
 	if !ok {
 		return nil
 	}
-	is := sctx.GetDomainInfoSchema().(infoschema.InfoSchema)
+	is := se.GetDomainInfoSchema().(infoschema.InfoSchema)
 	tbl, ok := s.statsHandle.TableInfoByID(is, item.TableID)
 	if !ok {
 		return nil
@@ -371,7 +370,7 @@ func (s *statsSyncLoad) handleOneItemTask(task *statstypes.NeededItemTask) (err 
 	failpoint.Inject("handleOneItemTaskPanic", nil)
 	t := time.Now()
 	needUpdate := false
-	wrapper, err = s.readStatsForOneItem(sctx, item, wrapper, isPkIsHandle, task.Item.FullLoad)
+	wrapper, err = s.readStatsForOneItem(se, item, wrapper, isPkIsHandle, task.Item.FullLoad)
 	if stderrors.Is(err, errGetHistMeta) {
 		return nil
 	}

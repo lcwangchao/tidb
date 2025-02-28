@@ -139,7 +139,7 @@ type Server struct {
 	health         *uatomic.Bool
 
 	sessionMapMutex     sync.Mutex
-	internalSessions    map[any]struct{}
+	internalSessions    map[util.InternalSessionInfo]struct{}
 	autoIDService       *autoid.Service
 	authTokenCancelFunc context.CancelFunc
 	wg                  sync.WaitGroup
@@ -250,7 +250,7 @@ func NewServer(cfg *config.Config, driver IDriver) (*Server, error) {
 		concurrentLimiter: util.NewTokenLimiter(cfg.TokenLimit),
 		clients:           make(map[uint64]*clientConn),
 		userResource:      make(map[string]*userResourceLimits),
-		internalSessions:  make(map[any]struct{}, 100),
+		internalSessions:  make(map[util.InternalSessionInfo]struct{}, 100),
 		health:            uatomic.NewBool(false),
 		inShutdownMode:    uatomic.NewBool(false),
 		printMDLLogTime:   time.Now(),
@@ -1067,7 +1067,7 @@ func (s *Server) ServerID() uint64 {
 
 // StoreInternalSession implements SessionManager interface.
 // @param addr	The address of a session.session struct variable
-func (s *Server) StoreInternalSession(se any) {
+func (s *Server) StoreInternalSession(se util.InternalSessionInfo) {
 	s.sessionMapMutex.Lock()
 	s.internalSessions[se] = struct{}{}
 	metrics.InternalSessions.Set(float64(len(s.internalSessions)))
@@ -1075,7 +1075,7 @@ func (s *Server) StoreInternalSession(se any) {
 }
 
 // ContainsInternalSession implements SessionManager interface.
-func (s *Server) ContainsInternalSession(se any) bool {
+func (s *Server) ContainsInternalSession(se util.InternalSessionInfo) bool {
 	s.sessionMapMutex.Lock()
 	defer s.sessionMapMutex.Unlock()
 	_, ok := s.internalSessions[se]
@@ -1084,7 +1084,7 @@ func (s *Server) ContainsInternalSession(se any) bool {
 
 // DeleteInternalSession implements SessionManager interface.
 // @param addr	The address of a session.session struct variable
-func (s *Server) DeleteInternalSession(se any) {
+func (s *Server) DeleteInternalSession(se util.InternalSessionInfo) {
 	s.sessionMapMutex.Lock()
 	delete(s.internalSessions, se)
 	metrics.InternalSessions.Set(float64(len(s.internalSessions)))
@@ -1108,7 +1108,7 @@ func (s *Server) GetInternalSessionStartTSList() []uint64 {
 }
 
 // InternalSessionExists is used for test
-func (s *Server) InternalSessionExists(se any) bool {
+func (s *Server) InternalSessionExists(se util.InternalSessionInfo) bool {
 	s.sessionMapMutex.Lock()
 	_, ok := s.internalSessions[se]
 	s.sessionMapMutex.Unlock()

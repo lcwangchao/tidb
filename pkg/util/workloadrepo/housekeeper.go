@@ -132,9 +132,8 @@ func (w *worker) getHouseKeeper(ctx context.Context, fn func(time.Time) time.Dur
 		timer := time.NewTimer(fn(now))
 		defer timer.Stop()
 
-		_sessctx := w.getSessionWithRetry()
-		defer w.sesspool.Put(_sessctx)
-		sess := _sessctx.(sessionctx.Context)
+		sess := w.getSessionWithRetry()
+		defer w.sesspool.Put(sess)
 
 		for {
 			select {

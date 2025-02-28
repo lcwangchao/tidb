@@ -16,6 +16,7 @@ package lockstats
 
 import (
 	"fmt"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"slices"
 	"strings"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/pingcap/tidb/pkg/statistics/handle/logutil"
 	"github.com/pingcap/tidb/pkg/statistics/handle/types"
 	"github.com/pingcap/tidb/pkg/statistics/handle/util"
-	pkgutil "github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/util/sqlexec"
 	"go.uber.org/zap"
 )
@@ -41,11 +41,11 @@ const (
 
 // statsLockImpl implements the util.StatsLock interface.
 type statsLockImpl struct {
-	pool pkgutil.DestroyableSessionPool
+	pool *internalsession.Pool
 }
 
 // NewStatsLock creates a new StatsLock.
-func NewStatsLock(pool pkgutil.DestroyableSessionPool) types.StatsLock {
+func NewStatsLock(pool *internalsession.Pool) types.StatsLock {
 	return &statsLockImpl{pool: pool}
 }
 

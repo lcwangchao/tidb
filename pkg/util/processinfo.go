@@ -206,6 +206,10 @@ func serverStatus2Str(state uint16) string {
 	return strings.Join(l, "; ")
 }
 
+type InternalSessionInfo interface {
+	TxnInfo() *txninfo.TxnInfo
+}
+
 // SessionManager is an interface for session manage. Show processlist and
 // kill statement rely on this interface.
 type SessionManager interface {
@@ -217,11 +221,11 @@ type SessionManager interface {
 	UpdateTLSConfig(cfg *tls.Config)
 	ServerID() uint64
 	// StoreInternalSession puts the internal session pointer to the map in the SessionManager.
-	StoreInternalSession(se any)
+	StoreInternalSession(se InternalSessionInfo)
 	// DeleteInternalSession deletes the internal session pointer from the map in the SessionManager.
-	DeleteInternalSession(se any)
+	DeleteInternalSession(se InternalSessionInfo)
 	// ContainsInternalSession checks if the internal session pointer is in the map in the SessionManager.
-	ContainsInternalSession(se any) bool
+	ContainsInternalSession(se InternalSessionInfo) bool
 	// GetInternalSessionStartTSList gets all startTS of every transactions running in the current internal sessions.
 	GetInternalSessionStartTSList() []uint64
 	// CheckOldRunningTxn checks if there is an old transaction running in the current sessions

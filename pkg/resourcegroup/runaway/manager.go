@@ -16,6 +16,7 @@ package runaway
 
 import (
 	"context"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -88,12 +89,12 @@ type Manager struct {
 
 	// syncer is used to sync runaway watch records.
 	runawaySyncer  *syncer
-	sysSessionPool util.SessionPool
+	sysSessionPool *internalsession.Pool
 }
 
 // NewRunawayManager creates a new Manager.
 func NewRunawayManager(resourceGroupCtl *rmclient.ResourceGroupsController, serverAddr string,
-	pool util.SessionPool, exit chan struct{}, infoCache *infoschema.InfoCache, ddl ddl.DDL) *Manager {
+	pool *internalsession.Pool, exit chan struct{}, infoCache *infoschema.InfoCache, ddl ddl.DDL) *Manager {
 	watchList := ttlcache.New[string, *QuarantineRecord](
 		ttlcache.WithTTL[string, *QuarantineRecord](ttlcache.NoTTL),
 		ttlcache.WithCapacity[string, *QuarantineRecord](maxWatchListCap),

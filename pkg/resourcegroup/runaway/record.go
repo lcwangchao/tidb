@@ -17,6 +17,7 @@ package runaway
 import (
 	"context"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"hash/fnv"
 	"strings"
 	"time"
@@ -27,11 +28,9 @@ import (
 	"github.com/pingcap/tidb/pkg/kv"
 	"github.com/pingcap/tidb/pkg/parser/ast"
 	"github.com/pingcap/tidb/pkg/parser/terror"
-	"github.com/pingcap/tidb/pkg/sessionctx"
 	"github.com/pingcap/tidb/pkg/ttl/cache"
 	"github.com/pingcap/tidb/pkg/ttl/sqlbuilder"
 	"github.com/pingcap/tidb/pkg/types"
-	"github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/util/chunk"
 	"github.com/pingcap/tidb/pkg/util/logutil"
 	"github.com/pingcap/tidb/pkg/util/sqlexec"
@@ -300,7 +299,7 @@ func (rm *Manager) deleteExpiredRows(expiredDuration time.Duration) {
 	}
 }
 
-func handleRemoveStaleRunawayWatch(sysSessionPool util.SessionPool, record *QuarantineRecord) error {
+func handleRemoveStaleRunawayWatch(sysSessionPool *internalsession.Pool, record *QuarantineRecord) error {
 	se, err := sysSessionPool.Get()
 	defer func() {
 		sysSessionPool.Put(se)
@@ -308,8 +307,7 @@ func handleRemoveStaleRunawayWatch(sysSessionPool util.SessionPool, record *Quar
 	if err != nil {
 		return errors.Annotate(err, "get session failed")
 	}
-	sctx := se.(sessionctx.Context)
-	exec := sctx.GetSQLExecutor()
+	exec := se.GetSQLExecutor()
 	ctx := kv.WithInternalSourceType(context.Background(), kv.InternalTxnOthers)
 	_, err = exec.ExecuteInternal(ctx, "BEGIN")
 	if err != nil {
@@ -331,7 +329,7 @@ func handleRemoveStaleRunawayWatch(sysSessionPool util.SessionPool, record *Quar
 	return err
 }
 
-func handleRunawayWatchDone(sysSessionPool util.SessionPool, record *QuarantineRecord) error {
+func handleRunawayWatchDone(sysSessionPool *internalsession.Pool, record *QuarantineRecord) error {
 	se, err := sysSessionPool.Get()
 	defer func() {
 		sysSessionPool.Put(se)
@@ -339,8 +337,7 @@ func handleRunawayWatchDone(sysSessionPool util.SessionPool, record *QuarantineR
 	if err != nil {
 		return errors.Annotate(err, "get session failed")
 	}
-	sctx := se.(sessionctx.Context)
-	exec := sctx.GetSQLExecutor()
+	exec := se.GetSQLExecutor()
 	ctx := kv.WithInternalSourceType(context.Background(), kv.InternalTxnOthers)
 	_, err = exec.ExecuteInternal(ctx, "BEGIN")
 	if err != nil {
@@ -368,7 +365,7 @@ func handleRunawayWatchDone(sysSessionPool util.SessionPool, record *QuarantineR
 }
 
 // ExecRCRestrictedSQL is used to execute a restricted SQL which related to resource control.
-func ExecRCRestrictedSQL(sysSessionPool util.SessionPool, sql string, params []any) ([]chunk.Row, error) {
+func ExecRCRestrictedSQL(sysSessionPool *internalsession.Pool, sql string, params []any) ([]chunk.Row, error) {
 	se, err := sysSessionPool.Get()
 	defer func() {
 		sysSessionPool.Put(se)
@@ -376,8 +373,7 @@ func ExecRCRestrictedSQL(sysSessionPool util.SessionPool, sql string, params []a
 	if err != nil {
 		return nil, errors.Annotate(err, "get session failed")
 	}
-	sctx := se.(sessionctx.Context)
-	exec := sctx.GetRestrictedSQLExecutor()
+	exec := se.GetRestrictedSQLExecutor()
 	ctx := kv.WithInternalSourceType(context.Background(), kv.InternalTxnOthers)
 	r, _, err := exec.ExecRestrictedSQL(ctx, []sqlexec.OptionFuncAlias{sqlexec.ExecOptionUseCurSession},
 		sql, params...,
@@ -394,7 +390,7 @@ func (rm *Manager) AddRunawayWatch(record *QuarantineRecord) (uint64, error) {
 	if err != nil {
 		return 0, errors.Annotate(err, "get session failed")
 	}
-	exec := se.(sessionctx.Context).GetSQLExecutor()
+	exec := se.GetSQLExecutor()
 	ctx := kv.WithInternalSourceType(context.Background(), kv.InternalTxnOthers)
 	_, err = exec.ExecuteInternal(ctx, "BEGIN")
 	if err != nil {

@@ -24,15 +24,14 @@ package workloadlearning
 import (
 	"context"
 	"encoding/json"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"strings"
 	"time"
 
 	"github.com/pingcap/tidb/pkg/infoschema"
 	"github.com/pingcap/tidb/pkg/kv"
 	"github.com/pingcap/tidb/pkg/parser/ast"
-	"github.com/pingcap/tidb/pkg/sessionctx"
 	"github.com/pingcap/tidb/pkg/sessiontxn"
-	"github.com/pingcap/tidb/pkg/util"
 	"github.com/pingcap/tidb/pkg/util/logutil"
 	"github.com/pingcap/tidb/pkg/util/sqlescape"
 	"go.uber.org/zap"
@@ -50,12 +49,12 @@ const (
 
 // Handle The entry point for all workload-based learning related tasks
 type Handle struct {
-	sysSessionPool util.SessionPool
+	sysSessionPool *internalsession.Pool
 }
 
 // NewWorkloadLearningHandle Create a new WorkloadLearningHandle
 // WorkloadLearningHandle is Singleton pattern
-func NewWorkloadLearningHandle(pool util.SessionPool) *Handle {
+func NewWorkloadLearningHandle(pool *internalsession.Pool) *Handle {
 	return &Handle{pool}
 }
 
@@ -132,22 +131,21 @@ func (handle *Handle) SaveReadTableCostMetrics(metrics map[ast.CIStr]*ReadTableC
 	}
 	// TODO to destroy the error session instead of put it back to the pool
 	defer handle.sysSessionPool.Put(se)
-	sctx := se.(sessionctx.Context)
-	exec := sctx.GetRestrictedSQLExecutor()
+	exec := se.GetRestrictedSQLExecutor()
 	ctx := kv.WithInternalSourceType(context.Background(), kv.InternalTxnWorkloadLearning)
 	// begin a new txn
-	err = sessiontxn.NewTxn(context.Background(), sctx)
+	err = sessiontxn.NewTxn(context.Background(), se)
 	if err != nil {
 		logutil.BgLogger().Warn("get txn failed when saving table cost metrics", zap.Error(err))
 		return
 	}
-	txn, err := sctx.Txn(true)
+	txn, err := se.Txn(true)
 	if err != nil {
 		logutil.BgLogger().Warn("failed to get txn when saving table cost metrics", zap.Error(err))
 		return
 	}
 	// enable plan cache
-	sctx.GetSessionVars().EnableNonPreparedPlanCache = true
+	se.GetSessionVars().EnableNonPreparedPlanCache = true
 
 	// step2: insert new version table cost metrics by batch using one common txn and context
 	version := txn.StartTS()

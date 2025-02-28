@@ -100,9 +100,8 @@ func buildInsertQuery(ctx context.Context, sess sessionctx.Context, rt *reposito
 }
 
 func (w *worker) createAllTables(ctx context.Context, now time.Time) error {
-	_sessctx := w.getSessionWithRetry()
-	sess := _sessctx.(sessionctx.Context)
-	defer w.sesspool.Put(_sessctx)
+	sess := w.getSessionWithRetry()
+	defer w.sesspool.Put(sess)
 	is := sess.GetDomainInfoSchema().(infoschema.InfoSchema)
 	if !is.SchemaExists(workloadSchemaCIStr) {
 		_, err := execRetry(ctx, sess, "create database if not exists "+WorkloadSchema)
@@ -151,9 +150,8 @@ func (w *worker) createAllTables(ctx context.Context, now time.Time) error {
 }
 
 func (w *worker) checkTablesExists(ctx context.Context, now time.Time) bool {
-	_sessctx := w.getSessionWithRetry()
-	sess := _sessctx.(sessionctx.Context)
-	defer w.sesspool.Put(_sessctx)
+	sess := w.getSessionWithRetry()
+	defer w.sesspool.Put(sess)
 	is := sess.GetDomainInfoSchema().(infoschema.InfoSchema)
 	return slice.AllOf(w.workloadTables, func(i int) bool {
 		return checkTableExistsByIS(ctx, is, w.workloadTables[i].destTable, now)

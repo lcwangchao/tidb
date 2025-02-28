@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	stderrs "errors"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"iter"
 	"math"
 	"math/rand"
@@ -1182,7 +1183,7 @@ func sqlForLog(sql string) string {
 	return executor.QueryReplacer.Replace(sql)
 }
 
-func (s *session) sysSessionPool() util.SessionPool {
+func (s *session) sysSessionPool() *internalsession.Pool {
 	return domain.GetDomain(s).SysSessionPool()
 }
 
@@ -1246,7 +1247,7 @@ func createSessionWithDomainFunc(store kv.Storage) func(*domain.Domain) (pools.R
 	}
 }
 
-func drainRecordSet(ctx context.Context, se *session, rs sqlexec.RecordSet, alloc chunk.Allocator) ([]chunk.Row, error) {
+func drainRecordSet(ctx context.Context, chunkSize int, rs sqlexec.RecordSet, alloc chunk.Allocator) ([]chunk.Row, error) {
 	var rows []chunk.Row
 	var req *chunk.Chunk
 	req = rs.NewChunk(alloc)
@@ -1259,7 +1260,7 @@ func drainRecordSet(ctx context.Context, se *session, rs sqlexec.RecordSet, allo
 		for r := iter.Begin(); r != iter.End(); r = iter.Next() {
 			rows = append(rows, r)
 		}
-		req = chunk.Renew(req, se.sessionVars.MaxChunkSize)
+		req = chunk.Renew(req, chunkSize)
 	}
 }
 
@@ -1785,7 +1786,7 @@ func (s *session) ExecRestrictedStmt(ctx context.Context, stmtNode ast.StmtNode,
 	[]chunk.Row, []*resolve.ResultField, error) {
 	defer pprof.SetGoroutineLabels(ctx)
 	execOption := sqlexec.GetExecOption(opts)
-	var se *session
+	var se *internalsession.Session
 	var clean func()
 	var err error
 	if execOption.UseCurSession {
@@ -1803,9 +1804,9 @@ func (s *session) ExecRestrictedStmt(ctx context.Context, stmtNode ast.StmtNode,
 	ctx = context.WithValue(ctx, execdetails.StmtExecDetailKey, &execdetails.StmtExecDetails{})
 	ctx = context.WithValue(ctx, tikvutil.ExecDetailsKey, &tikvutil.ExecDetails{})
 	ctx = context.WithValue(ctx, tikvutil.RUDetailsCtxKey, tikvutil.NewRUDetails())
-	rs, err := se.ExecuteStmt(ctx, stmtNode)
+	rs, err := se.GetSQLExecutor().ExecuteStmt(ctx, stmtNode)
 	if err != nil {
-		se.sessionVars.StmtCtx.AppendError(err)
+		se.GetSessionVars().StmtCtx.AppendError(err)
 	}
 	if rs == nil {
 		return nil, nil, err
@@ -1816,7 +1817,7 @@ func (s *session) ExecRestrictedStmt(ctx context.Context, stmtNode ast.StmtNode,
 		}
 	}()
 	var rows []chunk.Row
-	rows, err = drainRecordSet(ctx, se, rs, nil)
+	rows, err = drainRecordSet(ctx, se.GetSessionVars().MaxChunkSize, rs, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1837,7 +1838,7 @@ func ExecRestrictedStmt4Test(ctx context.Context, s types.Session,
 }
 
 // only set and clean session with execOption
-func (s *session) useCurrentSession(execOption sqlexec.ExecOption) (*session, func(), error) {
+func (s *session) useCurrentSession(execOption sqlexec.ExecOption) (*internalsession.Session, func(), error) {
 	var err error
 	orgSnapshotInfoSchema, orgSnapshotTS := s.sessionVars.SnapshotInfoschema, s.sessionVars.SnapshotTS
 	if execOption.SnapshotTS != 0 {
@@ -1864,7 +1865,7 @@ func (s *session) useCurrentSession(execOption sqlexec.ExecOption) (*session, fu
 	prevSQL := s.sessionVars.StmtCtx.OriginalSQL
 	prevStmtType := s.sessionVars.StmtCtx.StmtType
 	prevTables := s.sessionVars.StmtCtx.Tables
-	return s, func() {
+	return internalsession.NewSession(s), func() {
 		s.sessionVars.AnalyzeVersion = prevStatsVer
 		s.sessionVars.EnableAnalyzeSnapshot = prevAnalyzeSnapshot
 		if err := s.sessionVars.SetSystemVar(vardef.TiDBSnapshot, ""); err != nil {
@@ -1880,74 +1881,73 @@ func (s *session) useCurrentSession(execOption sqlexec.ExecOption) (*session, fu
 	}, nil
 }
 
-func (s *session) getInternalSession(execOption sqlexec.ExecOption) (*session, func(), error) {
-	tmp, err := s.sysSessionPool().Get()
+func (s *session) getInternalSession(execOption sqlexec.ExecOption) (*internalsession.Session, func(), error) {
+	se, err := s.sysSessionPool().Get()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	se := tmp.(*session)
 
 	// The special session will share the `InspectionTableCache` with current session
 	// if the current session in inspection mode.
 	if cache := s.sessionVars.InspectionTableCache; cache != nil {
-		se.sessionVars.InspectionTableCache = cache
+		se.GetSessionVars().InspectionTableCache = cache
 	}
-	se.sessionVars.OptimizerUseInvisibleIndexes = s.sessionVars.OptimizerUseInvisibleIndexes
+	se.GetSessionVars().OptimizerUseInvisibleIndexes = s.sessionVars.OptimizerUseInvisibleIndexes
 
 	preSkipStats := s.sessionVars.SkipMissingPartitionStats
-	se.sessionVars.SkipMissingPartitionStats = s.sessionVars.SkipMissingPartitionStats
+	se.GetSessionVars().SkipMissingPartitionStats = s.sessionVars.SkipMissingPartitionStats
 
 	if execOption.SnapshotTS != 0 {
-		if err := se.sessionVars.SetSystemVar(vardef.TiDBSnapshot, strconv.FormatUint(execOption.SnapshotTS, 10)); err != nil {
+		if err := se.GetSessionVars().SetSystemVar(vardef.TiDBSnapshot, strconv.FormatUint(execOption.SnapshotTS, 10)); err != nil {
 			return nil, nil, err
 		}
-		se.sessionVars.SnapshotInfoschema, err = getSnapshotInfoSchema(s, execOption.SnapshotTS)
+		se.GetSessionVars().SnapshotInfoschema, err = getSnapshotInfoSchema(s, execOption.SnapshotTS)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
 
-	prevStatsVer := se.sessionVars.AnalyzeVersion
+	prevStatsVer := se.GetSessionVars().AnalyzeVersion
 	if execOption.AnalyzeVer != 0 {
-		se.sessionVars.AnalyzeVersion = execOption.AnalyzeVer
+		se.GetSessionVars().AnalyzeVersion = execOption.AnalyzeVer
 	}
 
-	prevAnalyzeSnapshot := se.sessionVars.EnableAnalyzeSnapshot
+	prevAnalyzeSnapshot := se.GetSessionVars().EnableAnalyzeSnapshot
 	if execOption.AnalyzeSnapshot != nil {
-		se.sessionVars.EnableAnalyzeSnapshot = *execOption.AnalyzeSnapshot
+		se.GetSessionVars().EnableAnalyzeSnapshot = *execOption.AnalyzeSnapshot
 	}
 
-	prePruneMode := se.sessionVars.PartitionPruneMode.Load()
+	prePruneMode := se.GetSessionVars().PartitionPruneMode.Load()
 	if len(execOption.PartitionPruneMode) > 0 {
-		se.sessionVars.PartitionPruneMode.Store(execOption.PartitionPruneMode)
+		se.GetSessionVars().PartitionPruneMode.Store(execOption.PartitionPruneMode)
 	}
 
 	return se, func() {
-		se.sessionVars.AnalyzeVersion = prevStatsVer
-		se.sessionVars.EnableAnalyzeSnapshot = prevAnalyzeSnapshot
-		if err := se.sessionVars.SetSystemVar(vardef.TiDBSnapshot, ""); err != nil {
+		se.GetSessionVars().AnalyzeVersion = prevStatsVer
+		se.GetSessionVars().EnableAnalyzeSnapshot = prevAnalyzeSnapshot
+		if err := se.GetSessionVars().SetSystemVar(vardef.TiDBSnapshot, ""); err != nil {
 			logutil.BgLogger().Error("set tidbSnapshot error", zap.Error(err))
 		}
-		se.sessionVars.SnapshotInfoschema = nil
-		se.sessionVars.SnapshotTS = 0
+		se.GetSessionVars().SnapshotInfoschema = nil
+		se.GetSessionVars().SnapshotTS = 0
 		if !execOption.IgnoreWarning {
 			if se != nil && se.GetSessionVars().StmtCtx.WarningCount() > 0 {
 				warnings := se.GetSessionVars().StmtCtx.GetWarnings()
 				s.GetSessionVars().StmtCtx.AppendWarnings(warnings)
 			}
 		}
-		se.sessionVars.PartitionPruneMode.Store(prePruneMode)
-		se.sessionVars.OptimizerUseInvisibleIndexes = false
-		se.sessionVars.SkipMissingPartitionStats = preSkipStats
-		se.sessionVars.InspectionTableCache = nil
-		se.sessionVars.MemTracker.Detach()
-		s.sysSessionPool().Put(tmp)
+		se.GetSessionVars().PartitionPruneMode.Store(prePruneMode)
+		se.GetSessionVars().OptimizerUseInvisibleIndexes = false
+		se.GetSessionVars().SkipMissingPartitionStats = preSkipStats
+		se.GetSessionVars().InspectionTableCache = nil
+		se.GetSessionVars().MemTracker.Detach()
+		s.sysSessionPool().Put(se)
 	}, nil
 }
 
-func (s *session) withRestrictedSQLExecutor(ctx context.Context, opts []sqlexec.OptionFuncAlias, fn func(context.Context, *session) ([]chunk.Row, []*resolve.ResultField, error)) ([]chunk.Row, []*resolve.ResultField, error) {
+func (s *session) withRestrictedSQLExecutor(ctx context.Context, opts []sqlexec.OptionFuncAlias, fn func(context.Context, *internalsession.Session) ([]chunk.Row, []*resolve.ResultField, error)) ([]chunk.Row, []*resolve.ResultField, error) {
 	execOption := sqlexec.GetExecOption(opts)
-	var se *session
+	var se *internalsession.Session
 	var clean func()
 	var err error
 	if execOption.UseCurSession {
@@ -1971,7 +1971,7 @@ func (s *session) withRestrictedSQLExecutor(ctx context.Context, opts []sqlexec.
 }
 
 func (s *session) ExecRestrictedSQL(ctx context.Context, opts []sqlexec.OptionFuncAlias, sql string, params ...any) ([]chunk.Row, []*resolve.ResultField, error) {
-	return s.withRestrictedSQLExecutor(ctx, opts, func(ctx context.Context, se *session) ([]chunk.Row, []*resolve.ResultField, error) {
+	return s.withRestrictedSQLExecutor(ctx, opts, func(ctx context.Context, se *internalsession.Session) ([]chunk.Row, []*resolve.ResultField, error) {
 		stmt, err := se.ParseWithParams(ctx, sql, params...)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
@@ -1981,9 +1981,9 @@ func (s *session) ExecRestrictedSQL(ctx context.Context, opts []sqlexec.OptionFu
 		metrics.SessionRestrictedSQLCounter.Inc()
 		ctx = context.WithValue(ctx, execdetails.StmtExecDetailKey, &execdetails.StmtExecDetails{})
 		ctx = context.WithValue(ctx, tikvutil.ExecDetailsKey, &tikvutil.ExecDetails{})
-		rs, err := se.ExecuteInternalStmt(ctx, stmt)
+		rs, err := ExecuteInternalStmt(ctx, se, stmt)
 		if err != nil {
-			se.sessionVars.StmtCtx.AppendError(err)
+			se.GetSessionVars().StmtCtx.AppendError(err)
 		}
 		if rs == nil {
 			return nil, nil, err
@@ -1994,7 +1994,7 @@ func (s *session) ExecRestrictedSQL(ctx context.Context, opts []sqlexec.OptionFu
 			}
 		}()
 		var rows []chunk.Row
-		rows, err = drainRecordSet(ctx, se, rs, nil)
+		rows, err = drainRecordSet(ctx, se.GetSessionVars().MaxChunkSize, rs, nil)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -2008,15 +2008,15 @@ func (s *session) ExecRestrictedSQL(ctx context.Context, opts []sqlexec.OptionFu
 }
 
 // ExecuteInternalStmt execute internal stmt
-func (s *session) ExecuteInternalStmt(ctx context.Context, stmtNode ast.StmtNode) (sqlexec.RecordSet, error) {
-	origin := s.sessionVars.InRestrictedSQL
-	s.sessionVars.InRestrictedSQL = true
+func ExecuteInternalStmt(ctx context.Context, s *internalsession.Session, stmtNode ast.StmtNode) (sqlexec.RecordSet, error) {
+	origin := s.GetSessionVars().InRestrictedSQL
+	s.GetSessionVars().InRestrictedSQL = true
 	defer func() {
-		s.sessionVars.InRestrictedSQL = origin
+		s.GetSessionVars().InRestrictedSQL = origin
 		// Restore the goroutine label by using the original ctx after execution is finished.
 		pprof.SetGoroutineLabels(ctx)
 	}()
-	return s.ExecuteStmt(ctx, stmtNode)
+	return s.GetSQLExecutor().ExecuteStmt(ctx, stmtNode)
 }
 
 func (s *session) ExecuteStmt(ctx context.Context, stmtNode ast.StmtNode) (sqlexec.RecordSet, error) {
@@ -4074,13 +4074,8 @@ func (s *session) ShowProcess() *util.ProcessInfo {
 }
 
 // GetStartTSFromSession returns the startTS in the session `se`
-func GetStartTSFromSession(se any) (startTS, processInfoID uint64) {
-	tmp, ok := se.(*session)
-	if !ok {
-		logutil.BgLogger().Error("GetStartTSFromSession failed, can't transform to session struct")
-		return 0, 0
-	}
-	txnInfo := tmp.TxnInfo()
+func GetStartTSFromSession(se util.InternalSessionInfo) (startTS, processInfoID uint64) {
+	txnInfo := se.TxnInfo()
 	if txnInfo != nil {
 		startTS = txnInfo.StartTS
 		if txnInfo.ProcessInfo != nil {

@@ -18,6 +18,7 @@ import (
 	"context"
 	goerr "errors"
 	"fmt"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"strings"
 	"time"
 
@@ -98,7 +99,7 @@ type DDLNotifier struct {
 	ctx            context.Context
 	cancel         context.CancelFunc
 	wg             util.WaitGroupWrapper
-	sysSessionPool util.SessionPool
+	sysSessionPool *internalsession.Pool
 
 	store        Store
 	handlers     map[HandlerID]SchemaChangeHandler
@@ -110,7 +111,7 @@ type DDLNotifier struct {
 
 // NewDDLNotifier initializes the global DDLNotifier.
 func NewDDLNotifier(
-	sysSessionPool util.SessionPool,
+	sysSessionPool *internalsession.Pool,
 	store Store,
 	pollInterval time.Duration,
 ) *DDLNotifier {
@@ -183,7 +184,7 @@ func (n *DDLNotifier) processEvents(ctx context.Context) error {
 		return errors.Trace(err)
 	}
 	defer n.sysSessionPool.Put(s)
-	sess4List := sess.NewSession(s.(sessionctx.Context))
+	sess4List := sess.NewSession(s)
 	result, closeFn := n.store.List(ctx, sess4List)
 	defer closeFn()
 
@@ -192,7 +193,7 @@ func (n *DDLNotifier) processEvents(ctx context.Context) error {
 		return errors.Trace(err)
 	}
 	defer n.sysSessionPool.Put(s2)
-	sess4Process := sess.NewSession(s2.(sessionctx.Context))
+	sess4Process := sess.NewSession(s2)
 
 	// we should ensure deliver order of events to a handler, so if a handler returns
 	// error for previous events it should not receive later events.
@@ -242,7 +243,7 @@ func (n *DDLNotifier) processEvents(ctx context.Context) error {
 				if err3 != nil {
 					return errors.Trace(err3)
 				}
-				sess4Del := sess.NewSession(s3.(sessionctx.Context))
+				sess4Del := sess.NewSession(s3)
 				err3 = n.store.DeleteAndCommit(
 					ctx,
 					sess4Del,

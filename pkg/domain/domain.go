@@ -69,6 +69,7 @@ import (
 	metrics2 "github.com/pingcap/tidb/pkg/planner/core/metrics"
 	"github.com/pingcap/tidb/pkg/privilege/privileges"
 	"github.com/pingcap/tidb/pkg/resourcegroup/runaway"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"github.com/pingcap/tidb/pkg/sessionctx"
 	"github.com/pingcap/tidb/pkg/sessionctx/sessionstates"
 	"github.com/pingcap/tidb/pkg/sessionctx/sysproctrack"
@@ -165,7 +166,7 @@ type Domain struct {
 	schemaLease     time.Duration
 	// Note: If you no longer need the session, you must call Destroy to release it.
 	// Otherwise, the session will be leaked. Because there is a strong reference from the domain to the session.
-	sysSessionPool util.DestroyableSessionPool
+	sysSessionPool *internalsession.Pool
 	exit           chan struct{}
 	// `etcdClient` must be used when keyspace is not set, or when the logic to each etcd path needs to be separated by keyspace.
 	etcdClient *clientv3.Client
@@ -1003,9 +1004,8 @@ func (do *Domain) CheckAutoAnalyzeWindows() {
 		return
 	}
 	// Make sure the session is new.
-	sctx := se.(sessionctx.Context)
 	defer do.sysSessionPool.Put(se)
-	if !autoanalyze.CheckAutoAnalyzeWindow(sctx) {
+	if !autoanalyze.CheckAutoAnalyzeWindow(se) {
 		for _, id := range handleutil.GlobalAutoAnalyzeProcessList.All() {
 			do.SysProcTracker().KillSysProcess(id)
 		}
@@ -1020,14 +1020,13 @@ func (do *Domain) refreshMDLCheckTableInfo(ctx context.Context) {
 		return
 	}
 	// Make sure the session is new.
-	sctx := se.(sessionctx.Context)
 	ctx = kv.WithInternalSourceType(ctx, kv.InternalTxnMeta)
-	if _, err := sctx.GetSQLExecutor().ExecuteInternal(ctx, "rollback"); err != nil {
-		se.Close()
+	if _, err := se.GetSQLExecutor().ExecuteInternal(ctx, "rollback"); err != nil {
+		se.Destroy()
 		return
 	}
 	defer do.sysSessionPool.Put(se)
-	exec := sctx.GetRestrictedSQLExecutor()
+	exec := se.GetRestrictedSQLExecutor()
 	domainSchemaVer := do.InfoSchema().SchemaMetaVersion()
 	// the job must stay inside tidb_ddl_job if we need to wait schema version for it.
 	sql := fmt.Sprintf(`select job_id, version, table_ids from mysql.tidb_mdl_info
@@ -1334,29 +1333,8 @@ func NewDomainWithEtcdClient(store kv.Storage, schemaLease time.Duration, statsL
 	intest.Assert(schemaLease > 0, "schema lease should be a positive duration")
 	capacity := 200 // capacity of the sysSessionPool size
 	do := &Domain{
-		store: store,
-		exit:  make(chan struct{}),
-		sysSessionPool: util.NewSessionPool(
-			capacity, factory,
-			func(r pools.Resource) {
-				_, ok := r.(sessionctx.Context)
-				intest.Assert(ok)
-				infosync.StoreInternalSession(r)
-			},
-			func(r pools.Resource) {
-				sctx, ok := r.(sessionctx.Context)
-				intest.Assert(ok)
-				intest.AssertFunc(func() bool {
-					txn, _ := sctx.Txn(false)
-					return txn == nil || !txn.Valid()
-				})
-				infosync.DeleteInternalSession(r)
-			},
-			func(r pools.Resource) {
-				intest.Assert(r != nil)
-				infosync.DeleteInternalSession(r)
-			},
-		),
+		store:             store,
+		exit:              make(chan struct{}),
 		statsLease:        statsLease,
 		schemaLease:       schemaLease,
 		slowQuery:         newTopNSlowQueries(config.GetGlobalConfig().InMemSlowQueryTopNNum, time.Hour*24*7, config.GetGlobalConfig().InMemSlowQueryRecentNum),
@@ -1368,7 +1346,29 @@ func NewDomainWithEtcdClient(store kv.Storage, schemaLease time.Duration, statsL
 		},
 		mdlCheckCh: make(chan struct{}),
 	}
-
+	do.sysSessionPool = internalsession.NewPool(
+		capacity,
+		func() (internalsession.CloseableSessionContext, error) {
+			r, err := factory()
+			if err != nil {
+				return nil, err
+			}
+			sctx, ok := r.(internalsession.CloseableSessionContext)
+			if !ok {
+				r.Close()
+				err = errors.Errorf("invalid resource type: %T", r)
+				intest.AssertNoError(err)
+				return nil, err
+			}
+			return sctx, nil
+		},
+		internalsession.WithGetSessionManager(func() util.SessionManager {
+			if is := do.InfoSyncer(); is != nil {
+				return is.GetSessionManager()
+			}
+			return nil
+		}),
+	)
 	do.infoCache = infoschema.NewCache(do, int(vardef.SchemaVersionCacheLimit.Load()))
 	do.stopAutoAnalyze.Store(false)
 	do.wg = util.NewWaitGroupEnhancedWrapper("domain", do.exit, config.GetGlobalConfig().TiDBEnableExitCheck)
@@ -1874,7 +1874,7 @@ func (do *Domain) distTaskFrameworkLoop(ctx context.Context, taskManager *storag
 }
 
 // SysSessionPool returns the system session pool.
-func (do *Domain) SysSessionPool() util.DestroyableSessionPool {
+func (do *Domain) SysSessionPool() *internalsession.Pool {
 	return do.sysSessionPool
 }
 
@@ -2017,9 +2017,10 @@ func privReloadEvent(h *privileges.Handle, event *PrivilegeEvent) (err error) {
 
 // LoadSysVarCacheLoop create a goroutine loads sysvar cache in a loop,
 // it should be called only once in BootstrapSession.
-func (do *Domain) LoadSysVarCacheLoop(ctx sessionctx.Context) error {
+func (do *Domain) LoadSysVarCacheLoop(ctx internalsession.SessionContext) error {
 	ctx.GetSessionVars().InRestrictedSQL = true
-	err := do.rebuildSysVarCache(ctx)
+	se := internalsession.NewSession(ctx)
+	err := do.rebuildSysVarCache(se)
 	if err != nil {
 		return err
 	}
@@ -2068,7 +2069,7 @@ func (do *Domain) LoadSysVarCacheLoop(ctx sessionctx.Context) error {
 			}
 			count = 0
 			logutil.BgLogger().Debug("Rebuilding sysvar cache from etcd watch event.")
-			err := do.rebuildSysVarCache(ctx)
+			err := do.rebuildSysVarCache(se)
 			metrics.LoadSysVarCacheCounter.WithLabelValues(metrics.RetLabel(err)).Inc()
 			if err != nil {
 				logutil.BgLogger().Error("LoadSysVarCacheLoop failed", zap.Error(err))
@@ -2524,7 +2525,7 @@ func (do *Domain) UpdateTableStatsLoop(ctx, initStatsCtx sessionctx.Context) err
 			// so we need the gc min start ts calculation to track it as an internal session.
 			// Since the session manager may not be ready at this moment, `infosync.StoreInternalSession` can fail.
 			// we need to retry until the session manager is ready or the init stats completes.
-			for !infosync.StoreInternalSession(initStatsCtx) {
+			for !infosync.StoreInternalSession(initStatsCtx.(util.InternalSessionInfo)) {
 				waitRetry := time.After(time.Second)
 				select {
 				case <-do.StatsHandle().InitStatsDone:
@@ -2537,7 +2538,7 @@ func (do *Domain) UpdateTableStatsLoop(ctx, initStatsCtx sessionctx.Context) err
 			case <-do.exit: // It may happen that before initStatsDone, tidb receive Ctrl+C
 				return
 			}
-			infosync.DeleteInternalSession(initStatsCtx)
+			infosync.DeleteInternalSession(initStatsCtx.(util.InternalSessionInfo))
 		},
 		"RemoveInitStatsFromInternalSessions",
 	)

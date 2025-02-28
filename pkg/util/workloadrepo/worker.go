@@ -17,6 +17,7 @@ package workloadrepo
 import (
 	"context"
 	"errors"
+	"github.com/pingcap/tidb/pkg/session/internalsession"
 	"strconv"
 	"sync"
 	"time"
@@ -109,7 +110,7 @@ type sessionPool interface {
 type worker struct {
 	sync.Mutex
 	etcdClient     *clientv3.Client
-	sesspool       sessionPool
+	sesspool       *internalsession.Pool
 	cancel         context.CancelFunc
 	newOwner       func(string, string) owner.Manager
 	owner          owner.Manager
@@ -195,7 +196,7 @@ func init() {
 	})
 }
 
-func initializeWorker(w *worker, etcdCli *clientv3.Client, newOwner func(string, string) owner.Manager, sesspool sessionPool, workloadTables []repositoryTable) {
+func initializeWorker(w *worker, etcdCli *clientv3.Client, newOwner func(string, string) owner.Manager, sesspool *internalsession.Pool, workloadTables []repositoryTable) {
 	w.etcdClient = etcdCli
 	w.sesspool = sesspool
 	w.newOwner = newOwner
@@ -266,7 +267,7 @@ func execRetry(ctx context.Context, sctx sessionctx.Context, sql string, args ..
 	return nil, errors.Join(errs[:]...)
 }
 
-func (w *worker) getSessionWithRetry() pools.Resource {
+func (w *worker) getSessionWithRetry() *internalsession.Session {
 	for {
 		_sessctx, err := w.sesspool.Get()
 		if err != nil {
