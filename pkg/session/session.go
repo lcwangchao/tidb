@@ -982,6 +982,8 @@ func (s *session) setLastTxnInfoBeforeTxnEnd() {
 	txnCtx := s.GetSessionVars().TxnCtx
 	if txnCtx.StartTS == 0 {
 		// If the txn is not active, for example, executing "SELECT 1", skip setting the last txn info.
+		// We use `txnCtx.StartTS` instead of `txn.Valid()` here is because the point-get a short path, the txn is
+		// not active to performance purpose, but we still need to set the last txn info.
 		return
 	}
 
