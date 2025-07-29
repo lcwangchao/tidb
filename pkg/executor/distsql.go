@@ -1882,8 +1882,11 @@ func GetLackHandles(expectedHandles []kv.Handle, obtainedHandlesMap *kv.HandleMa
 }
 
 func getPhysicalPlanIDs(plans []base.PhysicalPlan) []int {
-	planIDs := make([]int, 0, len(plans))
+	planIDs := make([]int, 0, len(plans)+1)
 	for _, p := range plans {
+		if pl, ok := p.(*plannercore.PhysicalIndexLookUp); ok {
+			planIDs = append(planIDs, pl.GetTableScanPlan().ID())
+		}
 		planIDs = append(planIDs, p.ID())
 	}
 	return planIDs

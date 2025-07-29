@@ -488,6 +488,10 @@ type PhysicalIndexLookUp struct {
 	commonHandleColumns []*expression.Column
 }
 
+func (p *PhysicalIndexLookUp) GetTableScanPlan() *PhysicalTableScan {
+	return p.tableScanPlan
+}
+
 func (p PhysicalIndexLookUp) Init(ctx base.PlanContext, offset int) *PhysicalIndexLookUp {
 	p.BasePhysicalPlan = physicalop.NewBasePhysicalPlan(ctx, plancodec.TypeIndexLookUp, &p, offset)
 	p.SetChildren(p.indexPlan, p.tableScanPlan)
