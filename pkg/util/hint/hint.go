@@ -93,6 +93,8 @@ const (
 	HintOrderIndex = "order_index"
 	// HintNoOrderIndex is hint enforce using some indexes and not keep the index's order.
 	HintNoOrderIndex = "no_order_index"
+	// HintIndexLookupPushDown is hint enforce using index lookup push down.
+	HintIndexLookupPushDown = "index_lookup_push_down"
 	// HintAggToCop is hint enforce pushing aggregation to coprocessor.
 	HintAggToCop = "agg_to_cop"
 	// HintReadFromStorage is hint enforce some tables read from specific type of storage.
@@ -748,7 +750,7 @@ func ParsePlanHints(hints []*ast.TableOptimizerHint,
 		// Set warning for the hint that requires the table name.
 		switch hint.HintName.L {
 		case TiDBMergeJoin, HintSMJ, TiDBIndexNestedLoopJoin, HintINLJ, HintINLHJ, HintINLMJ,
-			HintNoHashJoin, HintNoMergeJoin, TiDBHashJoin, HintHJ, HintUseIndex, HintIgnoreIndex,
+			HintNoHashJoin, HintNoMergeJoin, TiDBHashJoin, HintHJ, HintUseIndex, HintIgnoreIndex, HintIndexLookupPushDown,
 			HintForceIndex, HintOrderIndex, HintNoOrderIndex, HintIndexMerge, HintLeading:
 			if len(hint.Tables) == 0 {
 				var sb strings.Builder
@@ -804,12 +806,13 @@ func ParsePlanHints(hints []*ast.TableOptimizerHint,
 			preferAggType |= PreferStreamAgg
 		case HintAggToCop:
 			preferAggToCop = true
-		case HintUseIndex, HintIgnoreIndex, HintForceIndex, HintOrderIndex, HintNoOrderIndex:
+		case HintUseIndex, HintIgnoreIndex, HintForceIndex, HintOrderIndex, HintNoOrderIndex, HintIndexLookupPushDown:
 			dbName := hint.Tables[0].DBName
 			if dbName.L == "" {
 				dbName = ast.NewCIStr(currentDB)
 			}
 			var hintType ast.IndexHintType
+			var hintPushDownLookup bool
 			switch hint.HintName.L {
 			case HintUseIndex:
 				hintType = ast.HintUse
@@ -821,15 +824,19 @@ func ParsePlanHints(hints []*ast.TableOptimizerHint,
 				hintType = ast.HintOrderIndex
 			case HintNoOrderIndex:
 				hintType = ast.HintNoOrderIndex
+			case HintIndexLookupPushDown:
+				hintType = ast.HintUse
+				hintPushDownLookup = true
 			}
 			indexHintList = append(indexHintList, HintedIndex{
 				DBName:     dbName,
 				TblName:    hint.Tables[0].TableName,
 				Partitions: hint.Tables[0].PartitionList,
 				IndexHint: &ast.IndexHint{
-					IndexNames: hint.Indexes,
-					HintType:   hintType,
-					HintScope:  ast.HintForScan,
+					IndexNames:         hint.Indexes,
+					HintType:           hintType,
+					HintScope:          ast.HintForScan,
+					HintPushDownLookup: hintPushDownLookup,
 				},
 			})
 		case HintReadFromStorage:

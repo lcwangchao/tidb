@@ -380,9 +380,10 @@ const (
 
 // IndexHint represents a hint for optimizer to use/ignore/force for join/order by/group by.
 type IndexHint struct {
-	IndexNames []CIStr
-	HintType   IndexHintType
-	HintScope  IndexHintScope
+	IndexNames         []CIStr
+	HintType           IndexHintType
+	HintScope          IndexHintScope
+	HintPushDownLookup bool
 }
 
 // IndexHint Restore (The const field uses switch to facilitate understanding)

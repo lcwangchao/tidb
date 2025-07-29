@@ -4033,7 +4033,7 @@ func (n *TableOptimizerHint) Restore(ctx *format.RestoreCtx) error {
 			}
 			table.Restore(ctx)
 		}
-	case "use_index", "ignore_index", "use_index_merge", "force_index", "order_index", "no_order_index":
+	case "use_index", "ignore_index", "use_index_merge", "force_index", "order_index", "no_order_index", "index_lookup_push_down":
 		n.Tables[0].Restore(ctx)
 		ctx.WritePlain(" ")
 		for i, index := range n.Indexes {

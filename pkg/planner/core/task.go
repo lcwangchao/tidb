@@ -614,19 +614,90 @@ func (p *PhysicalMergeJoin) Attach2Task(tasks ...base.Task) base.Task {
 	return t
 }
 
+func buildIndexPlanForIndexLookUpPushDown(ctx base.PlanContext, indexPlan base.PhysicalPlan, tablePlan base.PhysicalPlan, commonHandleColumns []*expression.Column) (base.PhysicalPlan, error) {
+	tablePlan, err := tablePlan.Clone(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	setTableScanToTableRowIDScan(tablePlan)
+
+	var parent base.PhysicalPlan
+	child := tablePlan
+	for len(child.Children()) > 0 {
+		child = child.Children()[0]
+		parent = child
+
+		newID := int(ctx.GetSessionVars().PlanID.Add(1))
+		switch p := parent.(type) {
+		case *PhysicalLimit:
+			p.SetID(newID)
+		case *PhysicalSelection:
+			p.SetID(newID)
+		default:
+			return nil, errors.Errorf("IndexLookupPushDown not supported when table plan contains: %T", p)
+		}
+	}
+
+	tableScan, ok := child.(*PhysicalTableScan)
+	if !ok {
+		return nil, errors.Errorf("The leaf plan in table plan must be PhysicalTableScan, got: %T", child)
+	}
+	tableScan.SetID(int(ctx.GetSessionVars().PlanID.Add(1)))
+
+	child = indexPlan
+	for len(child.Children()) > 0 {
+		child = child.Children()[0]
+	}
+
+	indexScan, ok := child.(*PhysicalIndexScan)
+	if !ok {
+		return nil, errors.Errorf("The leaf plan in index plan must be PhysicalIndexScan, got: %T", child)
+	}
+
+	indexLookUp := PhysicalIndexLookUp{
+		indexPlan:           indexPlan,
+		indexScanPlan:       indexScan,
+		tableScanPlan:       tableScan,
+		commonHandleColumns: commonHandleColumns,
+	}.Init(ctx, indexPlan.QueryBlockOffset())
+
+	if parent != nil {
+		parent.SetChildren(indexLookUp)
+		return tableScan, nil
+	}
+	return indexLookUp, nil
+}
+
 func buildIndexLookUpTask(ctx base.PlanContext, t *CopTask) *RootTask {
 	newTask := &RootTask{}
+	indexPlan := t.indexPlan
+	if t.pushDownIndexLookUp {
+		p, err := buildIndexPlanForIndexLookUpPushDown(ctx, indexPlan, t.tablePlan, t.commonHandleCols)
+		if err != nil {
+			ctx.GetSessionVars().StmtCtx.AppendWarning(err)
+		}
+		indexPlan = p
+	}
+
 	p := PhysicalIndexLookUpReader{
 		tablePlan:        t.tablePlan,
-		indexPlan:        t.indexPlan,
+		indexPlan:        indexPlan,
 		ExtraHandleCol:   t.extraHandleCol,
 		CommonHandleCols: t.commonHandleCols,
 		expectedCnt:      t.expectCnt,
 		keepOrder:        t.keepOrder,
+		PushDownLookUp:   t.pushDownIndexLookUp,
 	}.Init(ctx, t.tablePlan.QueryBlockOffset())
 	p.PlanPartInfo = t.physPlanPartInfo
 	setTableScanToTableRowIDScan(p.tablePlan)
-	p.SetStats(t.tablePlan.StatsInfo())
+
+	if p.PushDownLookUp {
+		t.tablePlan.SetStats(t.tablePlan.StatsInfo().Scale(0))
+		p.SetStats(t.indexPlan.StatsInfo())
+	} else {
+		p.SetStats(t.tablePlan.StatsInfo())
+	}
+
 	// Do not inject the extra Projection even if t.needExtraProj is set, or the schema between the phase-1 agg and
 	// the final agg would be broken. Please reference comments for the similar logic in
 	// (*copTask).convertToRootTaskImpl() for the PhysicalTableReader case.
@@ -877,7 +948,9 @@ func (p *PhysicalLimit) sinkIntoIndexLookUp(t base.Task) bool {
 		Count:  p.Count,
 	}
 	originStats := ts.StatsInfo()
-	ts.SetStats(p.StatsInfo())
+	if !reader.PushDownLookUp {
+		ts.SetStats(p.StatsInfo())
+	}
 	if originStats != nil {
 		// keep the original stats version
 		ts.StatsInfo().StatsVersion = originStats.StatsVersion

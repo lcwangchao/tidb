@@ -373,6 +373,8 @@ type CopTask struct {
 
 	// warnings passed through different task copy attached with more upper operator specific warnings. (not concurrent safe)
 	warnings simpleWarnings
+
+	pushDownIndexLookUp bool
 }
 
 // AppendWarning appends a warning

@@ -445,10 +445,23 @@ func flattenTreePlan(plan base.PhysicalPlan, plans []base.PhysicalPlan) []base.P
 	return plans
 }
 
+func flattenPushDownPlanDepth(plan base.PhysicalPlan, plans []base.PhysicalPlan) []base.PhysicalPlan {
+	plans = append(plans, plan)
+	switch n := plan.(type) {
+	case *PhysicalIndexLookUp:
+		plans = flattenPushDownPlanDepth(n.indexPlan, plans)
+	default:
+		for _, child := range plan.Children() {
+			plans = flattenPushDownPlanDepth(child, plans)
+		}
+	}
+	return plans
+}
+
 // flattenPushDownPlan converts a plan tree to a list, whose head is the leaf node like table scan.
 func flattenPushDownPlan(p base.PhysicalPlan) []base.PhysicalPlan {
 	plans := make([]base.PhysicalPlan, 0, 5)
-	plans = flattenTreePlan(p, plans)
+	plans = flattenPushDownPlanDepth(p, plans)
 	for i := range len(plans) / 2 {
 		j := len(plans) - i - 1
 		plans[i], plans[j] = plans[j], plans[i]

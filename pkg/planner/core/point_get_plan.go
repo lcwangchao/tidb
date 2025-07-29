@@ -1596,7 +1596,7 @@ func indexIsAvailableByHints(
 		var hintType ast.IndexHintType
 		// The parsing logic from ParsePlanHints()
 		switch h.HintName.L {
-		case hint.HintUseIndex:
+		case hint.HintUseIndex, hint.HintIndexLookupPushDown:
 			hintType = ast.HintUse
 		case hint.HintIgnoreIndex:
 			hintType = ast.HintIgnore

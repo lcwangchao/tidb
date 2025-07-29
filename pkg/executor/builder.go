@@ -4098,7 +4098,7 @@ func buildTableReq(b *executorBuilder, schemaLen int, plans []base.PhysicalPlan)
 // buildIndexReq is designed to create a DAG for index request.
 // If len(ByItems) != 0 means index request should return related columns
 // to sort result rows in TiDB side for partition tables.
-func buildIndexReq(ctx sessionctx.Context, columns []*model.IndexColumn, handleLen int, plans []base.PhysicalPlan) (dagReq *tipb.DAGRequest, err error) {
+func buildIndexReq(ctx sessionctx.Context, columns []*model.IndexColumn, handleLen int, plans []base.PhysicalPlan, inIndexLookUpPushDown bool) (dagReq *tipb.DAGRequest, err error) {
 	indexReq, err := builder.ConstructDAGReq(ctx, plans, kv.TiKV)
 	if err != nil {
 		return nil, err
@@ -4135,6 +4135,32 @@ func buildIndexReq(ctx sessionctx.Context, columns []*model.IndexColumn, handleL
 		// need add one more column for pid or physical table id
 		indexReq.OutputOffsets = append(indexReq.OutputOffsets, uint32(len(columns)+handleLen))
 	}
+
+	if inIndexLookUpPushDown {
+		found := false
+		for i, plan := range plans {
+			if _, found = plan.(*plannercore.PhysicalIndexLookUp); found {
+				pos := uint32(i)
+				barrier := &tipb.PartialOutputBarrier{
+					OutputOffsets: indexReq.OutputOffsets,
+					EncodeType:    indexReq.EncodeType,
+					Position:      &pos,
+				}
+				indexReq.ParitalOutputBarriers = append(indexReq.ParitalOutputBarriers, barrier)
+				schema := plans[len(plans)-1].Schema()
+				indexReq.OutputOffsets = make([]uint32, 0, schema.Len())
+				for j := range schema.Len() {
+					indexReq.OutputOffsets = append(indexReq.OutputOffsets, uint32(j))
+				}
+				break
+			}
+		}
+
+		if !found {
+			return nil, errors.New("index look up push down is enabled, but no index look up plan found")
+		}
+	}
+
 	return indexReq, err
 }
 
@@ -4146,7 +4172,7 @@ func buildNoRangeIndexLookUpReader(b *executorBuilder, v *plannercore.PhysicalIn
 	} else {
 		handleLen = 1
 	}
-	indexReq, err := buildIndexReq(b.ctx, is.Index.Columns, handleLen, v.IndexPlans)
+	indexReq, err := buildIndexReq(b.ctx, is.Index.Columns, handleLen, v.IndexPlans, v.PushDownLookUp)
 	if err != nil {
 		return nil, err
 	}
@@ -4195,6 +4221,7 @@ func buildNoRangeIndexLookUpReader(b *executorBuilder, v *plannercore.PhysicalIn
 		PushedLimit:                v.PushedLimit,
 		idxNetDataSize:             v.GetAvgTableRowSize(),
 		avgRowSize:                 v.GetAvgTableRowSize(),
+		lookupPushDown:             v.PushDownLookUp,
 	}
 
 	if v.ExtraHandleCol != nil {
@@ -4227,49 +4254,49 @@ func (b *executorBuilder) buildIndexLookUpReader(v *plannercore.PhysicalIndexLoo
 		return nil
 	}
 
-	dagPB := ret.dagPB
-	user := b.ctx.GetSessionVars().User
-	if (b.ctx.GetSessionVars().SessionAlias == "test" || (user != nil && user.Username == "test")) && (!is.KeepOrder || is.Table.GetPartitionInfo() == nil) {
-		var handleLen, extraColCnt int
-		if v.IndexPlans[0].(*plannercore.PhysicalIndexScan).NeedExtraOutputCol() {
-			extraColCnt = 1
-		}
-
-		if len(v.CommonHandleCols) != 0 {
-			handleLen = len(v.CommonHandleCols)
-		} else {
-			handleLen = 1
-		}
-
-		buildSidePrimaryOffsets := make([]uint32, 0, handleLen)
-		for i := handleLen; i > 0; i-- {
-			buildSidePrimaryOffsets = append(buildSidePrimaryOffsets, dagPB.OutputOffsets[len(dagPB.OutputOffsets)-i-extraColCnt])
-		}
-
-		tblInfo := ret.table.Meta()
-		position := uint32(len(dagPB.Executors))
-		tblScanExec := ret.tableRequest.Executors[0].TblScan
-		dagPB.Executors = append(dagPB.Executors, &tipb.Executor{
-			Tp: tipb.ExecType_TypeIndexLookup,
-			IndexLookup: &tipb.IndexLookup{
-				TableId:                    tblInfo.ID,
-				Columns:                    tblScanExec.Columns,
-				BuildSidePrimaryKeyOffsets: buildSidePrimaryOffsets,
-				PrimaryColumnIds:           tblScanExec.PrimaryColumnIds,
-				PrimaryPrefixColumnIds:     tblScanExec.PrimaryPrefixColumnIds,
-			},
-		})
-		dagPB.Executors = append(dagPB.Executors, ret.tableRequest.Executors[1:]...)
-		barrier := &tipb.PartialOutputBarrier{
-			OutputOffsets: dagPB.OutputOffsets,
-			EncodeType:    dagPB.EncodeType,
-			Position:      &position,
-		}
-		dagPB.ParitalOutputBarriers = append(dagPB.ParitalOutputBarriers, barrier)
-		dagPB.OutputOffsets = ret.tableRequest.OutputOffsets
-		dagPB.EncodeType = ret.tableRequest.EncodeType
-		ret.lookupPushDown = true
-	}
+	//dagPB := ret.dagPB
+	//user := b.ctx.GetSessionVars().User
+	//if (b.ctx.GetSessionVars().SessionAlias == "test" || (user != nil && user.Username == "test")) && (!is.KeepOrder || is.Table.GetPartitionInfo() == nil) {
+	//	var handleLen, extraColCnt int
+	//	if v.IndexPlans[0].(*plannercore.PhysicalIndexScan).NeedExtraOutputCol() {
+	//		extraColCnt = 1
+	//	}
+	//
+	//	if len(v.CommonHandleCols) != 0 {
+	//		handleLen = len(v.CommonHandleCols)
+	//	} else {
+	//		handleLen = 1
+	//	}
+	//
+	//	buildSidePrimaryOffsets := make([]uint32, 0, handleLen)
+	//	for i := handleLen; i > 0; i-- {
+	//		buildSidePrimaryOffsets = append(buildSidePrimaryOffsets, dagPB.OutputOffsets[len(dagPB.OutputOffsets)-i-extraColCnt])
+	//	}
+	//
+	//	tblInfo := ret.table.Meta()
+	//	position := uint32(len(dagPB.Executors))
+	//	tblScanExec := ret.tableRequest.Executors[0].TblScan
+	//	dagPB.Executors = append(dagPB.Executors, &tipb.Executor{
+	//		Tp: tipb.ExecType_TypeIndexLookup,
+	//		IndexLookup: &tipb.IndexLookup{
+	//			TableId:                    tblInfo.ID,
+	//			Columns:                    tblScanExec.Columns,
+	//			BuildSidePrimaryKeyOffsets: buildSidePrimaryOffsets,
+	//			PrimaryColumnIds:           tblScanExec.PrimaryColumnIds,
+	//			PrimaryPrefixColumnIds:     tblScanExec.PrimaryPrefixColumnIds,
+	//		},
+	//	})
+	//	dagPB.Executors = append(dagPB.Executors, ret.tableRequest.Executors[1:]...)
+	//	barrier := &tipb.PartialOutputBarrier{
+	//		OutputOffsets: dagPB.OutputOffsets,
+	//		EncodeType:    dagPB.EncodeType,
+	//		Position:      &position,
+	//	}
+	//	dagPB.ParitalOutputBarriers = append(dagPB.ParitalOutputBarriers, barrier)
+	//	dagPB.OutputOffsets = ret.tableRequest.OutputOffsets
+	//	dagPB.EncodeType = ret.tableRequest.EncodeType
+	//	ret.lookupPushDown = true
+	//}
 
 	ts := v.TablePlans[0].(*plannercore.PhysicalTableScan)
 
@@ -4329,7 +4356,7 @@ func buildNoRangeIndexMergeReader(b *executorBuilder, v *plannercore.PhysicalInd
 		var err error
 
 		if is, ok := v.PartialPlans[i][0].(*plannercore.PhysicalIndexScan); ok {
-			tempReq, err = buildIndexReq(b.ctx, is.Index.Columns, ts.HandleCols.NumCols(), v.PartialPlans[i])
+			tempReq, err = buildIndexReq(b.ctx, is.Index.Columns, ts.HandleCols.NumCols(), v.PartialPlans[i], false)
 			descs = append(descs, is.Desc)
 			indexes = append(indexes, is.Index)
 			if is.Index.Global {

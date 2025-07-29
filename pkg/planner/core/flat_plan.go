@@ -294,6 +294,9 @@ func (f *FlatPhysicalPlan) flattenRecursively(p base.Plan, info *operatorCtx, ta
 		case *PhysicalIndexHashJoin:
 			label[plan.InnerChildIdx] = ProbeSide
 			label[1-plan.InnerChildIdx] = BuildSide
+		case *PhysicalIndexLookUp:
+			label[0] = BuildSide
+			label[1] = ProbeSide
 		}
 
 		children := make([]base.PhysicalPlan, len(physPlan.Children()))

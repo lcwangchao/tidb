@@ -1319,6 +1319,7 @@ func getPossibleAccessPaths(ctx base.PlanContext, tableHints *hint.PlanHints, in
 			// our cost estimation is not reliable.
 			hasUseOrForce = true
 			path.Forced = true
+			path.PushDownIndexLookUp = hint.HintPushDownLookup
 			if hint.HintType == ast.HintOrderIndex {
 				path.ForceKeepOrder = true
 			}

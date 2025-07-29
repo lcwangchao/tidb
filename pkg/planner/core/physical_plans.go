@@ -480,6 +480,51 @@ func (p *PushedDownLimit) MemoryUsage() (sum int64) {
 	return pushedDownLimitSize
 }
 
+type PhysicalIndexLookUp struct {
+	physicalop.PhysicalSchemaProducer
+	indexPlan           base.PhysicalPlan
+	indexScanPlan       *PhysicalIndexScan
+	tableScanPlan       *PhysicalTableScan
+	commonHandleColumns []*expression.Column
+}
+
+func (p PhysicalIndexLookUp) Init(ctx base.PlanContext, offset int) *PhysicalIndexLookUp {
+	p.BasePhysicalPlan = physicalop.NewBasePhysicalPlan(ctx, plancodec.TypeIndexLookUp, &p, offset)
+	p.SetChildren(p.indexPlan, p.tableScanPlan)
+	p.SetStats(p.tableScanPlan.StatsInfo())
+	p.SetSchema(p.tableScanPlan.Schema())
+	return &p
+}
+
+func (p PhysicalIndexLookUp) ToPB(ctx *base.BuildPBContext, store kv.StoreType) (*tipb.Executor, error) {
+	tblScan, err := p.tableScanPlan.ToPB(ctx, store)
+	if err != nil {
+		return nil, err
+	}
+
+	handleLen := len(p.commonHandleColumns)
+	if handleLen == 0 {
+		handleLen = 1
+	}
+
+	indexColumnsLen := len(p.indexScanPlan.Index.Columns)
+	buildSidePrimaryOffsets := make([]uint32, 0, handleLen)
+	for i := 0; i < handleLen; i++ {
+		buildSidePrimaryOffsets = append(buildSidePrimaryOffsets, uint32(indexColumnsLen+i))
+	}
+
+	return &tipb.Executor{
+		Tp: tipb.ExecType_TypeIndexLookup,
+		IndexLookup: &tipb.IndexLookup{
+			TableId:                    tblScan.TblScan.TableId,
+			Columns:                    tblScan.TblScan.Columns,
+			BuildSidePrimaryKeyOffsets: buildSidePrimaryOffsets,
+			PrimaryColumnIds:           tblScan.TblScan.PrimaryColumnIds,
+			PrimaryPrefixColumnIds:     tblScan.TblScan.PrimaryPrefixColumnIds,
+		},
+	}, nil
+}
+
 // PhysicalIndexLookUpReader is the index look up reader in tidb. It's used in case of double reading.
 type PhysicalIndexLookUpReader struct {
 	physicalop.PhysicalSchemaProducer
@@ -504,6 +549,8 @@ type PhysicalIndexLookUpReader struct {
 	// required by cost calculation
 	expectedCnt uint64
 	keepOrder   bool
+
+	PushDownLookUp bool
 }
 
 // Clone implements op.PhysicalPlan interface.
