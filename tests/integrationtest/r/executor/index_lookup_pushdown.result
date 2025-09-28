@@ -16,6 +16,16 @@ create table t4(id int primary key, a int, b int, index a(a));
 alter table t4 cache;
 create temporary table tmp1(id int primary key, a int, b int, index a(a));
 create global temporary table tmp2(id int primary key, a int, b int, index a(a)) on commit delete rows;
+select @@tidb_enable_index_lookup_pushdown;
+@@tidb_enable_index_lookup_pushdown
+OFF
+explain select /*+ index_lookup_pushdown(t1, i) */ * from t1;
+id	estRows	task	access object	operator info
+TableReader_6	10000.00	root		data:TableFullScan_5
+└─TableFullScan_5	10000.00	cop[tikv]	table:t1	keep order:false, stats:pseudo
+Level	Code	Message
+Warning	1815	hint INDEX_LOOKUP_PUSH_DOWN is inapplicable, the tidb_enable_index_lookup_pushdown is off
+set @@tidb_enable_index_lookup_pushdown='ON';
 insert into t1 values
 (1, '9a', 10, 100),
 (2, '8b', 20, 200),

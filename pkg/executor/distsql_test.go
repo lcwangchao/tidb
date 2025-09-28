@@ -613,6 +613,7 @@ func TestIndexLookUpPushDownCopTask(t *testing.T) {
 	store := testkit.CreateMockStore(t)
 	tk := testkit.NewTestKit(t, store)
 	tk.MustExec("use test")
+	tk.MustExec("set @@tidb_enable_index_lookup_pushdown=1")
 	tk.MustExec("create table t(id int primary key, a int, b int, index a(a))")
 	tk.MustExec("insert into t values(1,10,100),(2,20,200),(3,30,300)")
 	tk.MustExec("set @@tidb_session_alias='test_index_lookup_push_down_cop'")

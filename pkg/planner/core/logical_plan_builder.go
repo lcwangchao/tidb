@@ -3691,7 +3691,7 @@ func (b *PlanBuilder) pushTableHints(hints []*ast.TableOptimizerHint, currentLev
 	planHints, subQueryHintFlags, err := h.ParsePlanHints(hints, currentLevel, currentDB,
 		b.hintProcessor, sessionVars.StmtCtx.StraightJoinOrder,
 		b.subQueryCtx == handlingInSubquery,
-		b.subQueryCtx == handlingExistsSubquery, b.subQueryCtx == notHandlingSubquery, warnHandler)
+		b.subQueryCtx == handlingExistsSubquery, b.subQueryCtx == notHandlingSubquery, sessionVars.EnableIndexLookUpPushDown, warnHandler)
 	if err != nil {
 		return
 	}

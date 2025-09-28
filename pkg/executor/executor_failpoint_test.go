@@ -773,6 +773,7 @@ func TestIndexLookUpPushDownExec(t *testing.T) {
 	store := testkit.CreateMockStore(t)
 	tk := testkit.NewTestKit(t, store)
 	tk.MustExec("use test")
+	tk.MustExec("set @@tidb_enable_index_lookup_pushdown=1")
 	tk.MustExec("create table t(id bigint primary key, a bigint, b bigint, index a(a))")
 	seed := time.Now().UnixNano()
 	logutil.BgLogger().Info("Run TestIndexLookUpPushDownExec with seed", zap.Int64("seed", seed))

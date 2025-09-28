@@ -34,6 +34,7 @@ func TestRealTiKVIndexLookUpPushDown(t *testing.T) {
 	tk := testkit.NewTestKit(t, store)
 	tk.MustExec("use test")
 	tk.MustExec("create table t(id bigint primary key, a bigint, b bigint, index a(a))")
+	tk.MustExec("set @@tidb_enable_index_lookup_pushdown=1")
 	seed := time.Now().UnixNano()
 	logutil.BgLogger().Info("Run TestRealTiKVIndexLookUpPushDown with seed", zap.Int64("seed", seed))
 	r := rand.New(rand.NewSource(seed))

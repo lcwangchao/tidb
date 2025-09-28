@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tidb/pkg/config/kerneltype"
 	mysql "github.com/pingcap/tidb/pkg/errno"
 	"github.com/pingcap/tidb/pkg/meta/model"
 	"github.com/pingcap/tidb/pkg/parser/ast"
@@ -751,6 +750,7 @@ func ParsePlanHints(hints []*ast.TableOptimizerHint,
 	currentLevel int, currentDB string,
 	hintProcessor *QBHintHandler, straightJoinOrder bool,
 	handlingInSubquery, handlingExistsSubquery, notHandlingSubquery bool,
+	indexLookUpPushDownEnabled bool,
 	warnHandler hintWarnHandler) (p *PlanHints, subQueryHintFlags uint64, err error) {
 	var (
 		sortMergeTables, inljTables, inlhjTables, inlmjTables, hashJoinTables, bcTables []HintedTable
@@ -849,8 +849,8 @@ func ParsePlanHints(hints []*ast.TableOptimizerHint,
 			case HintIndexLookUpPushDown:
 				inapplicableMsg := ""
 				switch {
-				case !kerneltype.IsClassic():
-					inapplicableMsg = "only classic kernel type is supported"
+				case !indexLookUpPushDownEnabled:
+					inapplicableMsg = "the tidb_enable_index_lookup_pushdown is off"
 				case len(hint.Indexes) == 0:
 					inapplicableMsg = "the index names should be specified"
 				}
