@@ -250,7 +250,7 @@ func (c *index) create(sctx table.MutateContext, txn kv.Transaction, indexedValu
 			// So if the key exists, just do nothing and return.
 			v, err := txn.GetMemBuffer().Get(ctx, key)
 			if err == nil {
-				if len(v) != 0 {
+				if len(v.Value) != 0 {
 					continue
 				}
 				// The key is marked as deleted in the memory buffer, as the existence check is done lazily
@@ -342,7 +342,8 @@ func (c *index) create(sctx table.MutateContext, txn kv.Transaction, indexedValu
 			if kv.IsErrNotFound(err) {
 				// Not in mem buffer, must do non-lazy read, since we must check
 				// if exists now, to be able to overwrite.
-				value, err = txn.GetSnapshot().Get(ctx, key)
+				entry, err := txn.GetSnapshot().Get(ctx, key)
+				value = entry.Value
 				if err == nil && len(value) == 0 {
 					err = kv.ErrNotExist
 				}
@@ -368,7 +369,8 @@ func (c *index) create(sctx table.MutateContext, txn kv.Transaction, indexedValu
 			}
 		} else if c.tblInfo.TempTableType != model.TempTableNone {
 			// Always check key for temporary table because it does not write to TiKV
-			value, err = txn.Get(ctx, key)
+			entry, getErr := txn.Get(ctx, key)
+			value, err = entry.Value, getErr
 		} else if hasTempKey {
 			// For temp index keys, we can't get the temp value from memory buffer, even if the lazy check is enabled.
 			// Otherwise, it may cause the temp index value to be overwritten, leading to data inconsistency.
@@ -393,7 +395,9 @@ func (c *index) create(sctx table.MutateContext, txn kv.Transaction, indexedValu
 		} else if opt.DupKeyCheck() == table.DupKeyCheckLazy {
 			value, err = txn.GetMemBuffer().GetLocal(ctx, key)
 		} else {
-			value, err = txn.Get(ctx, key)
+			var entry kv.ValueEntry
+			entry, err = txn.Get(ctx, key)
+			value = entry.Value
 		}
 		if err != nil && !kv.IsErrNotFound(err) {
 			return nil, err
@@ -738,7 +742,7 @@ func getKeyInTxn(ctx context.Context, txn kv.Transaction, key kv.Key) ([]byte, e
 		}
 		return nil, err
 	}
-	return val, nil
+	return val.Value, nil
 }
 
 // FetchValues implements table.Index interface.

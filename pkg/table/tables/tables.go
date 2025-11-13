@@ -1007,7 +1007,7 @@ func RowWithCols(t table.Table, ctx sessionctx.Context, h kv.Handle, cols []*tab
 	if err != nil {
 		return nil, err
 	}
-	v, _, err := DecodeRawRowData(ctx.GetExprCtx(), t.Meta(), h, cols, value)
+	v, _, err := DecodeRawRowData(ctx.GetExprCtx(), t.Meta(), h, cols, value.Value)
 	if err != nil {
 		return nil, err
 	}

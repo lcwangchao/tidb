@@ -457,11 +457,12 @@ func MustGetErr(key []byte, startTs uint64, store *TestStore) {
 	require.Error(store.t, err)
 }
 
-func kvGet(key []byte, readTs uint64, resolved, committed []uint64, store *TestStore) ([]byte, error) {
+func kvGet(key []byte, readTs uint64, resolved, committed []uint64, store *TestStore) (value []byte, err error) {
 	reqCtx := store.newReqCtx()
 	reqCtx.rpcCtx.ResolvedLocks = resolved
 	reqCtx.rpcCtx.CommittedLocks = committed
-	return store.MvccStore.Get(reqCtx, key, readTs)
+	value, _, err = store.MvccStore.Get(reqCtx, key, readTs, false)
+	return
 }
 
 func MustGet(key []byte, readTs uint64, store *TestStore) (val []byte) {
@@ -1441,7 +1442,7 @@ func TestBatchGet(t *testing.T) {
 	MustLoad(100, 101, store, "ta:1", "tb:2", "tc:3")
 	MustPrewritePut([]byte("ta"), []byte("ta"), []byte("0"), 103, store)
 	keys := [][]byte{[]byte("ta"), []byte("tb"), []byte("tc")}
-	pairs := store.MvccStore.BatchGet(store.newReqCtx(), keys, 104)
+	pairs := store.MvccStore.BatchGet(store.newReqCtx(), keys, 104, false)
 	require.Len(t, pairs, 3)
 	require.NotNil(t, pairs[0].Error)
 	require.Equal(t, "2", string(pairs[1].Value))
@@ -1611,7 +1612,7 @@ func TestAccessCommittedLocks(t *testing.T) {
 	reqCtx := store.newReqCtx()
 	reqCtx.rpcCtx.ResolvedLocks = []uint64{80}
 	reqCtx.rpcCtx.CommittedLocks = []uint64{30, 50}
-	pairs := store.MvccStore.BatchGet(reqCtx, keys, 100)
+	pairs := store.MvccStore.BatchGet(reqCtx, keys, 100, false)
 	require.Equal(store.t, len(expected), len(pairs))
 	for i, pair := range pairs {
 		e := expected[i]
@@ -1666,12 +1667,12 @@ func TestTiKVRCRead(t *testing.T) {
 	reqCtx.rpcCtx.IsolationLevel = kvrpcpb.IsolationLevel_RC
 	// get
 	for k, v := range expected {
-		res, err := store.MvccStore.Get(reqCtx, []byte(k), 80)
+		res, _, err := store.MvccStore.Get(reqCtx, []byte(k), 80, false)
 		require.NoError(t, err)
 		require.Equal(t, res, v)
 	}
 	// batch get
-	pairs := store.MvccStore.BatchGet(reqCtx, [][]byte{k1, k2, k3, k4}, 80)
+	pairs := store.MvccStore.BatchGet(reqCtx, [][]byte{k1, k2, k3, k4}, 80, false)
 	require.Equal(t, len(pairs), 3)
 	for _, pair := range pairs {
 		v, ok := expected[string(pair.Key)]
@@ -1825,11 +1826,11 @@ func TestRcReadCheckTS(t *testing.T) {
 	reqCtx.rpcCtx.ResolvedLocks = nil
 	reqCtx.rpcCtx.CommittedLocks = nil
 	reqCtx.rpcCtx.IsolationLevel = kvrpcpb.IsolationLevel_RCCheckTS
-	val, err := store.MvccStore.Get(reqCtx, k1, 3)
+	val, _, err := store.MvccStore.Get(reqCtx, k1, 3, false)
 	require.Nil(t, err)
 	require.Equal(t, v1, val)
 
-	_, err = store.MvccStore.Get(reqCtx, k2, 3)
+	_, _, err = store.MvccStore.Get(reqCtx, k2, 3, false)
 	require.NotNil(t, err)
 	e, ok := errors.Cause(err).(*kverrors.ErrConflict)
 	require.True(t, ok)
@@ -1837,7 +1838,7 @@ func TestRcReadCheckTS(t *testing.T) {
 	require.Equal(t, uint64(5), e.ConflictTS)
 	require.Equal(t, uint64(6), e.ConflictCommitTS)
 
-	_, err = store.MvccStore.Get(reqCtx, k3, 3)
+	_, _, err = store.MvccStore.Get(reqCtx, k3, 3, false)
 	require.NotNil(t, err)
 	e, ok = errors.Cause(err).(*kverrors.ErrConflict)
 	require.True(t, ok)

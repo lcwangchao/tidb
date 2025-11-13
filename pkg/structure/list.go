@@ -114,10 +114,11 @@ func (t *TxStructure) listPop(key []byte, left bool) ([]byte, error) {
 	dataKey := t.encodeListDataKey(key, index)
 
 	var data []byte
-	data, err = t.reader.Get(context.TODO(), dataKey)
+	entry, err := t.reader.Get(context.TODO(), dataKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	data = entry.Value
 
 	if err = t.readWriter.Delete(dataKey); err != nil {
 		return nil, errors.Trace(err)
@@ -154,7 +155,7 @@ func (t *TxStructure) LGetAll(key []byte) ([][]byte, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		elements = append(elements, e)
+		elements = append(elements, e.Value)
 	}
 	return elements, nil
 }
@@ -170,7 +171,8 @@ func (t *TxStructure) LIndex(key []byte, index int64) ([]byte, error) {
 	index = adjustIndex(index, meta.LIndex, meta.RIndex)
 
 	if index >= meta.LIndex && index < meta.RIndex {
-		return t.reader.Get(context.TODO(), t.encodeListDataKey(key, index))
+		entry, err := t.reader.Get(context.TODO(), t.encodeListDataKey(key, index))
+		return entry.Value, errors.Trace(err)
 	}
 	return nil, nil
 }
@@ -216,7 +218,8 @@ func (t *TxStructure) LClear(key []byte) error {
 }
 
 func (t *TxStructure) loadListMeta(metaKey []byte) (listMeta, error) {
-	v, err := t.reader.Get(context.TODO(), metaKey)
+	entry, err := t.reader.Get(context.TODO(), metaKey)
+	v := entry.Value
 	if kv.ErrNotExist.Equal(err) {
 		err = nil
 	}

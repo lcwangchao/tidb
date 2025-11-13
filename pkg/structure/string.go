@@ -38,7 +38,7 @@ func (t *TxStructure) Get(key []byte) ([]byte, error) {
 	if kv.ErrNotExist.Equal(err) {
 		err = nil
 	}
-	return value, errors.Trace(err)
+	return value.Value, errors.Trace(err)
 }
 
 // GetInt64 gets the int64 value of a key.

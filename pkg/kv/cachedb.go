@@ -68,11 +68,12 @@ func (c *cacheDB) UnionGet(ctx context.Context, tid int64, snapshot Snapshot, ke
 	val = c.get(tid, key)
 	// key does not exist then get from snapshot and set to cache
 	if val == nil {
-		val, err = snapshot.Get(ctx, key)
+		entry, err := snapshot.Get(ctx, key)
 		if err != nil {
 			return nil, err
 		}
 
+		val = entry.Value
 		err = c.set(tid, key, val)
 		if err != nil {
 			return nil, err

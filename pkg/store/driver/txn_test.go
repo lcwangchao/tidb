@@ -28,11 +28,11 @@ type mockErrInterceptor struct {
 	err error
 }
 
-func (m *mockErrInterceptor) OnGet(_ context.Context, _ kv.Snapshot, _ kv.Key) ([]byte, error) {
-	return nil, m.err
+func (m *mockErrInterceptor) OnGet(_ context.Context, _ kv.Snapshot, k kv.Key, _ ...kv.GetOption) (kv.ValueEntry, error) {
+	return kv.ValueEntry{}, m.err
 }
 
-func (m *mockErrInterceptor) OnBatchGet(_ context.Context, _ kv.Snapshot, _ []kv.Key) (map[string][]byte, error) {
+func (m *mockErrInterceptor) OnBatchGet(_ context.Context, _ kv.Snapshot, _ []kv.Key, _ ...kv.BatchGetOption) (map[string]kv.ValueEntry, error) {
 	return nil, m.err
 }
 

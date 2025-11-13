@@ -211,10 +211,15 @@ func (svr *Server) KvGet(ctx context.Context, req *kvrpcpb.GetRequest) (*kvrpcpb
 	if reqCtx.regErr != nil {
 		return &kvrpcpb.GetResponse{RegionError: reqCtx.regErr}, nil
 	}
-	val, err := svr.mvccStore.Get(reqCtx, req.Key, req.Version)
+	val, meta, err := svr.mvccStore.Get(reqCtx, req.Key, req.Version, req.NeedCommitTs)
+	var commitTs uint64
+	if err == nil && len(val) > 0 && req.NeedCommitTs {
+		commitTs = meta.CommitTS()
+	}
 	return &kvrpcpb.GetResponse{
-		Value: val,
-		Error: convertToKeyError(err),
+		Value:    val,
+		CommitTs: commitTs,
+		Error:    convertToKeyError(err),
 	}, nil
 }
 
@@ -512,7 +517,7 @@ func (svr *Server) KvBatchGet(ctx context.Context, req *kvrpcpb.BatchGetRequest)
 	if reqCtx.regErr != nil {
 		return &kvrpcpb.BatchGetResponse{RegionError: reqCtx.regErr}, nil
 	}
-	pairs := svr.mvccStore.BatchGet(reqCtx, req.Keys, req.GetVersion())
+	pairs := svr.mvccStore.BatchGet(reqCtx, req.Keys, req.GetVersion(), req.NeedCommitTs)
 	return &kvrpcpb.BatchGetResponse{
 		Pairs: pairs,
 	}, nil

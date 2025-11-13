@@ -46,9 +46,9 @@ func TestBufferBatchGetter(t *testing.T) {
 	result, err := batchGetter.BatchGet(context.Background(), []kv.Key{ka, kb, kc, kd})
 	require.NoError(t, err)
 	require.Len(t, result, 3)
-	require.Equal(t, "a2", string(result[string(ka)]))
-	require.Equal(t, "c1", string(result[string(kc)]))
-	require.Equal(t, "d", string(result[string(kd)]))
+	require.Equal(t, "a2", string(result[string(ka)].Value))
+	require.Equal(t, "c1", string(result[string(kc)].Value))
+	require.Equal(t, "d", string(result[string(kd)].Value))
 }
 
 type mockBatchGetterStore struct {
@@ -66,19 +66,20 @@ func newMockStore() *mockBatchGetterStore {
 func (s *mockBatchGetterStore) Len() int {
 	return len(s.index)
 }
-func (s *mockBatchGetterStore) Get(_ context.Context, k kv.Key) ([]byte, error) {
+func (s *mockBatchGetterStore) Get(_ context.Context, k kv.Key, _ ...kv.GetOption) (kv.ValueEntry, error) {
 	for i, key := range s.index {
 		if key.Cmp(k) == 0 {
-			return s.value[i], nil
+			return kv.NewValueEntry(s.value[i], 0), nil
 		}
 	}
-	return nil, kv.ErrNotExist
+	return kv.ValueEntry{}, kv.ErrNotExist
 }
 
-func (s *mockBatchGetterStore) BatchGet(ctx context.Context, keys []kv.Key) (map[string][]byte, error) {
-	m := make(map[string][]byte)
+func (s *mockBatchGetterStore) BatchGet(ctx context.Context, keys []kv.Key, options ...kv.BatchGetOption) (map[string]kv.ValueEntry, error) {
+	m := make(map[string]kv.ValueEntry)
+	getOptions := kv.BatchGetToGetOptions(options)
 	for _, k := range keys {
-		v, err := s.Get(ctx, k)
+		v, err := s.Get(ctx, k, getOptions...)
 		if err == nil {
 			m[string(k)] = v
 			continue
@@ -111,7 +112,7 @@ type mockBufferBatchGetterStore struct {
 	*mockBatchGetterStore
 }
 
-func (s *mockBufferBatchGetterStore) BatchGet(ctx context.Context, keys [][]byte) (map[string][]byte, error) {
+func (s *mockBufferBatchGetterStore) BatchGet(ctx context.Context, keys [][]byte, options ...kv.BatchGetOption) (map[string]kv.ValueEntry, error) {
 	kvKeys := *(*[]kv.Key)(unsafe.Pointer(&keys))
 	return s.mockBatchGetterStore.BatchGet(ctx, kvKeys)
 }

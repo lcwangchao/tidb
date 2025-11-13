@@ -47,7 +47,7 @@ func (t *TxStructure) HGet(key []byte, field []byte) ([]byte, error) {
 	if kv.ErrNotExist.Equal(err) {
 		err = nil
 	}
-	return value, errors.Trace(err)
+	return value.Value, errors.Trace(err)
 }
 
 func (*TxStructure) hashFieldIntegerVal(val int64) []byte {
@@ -400,11 +400,11 @@ func (t *TxStructure) loadHashValue(dataKey []byte) ([]byte, error) {
 	v, err := t.reader.Get(context.TODO(), dataKey)
 	if kv.ErrNotExist.Equal(err) {
 		err = nil
-		v = nil
+		v.Value = nil
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return v, nil
+	return v.Value, nil
 }
