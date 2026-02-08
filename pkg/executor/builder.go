@@ -992,6 +992,33 @@ func (b *executorBuilder) buildSetConfig(v *plannercore.SetConfig) exec.Executor
 	}
 }
 
+func (b *executorBuilder) wrapTableWithMVLog(tbl table.Table, dmlType tables.MVLogDMLType) table.Table {
+	if tbl == nil {
+		return nil
+	}
+	meta := tbl.Meta()
+	if meta == nil || meta.MaterializedViewBase == nil || meta.MaterializedViewBase.MLogID == 0 {
+		return tbl
+	}
+
+	logTbl, ok := b.is.TableByID(context.Background(), meta.MaterializedViewBase.MLogID)
+	if !ok {
+		b.err = errors.Errorf(
+			"materialized view log table %d for base table %s not found",
+			meta.MaterializedViewBase.MLogID,
+			meta.Name.O,
+		)
+		return nil
+	}
+
+	wrapped, err := tables.WrapTableWithMaterializedViewLog(tbl, logTbl, dmlType)
+	if err != nil {
+		b.err = err
+		return nil
+	}
+	return wrapped
+}
+
 func (b *executorBuilder) buildInsert(v *plannercore.Insert) exec.Executor {
 	b.inInsertStmt = true
 	if b.err = b.updateForUpdateTS(); b.err != nil {
@@ -1009,9 +1036,18 @@ func (b *executorBuilder) buildInsert(v *plannercore.Insert) exec.Executor {
 	baseExec := exec.NewBaseExecutor(b.ctx, nil, v.ID(), children...)
 	baseExec.SetInitCap(chunk.ZeroCapacity)
 
+	dmlType := tables.MVLogDMLTypeInsert
+	if v.IsReplace {
+		dmlType = tables.MVLogDMLTypeReplace
+	}
+	insertTable := b.wrapTableWithMVLog(v.Table, dmlType)
+	if b.err != nil {
+		return nil
+	}
+
 	ivs := &InsertValues{
 		BaseExecutor:              baseExec,
-		Table:                     v.Table,
+		Table:                     insertTable,
 		Columns:                   v.Columns,
 		Lists:                     v.Lists,
 		GenExprs:                  v.GenCols.Exprs,
@@ -1087,6 +1123,10 @@ func (b *executorBuilder) buildLoadData(v *plannercore.LoadData) exec.Executor {
 	}
 	if !tbl.Meta().IsBaseTable() {
 		b.err = plannererrors.ErrNonUpdatableTable.GenWithStackByArgs(tbl.Meta().Name.O, "LOAD")
+		return nil
+	}
+	tbl = b.wrapTableWithMVLog(tbl, tables.MVLogDMLTypeLoadData)
+	if b.err != nil {
 		return nil
 	}
 
@@ -2762,6 +2802,11 @@ func (b *executorBuilder) buildUpdate(v *plannercore.Update) exec.Executor {
 				}
 			}
 		}
+
+		tblID2table[info.TblID] = b.wrapTableWithMVLog(tblID2table[info.TblID], tables.MVLogDMLTypeUpdate)
+		if b.err != nil {
+			return nil
+		}
 	}
 	if b.err = b.updateForUpdateTS(); b.err != nil {
 		return nil
@@ -2828,6 +2873,10 @@ func (b *executorBuilder) buildDelete(v *plannercore.Delete) exec.Executor {
 	tblID2table := make(map[int64]table.Table, len(v.TblColPosInfos))
 	for _, info := range v.TblColPosInfos {
 		tblID2table[info.TblID], _ = b.is.TableByID(context.Background(), info.TblID)
+		tblID2table[info.TblID] = b.wrapTableWithMVLog(tblID2table[info.TblID], tables.MVLogDMLTypeDelete)
+		if b.err != nil {
+			return nil
+		}
 	}
 
 	if b.err = b.updateForUpdateTS(); b.err != nil {

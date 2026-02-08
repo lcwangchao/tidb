@@ -6,6 +6,7 @@ go_library(
         "cache.go",
         "index.go",
         "mutation_checker.go",
+        "mv_log_table.go",
         "partition.go",
         "state_remote.go",
         "tables.go",

@@ -1,0 +1,55 @@
+drop table if exists t;
+create table t (id int primary key, a int, b int, c int);
+create materialized view log on t (a, b);
+insert into t values (1, 10, 20, 30);
+select a, b, `_MLOG$_DML_TYPE`, `_MLOG$_OLD_NEW` from `$mlog$t` order by _tidb_rowid;
+a	b	_MLOG$_DML_TYPE	_MLOG$_OLD_NEW
+10	20	I	1
+delete from `$mlog$t`;
+update t set c = 31 where id = 1;
+select count(*) from `$mlog$t`;
+count(*)
+0
+update t set a = 11 where id = 1;
+select a, b, `_MLOG$_DML_TYPE`, `_MLOG$_OLD_NEW` from `$mlog$t` order by _tidb_rowid;
+a	b	_MLOG$_DML_TYPE	_MLOG$_OLD_NEW
+10	20	U	-1
+11	20	U	1
+delete from `$mlog$t`;
+update t set id = 2 where id = 1;
+select count(*) from `$mlog$t`;
+count(*)
+0
+update t set id = 3, a = 12 where id = 2;
+select a, b, `_MLOG$_DML_TYPE`, `_MLOG$_OLD_NEW` from `$mlog$t` order by _tidb_rowid;
+a	b	_MLOG$_DML_TYPE	_MLOG$_OLD_NEW
+11	20	U	-1
+12	20	U	1
+delete from `$mlog$t`;
+delete from t where id = 3;
+select a, b, `_MLOG$_DML_TYPE`, `_MLOG$_OLD_NEW` from `$mlog$t` order by _tidb_rowid;
+a	b	_MLOG$_DML_TYPE	_MLOG$_OLD_NEW
+12	20	D	-1
+drop table if exists t;
+drop table if exists t_dup;
+create table t_dup (id int primary key, a int, b int);
+create materialized view log on t_dup (a, b);
+insert into t_dup values (1, 100, 200);
+delete from `$mlog$t_dup`;
+insert into t_dup values (1, 101, 200) on duplicate key update id = 2, a = values(a);
+select a, b, `_MLOG$_DML_TYPE`, `_MLOG$_OLD_NEW` from `$mlog$t_dup` order by _tidb_rowid;
+a	b	_MLOG$_DML_TYPE	_MLOG$_OLD_NEW
+100	200	U	-1
+101	200	U	1
+drop table if exists t_dup;
+drop table if exists t_replace;
+create table t_replace (id int primary key, a int, b int);
+create materialized view log on t_replace (a, b);
+insert into t_replace values (1, 10, 20);
+delete from `$mlog$t_replace`;
+replace into t_replace values (1, 30, 40);
+select a, b, `_MLOG$_DML_TYPE`, `_MLOG$_OLD_NEW` from `$mlog$t_replace` order by _tidb_rowid;
+a	b	_MLOG$_DML_TYPE	_MLOG$_OLD_NEW
+10	20	R	-1
+30	40	R	1
+drop table if exists t_replace;
