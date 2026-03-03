@@ -189,32 +189,28 @@ func updateRecord(
 		return false, false, err
 	}
 
-	// Step 3: fill values into on-update-now fields.
-	for i, col := range t.Cols() {
-		var err error
-		if mysql.HasOnUpdateNowFlag(col.GetFlag()) && onUpdateNeedModify[i] {
-			newData[i], err = expression.GetTimeValue(sctx.GetExprCtx(), strings.ToUpper(ast.CurrentTimestamp), col.GetType(), col.GetDecimal(), nil)
-			modified[i] = true
-			// For update statement, evalBuffer is initialized on demand.
-			if chunk.Row(evalBuffer).Chunk() != nil {
-				evalBuffer.SetDatum(i+offset, newData[i])
-			}
-			if err != nil {
-				return false, false, err
-			}
-			// Only TIMESTAMP and DATETIME columns can be automatically updated, so it cannot be PKIsHandle.
-			// Ref: https://dev.mysql.com/doc/refman/8.0/en/timestamp-initialization.html
-			if col.IsPKHandleColumn(t.Meta()) {
-				return false, false, errors.Errorf("on-update-now column should never be pk-is-handle")
-			}
-			if softDeletePKImmutable && mysql.HasPriKeyFlag(col.GetFlag()) {
-				return false, false, exeerrors.ErrUnsupportedUpdateSoftDeletePK
-			}
-			if col.IsCommonHandleColumn(t.Meta()) {
-				handleChanged = true
+		// Step 3: fill values into on-update-now fields.
+		for i, col := range t.Cols() {
+			var err error
+			if mysql.HasOnUpdateNowFlag(col.GetFlag()) && onUpdateNeedModify[i] {
+				newData[i], err = expression.GetTimeValue(sctx.GetExprCtx(), strings.ToUpper(ast.CurrentTimestamp), col.GetType(), col.GetDecimal(), nil)
+				// For update statement, evalBuffer is initialized on demand.
+				if chunk.Row(evalBuffer).Chunk() != nil {
+					evalBuffer.SetDatum(i+offset, newData[i])
+				}
+				if err != nil {
+					return false, false, err
+				}
+				// Only TIMESTAMP and DATETIME columns can be automatically updated, so it cannot be PKIsHandle.
+				// Ref: https://dev.mysql.com/doc/refman/8.0/en/timestamp-initialization.html
+				if col.IsPKHandleColumn(t.Meta()) {
+					return false, false, errors.Errorf("on-update-now column should never be pk-is-handle")
+				}
+				if err := checkColumnFunc(i, false); err != nil {
+					return false, false, err
+				}
 			}
 		}
-	}
 
 	// Step 4: fill auto generated columns
 	evalCtx := sctx.GetExprCtx().GetEvalCtx()
