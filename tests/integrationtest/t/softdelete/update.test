@@ -31,6 +31,55 @@ set @@tidb_translate_softdelete_sql = true;
 
 drop table message;
 
+# Unchanged primary key should be updated successfully
+create table message (id int primary key, text varchar(10)) softdelete retention 7 day;
+insert into message values (1, 'a'), (2, 'b');
+update message set id = 2, text = 'bb' where id = 2;
+select * from message order by id;
+drop table message;
+
+create table message (id int, text varchar(10), primary key (id) nonclustered) softdelete retention 7 day;
+insert into message values (1, 'a'), (2, 'b');
+update message set id = 2, text = 'bb' where id = 2;
+select * from message order by id;
+drop table message;
+
+# PK with ON UPDATE CURRENT_TIMESTAMP should fail when implicit on-update-now is triggered
+create table t_onupdate (a timestamp(0) on update current_timestamp(0), b int, primary key (a) clustered) softdelete retention 7 day;
+insert into t_onupdate values ('2000-01-01 00:00:00', 1);
+-- error 1235
+update t_onupdate set b = 2 where a = '2000-01-01 00:00:00';
+update t_onupdate set a = a, b = 2 where a = '2000-01-01 00:00:00';
+select a, b from t_onupdate;
+drop table t_onupdate;
+
+create table t_onupdate (a timestamp(0) on update current_timestamp(0), b int, primary key (a) nonclustered) softdelete retention 7 day;
+insert into t_onupdate values ('2000-01-01 00:00:00', 1);
+-- error 1235
+update t_onupdate set b = 2 where a = '2000-01-01 00:00:00';
+update t_onupdate set a = a, b = 2 where a = '2000-01-01 00:00:00';
+select a, b from t_onupdate;
+drop table t_onupdate;
+
+# Generated column primary key should also be immutable on soft-delete table
+create table t_genpk (b int not null, a int as (b % 2) stored, primary key (a) clustered) softdelete retention 7 day;
+insert into t_genpk (b) values (1);
+update t_genpk set b = 3 where a = 1;
+select a, b from t_genpk;
+-- error 1235
+update t_genpk set b = 2 where a = 1;
+select a, b from t_genpk;
+drop table t_genpk;
+
+create table t_genpk (b int not null, a int as (b % 2) stored, primary key (a) nonclustered) softdelete retention 7 day;
+insert into t_genpk (b) values (1);
+update t_genpk set b = 3 where a = 1;
+select a, b from t_genpk;
+-- error 1235
+update t_genpk set b = 2 where a = 1;
+select a, b from t_genpk;
+drop table t_genpk;
+
 # Abnormal case - update primary key should fail
 create table message (id int primary key, text varchar(10)) softdelete retention 7 day;
 insert into message values (1, 'new'), (2, '24h');

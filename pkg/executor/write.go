@@ -36,6 +36,7 @@ import (
 	"github.com/pingcap/tidb/pkg/types"
 	"github.com/pingcap/tidb/pkg/util/chunk"
 	"github.com/pingcap/tidb/pkg/util/collate"
+	"github.com/pingcap/tidb/pkg/util/dbterror/exeerrors"
 	"github.com/pingcap/tidb/pkg/util/memory"
 	"github.com/pingcap/tidb/pkg/util/tracing"
 )
@@ -97,6 +98,7 @@ func updateRecord(
 
 	sessVars := sctx.GetSessionVars()
 	sc := sessVars.StmtCtx
+	softDeletePKImmutable := t.Meta().SoftdeleteInfo != nil
 
 	// changed, handleChanged indicated whether row/handle is changed
 	changed, handleChanged := false, false
@@ -128,6 +130,9 @@ func updateRecord(
 		}
 		modified[i] = cmp != 0
 		if cmp != 0 {
+			if softDeletePKImmutable && mysql.HasPriKeyFlag(col.GetFlag()) {
+				return exeerrors.ErrUnsupportedUpdateSoftDeletePK
+			}
 			changed = true
 			// Rebase auto increment id if the field is changed.
 			if mysql.HasAutoIncrementFlag(col.GetFlag()) {
@@ -201,6 +206,9 @@ func updateRecord(
 			// Ref: https://dev.mysql.com/doc/refman/8.0/en/timestamp-initialization.html
 			if col.IsPKHandleColumn(t.Meta()) {
 				return false, false, errors.Errorf("on-update-now column should never be pk-is-handle")
+			}
+			if softDeletePKImmutable && mysql.HasPriKeyFlag(col.GetFlag()) {
+				return false, false, exeerrors.ErrUnsupportedUpdateSoftDeletePK
 			}
 			if col.IsCommonHandleColumn(t.Meta()) {
 				handleChanged = true

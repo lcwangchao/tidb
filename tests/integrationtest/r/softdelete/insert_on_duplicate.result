@@ -9,9 +9,55 @@ select * from message order by id;
 id	text
 1	24h
 2	new
+insert into message values (2, 'dup') on duplicate key update id = 2, text = 'dup';
+select * from message where id = 2;
+id	text
+2	dup
 insert into message values (2, 'new') on duplicate key update id = 3;
-Error 1235 (42000): This version of TiDB doesn't yet support 'updating primary key column on soft-delete table'
+Error 1235 (42000): Updating primary key column on soft-delete table is not supported yet
 drop table message;
+create table t_onupdate (a timestamp(0) on update current_timestamp(0), b int, primary key (a) clustered) softdelete retention 7 day;
+insert into t_onupdate values ('2000-01-01 00:00:00', 1);
+insert into t_onupdate values ('2000-01-01 00:00:00', 2) on duplicate key update b = values(b);
+Error 1235 (42000): Updating primary key column on soft-delete table is not supported yet
+insert into t_onupdate values ('2000-01-01 00:00:00', 2) on duplicate key update a = '2000-01-01 00:00:00', b = values(b);
+select a, b from t_onupdate;
+a	b
+2000-01-01 00:00:00	2
+drop table t_onupdate;
+create table t_onupdate (a timestamp(0) on update current_timestamp(0), b int, primary key (a) nonclustered) softdelete retention 7 day;
+insert into t_onupdate values ('2000-01-01 00:00:00', 1);
+insert into t_onupdate values ('2000-01-01 00:00:00', 2) on duplicate key update b = values(b);
+Error 1235 (42000): Updating primary key column on soft-delete table is not supported yet
+insert into t_onupdate values ('2000-01-01 00:00:00', 2) on duplicate key update a = values(a), b = values(b);
+select a, b from t_onupdate;
+a	b
+2000-01-01 00:00:00	2
+drop table t_onupdate;
+create table t_genpk (b int not null, a int as (b % 2) stored, v int, primary key (a) clustered) softdelete retention 7 day;
+insert into t_genpk (b, v) values (1, 1);
+insert into t_genpk (b, v) values (3, 2) on duplicate key update b = values(b), v = values(v);
+select a, b, v from t_genpk;
+a	b	v
+1	3	2
+insert into t_genpk (b, v) values (1, 3) on duplicate key update b = 2, v = values(v);
+Error 1235 (42000): Updating primary key column on soft-delete table is not supported yet
+select a, b, v from t_genpk;
+a	b	v
+1	3	2
+drop table t_genpk;
+create table t_genpk (b int not null, a int as (b % 2) stored, v int, primary key (a) nonclustered) softdelete retention 7 day;
+insert into t_genpk (b, v) values (1, 1);
+insert into t_genpk (b, v) values (3, 2) on duplicate key update b = values(b), v = values(v);
+select a, b, v from t_genpk;
+a	b	v
+1	3	2
+insert into t_genpk (b, v) values (1, 3) on duplicate key update b = 2, v = values(v);
+Error 1235 (42000): Updating primary key column on soft-delete table is not supported yet
+select a, b, v from t_genpk;
+a	b	v
+1	3	2
+drop table t_genpk;
 create table t (id int primary key clustered, v int) softdelete retention 7 day;
 insert into t (id, v) values (1, 1), (2, 2), (3, 3), (4, 4);
 delete from t where id in (1, 2);
@@ -44,9 +90,9 @@ id	v
 2	0
 3	3
 insert into t values (2, 22) on duplicate key update id = 3;
-Error 1235 (42000): This version of TiDB doesn't yet support 'updating primary key column on soft-delete table'
+Error 1235 (42000): Updating primary key column on soft-delete table is not supported yet
 insert ignore into t values (2, 22) on duplicate key update id = 3;
-Error 1235 (42000): This version of TiDB doesn't yet support 'updating primary key column on soft-delete table'
+Error 1235 (42000): Updating primary key column on soft-delete table is not supported yet
 select id, v from t;
 id	v
 2	0
@@ -78,9 +124,9 @@ id	v
 2	0
 3	3
 insert into t values (2, 22) on duplicate key update id = 3;
-Error 1235 (42000): This version of TiDB doesn't yet support 'updating primary key column on soft-delete table'
+Error 1235 (42000): Updating primary key column on soft-delete table is not supported yet
 insert ignore into t values (2, 22) on duplicate key update id = 3;
-Error 1235 (42000): This version of TiDB doesn't yet support 'updating primary key column on soft-delete table'
+Error 1235 (42000): Updating primary key column on soft-delete table is not supported yet
 select id, v from t;
 id	v
 2	0
