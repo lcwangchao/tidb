@@ -83,6 +83,7 @@ func TestContextDetach(t *testing.T) {
 		ExplicitRequestSourceType:     "b",
 		StoreBatchSize:                1,
 		ResourceGroupName:             "c",
+		QoSGroupState:                 kv.NewFixedQoSGroupState(1),
 		LoadBasedReplicaReadThreshold: time.Second,
 		TiKVClientReadTimeout:         1,
 
@@ -125,5 +126,6 @@ func TestContextDetach(t *testing.T) {
 			"$.RuntimeStatsColl",
 			"$.WarnHandler",
 			"$.ResourceGroupTagger",
+			"$.QoSGroupState",
 		}))
 }

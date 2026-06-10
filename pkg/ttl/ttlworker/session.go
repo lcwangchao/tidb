@@ -62,6 +62,8 @@ var allIsolationReadEngines = map[kv.StoreType]struct{}{
 	kv.TiDB:    {},
 }
 
+const defaultTTLQoSGroup = 4
+
 func getSession(pool util.SessionPool) (session.Session, error) {
 	resource, err := pool.Get()
 	if err != nil {
@@ -80,6 +82,7 @@ func getSession(pool util.SessionPool) (session.Session, error) {
 	}
 
 	exec := sctx.GetSQLExecutor()
+	restoreQoSGroupState := sctx.GetSessionVars().EnterInternalStmtFixedQoSGroupState(defaultTTLQoSGroup)
 	originalRetryLimit := sctx.GetSessionVars().RetryLimit
 	originalEnable1PC := sctx.GetSessionVars().Enable1PC
 	originalEnableAsyncCommit := sctx.GetSessionVars().EnableAsyncCommit
@@ -119,6 +122,7 @@ func getSession(pool util.SessionPool) (session.Session, error) {
 
 		DetachStatsCollector(exec)
 
+		restoreQoSGroupState()
 		pool.Put(resource)
 	})
 

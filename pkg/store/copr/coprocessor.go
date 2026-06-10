@@ -76,6 +76,13 @@ const (
 	smallConcPerCore       = 20
 )
 
+func qosGroupForResourceGroup(rgName string, qosGroupState *kv.QoSGroupState) uint32 {
+	if rgName != resourcegroup.DefaultResourceGroupName || qosGroupState == nil {
+		return 0
+	}
+	return qosGroupState.LoadGroup()
+}
+
 // CopClient is coprocessor client.
 type CopClient struct {
 	kv.RequestTypeSupportedChecker
@@ -1338,6 +1345,7 @@ func (worker *copIteratorWorker) handleTaskOnce(bo *Backoffer, task *copTask) (*
 		TaskId:         worker.req.TaskID,
 		ResourceControlContext: &kvrpcpb.ResourceControlContext{
 			ResourceGroupName: rgName,
+			QosGroup:          qosGroupForResourceGroup(rgName, worker.req.QoSGroupState),
 		},
 		BusyThresholdMs: uint32(task.busyThreshold.Milliseconds()),
 		BucketsVersion:  task.bucketsVer,

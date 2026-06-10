@@ -3667,6 +3667,42 @@ func (b *executorBuilder) buildIndexNestedLoopHashJoin(v *plannercore.PhysicalIn
 	return idxHash
 }
 
+func updateStatementQoSGroupByScanKeys(sctx sessionctx.Context, planGroups ...[]base.PhysicalPlan) {
+	sctx.GetSessionVars().StmtCtx.GetOrInitQoSGroupState().AddEstimatedScanKeysAndUpdateGroup(
+		estimatedScanKeysToUint64(estimateScannedKeys(planGroups...)),
+		variable.QoSGroupScanKeysBase.Load(),
+		variable.QoSGroupScanKeysGrowFactor.Load(),
+	)
+}
+
+// estimateScannedKeys sums scan-operator row estimates in pushed-down TiKV plans.
+// For double-read plans, both index-side and table-side scans contribute to the same SQL cost.
+func estimateScannedKeys(planGroups ...[]base.PhysicalPlan) float64 {
+	var scanKeys float64
+	for _, plans := range planGroups {
+		for _, p := range plans {
+			switch p.(type) {
+			case *plannercore.PhysicalTableScan, *plannercore.PhysicalIndexScan:
+				if stats := p.StatsInfo(); stats != nil && stats.RowCount > 0 {
+					scanKeys += stats.RowCount
+				}
+			}
+		}
+	}
+	return scanKeys
+}
+
+func estimatedScanKeysToUint64(scanKeys float64) uint64 {
+	if scanKeys <= 0 {
+		return 0
+	}
+	maxUint64 := ^uint64(0)
+	if scanKeys >= float64(maxUint64) {
+		return maxUint64
+	}
+	return uint64(math.Ceil(scanKeys))
+}
+
 func buildNoRangeTableReader(b *executorBuilder, v *plannercore.PhysicalTableReader) (*TableReaderExecutor, error) {
 	tablePlans := v.TablePlans
 	if v.StoreType == kv.TiFlash {
@@ -3695,6 +3731,9 @@ func buildNoRangeTableReader(b *executorBuilder, v *plannercore.PhysicalTableRea
 		return nil, err
 	}
 	paging := b.sctx.GetSessionVars().EnablePaging
+	if v.StoreType == kv.TiKV {
+		updateStatementQoSGroupByScanKeys(b.sctx, v.TablePlans)
+	}
 
 	e := &TableReaderExecutor{
 		BaseExecutorV2:             exec.NewBaseExecutorV2(b.sctx.GetSessionVars(), v.Schema(), v.ID()),
@@ -4060,6 +4099,7 @@ func buildNoRangeIndexReader(b *executorBuilder, v *plannercore.PhysicalIndexRea
 	paging := b.sctx.GetSessionVars().EnablePaging
 
 	b.sctx.GetSessionVars().StmtCtx.IsTiKV.Store(true)
+	updateStatementQoSGroupByScanKeys(b.sctx, v.IndexPlans)
 
 	e := &IndexReaderExecutor{
 		indexReaderExecutorContext: newIndexReaderExecutorContext(b.sctx),
@@ -4307,6 +4347,7 @@ func buildNoRangeIndexLookUpReader(b *executorBuilder, v *plannercore.PhysicalIn
 	}
 
 	b.sctx.GetSessionVars().StmtCtx.IsTiKV.Store(true)
+	updateStatementQoSGroupByScanKeys(b.sctx, v.IndexPlans, v.TablePlans)
 
 	e := &IndexLookUpExecutor{
 		indexLookUpExecutorContext: newIndexLookUpExecutorContext(b.sctx),
@@ -4469,6 +4510,10 @@ func buildNoRangeIndexMergeReader(b *executorBuilder, v *plannercore.PhysicalInd
 	}
 
 	b.sctx.GetSessionVars().StmtCtx.IsTiKV.Store(true)
+	qosPlanGroups := make([][]base.PhysicalPlan, 0, len(v.PartialPlans)+1)
+	qosPlanGroups = append(qosPlanGroups, v.PartialPlans...)
+	qosPlanGroups = append(qosPlanGroups, v.TablePlans)
+	updateStatementQoSGroupByScanKeys(b.sctx, qosPlanGroups...)
 
 	e := &IndexMergeReaderExecutor{
 		BaseExecutor:             exec.NewBaseExecutor(b.sctx, v.Schema(), v.ID()),

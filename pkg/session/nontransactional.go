@@ -119,6 +119,8 @@ func HandleNonTransactionalDML(ctx context.Context, stmt *ast.NonTransactionalDM
 	memTracker.AttachTo(se.GetSessionVars().MemTracker)
 	se.GetSessionVars().MemTracker.SetBytesLimit(se.GetSessionVars().MemQuotaQuery)
 	defer memTracker.Detach()
+	restoreQoSGroup := sessVars.EnterInternalStmtSharedQoSGroupState()
+	defer restoreQoSGroup()
 	jobs, err := buildShardJobs(ctx, stmt, se, selectSQL, shardColumnInfo, memTracker)
 	if err != nil {
 		return nil, err

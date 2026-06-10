@@ -325,7 +325,9 @@ type StatementContext struct {
 	DiskTracker  *disk.Tracker
 	// per statement resource group name
 	// hint /* +ResourceGroup(name) */ can change the statement group name
-	ResourceGroupName   string
+	ResourceGroupName string
+	// QoSGroupState is shared by all KV requests in this statement.
+	QoSGroupState       *kv.QoSGroupState
 	RunawayChecker      resourcegroup.RunawayChecker
 	IsTiKV              atomic2.Bool
 	IsTiFlash           atomic2.Bool
@@ -1359,6 +1361,19 @@ func (sc *StatementContext) GetOrInitDistSQLFromCache(create func() *distsqlctx.
 	})
 
 	return sc.distSQLCtxCache.dctx
+}
+
+// GetOrInitQoSGroupState returns the statement-scoped QoS group state.
+func (sc *StatementContext) GetOrInitQoSGroupState() *kv.QoSGroupState {
+	if sc.QoSGroupState == nil {
+		sc.QoSGroupState = kv.NewDefaultQoSGroupState()
+	}
+	return sc.QoSGroupState
+}
+
+// UpdateQoSGroup raises the statement QoS group and returns the final value.
+func (sc *StatementContext) UpdateQoSGroup(group uint32) uint32 {
+	return sc.GetOrInitQoSGroupState().UpdateGroup(group)
 }
 
 // GetOrInitRangerCtxFromCache returns the `RangerContext` inside cache. If it didn't exist, return a new one created by

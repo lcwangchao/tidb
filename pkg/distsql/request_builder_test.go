@@ -551,6 +551,7 @@ func TestRequestBuilder5(t *testing.T) {
 		Priority:         1,
 		NotFillCache:     true,
 		ReadReplicaScope: kv.GlobalReplicaScope,
+		QoSGroupState:    kv.NewFixedQoSGroupState(defaultAnalyzeQoSGroup),
 	}
 	require.Equal(t, expect, actual)
 }

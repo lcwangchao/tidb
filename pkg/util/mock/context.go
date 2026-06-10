@@ -238,7 +238,7 @@ func (c *Context) GetDistSQLCtx() *distsqlctx.DistSQLContext {
 	vars := c.GetSessionVars()
 	sc := vars.StmtCtx
 
-	return &distsqlctx.DistSQLContext{
+	dctx := &distsqlctx.DistSQLContext{
 		WarnHandler:                          sc.WarnHandler,
 		InRestrictedSQL:                      sc.InRestrictedSQL,
 		Client:                               c.GetClient(),
@@ -261,8 +261,10 @@ func (c *Context) GetDistSQLCtx() *distsqlctx.DistSQLContext {
 		TiFlashMaxQueryMemoryPerNode:         vars.TiFlashMaxQueryMemoryPerNode,
 		TiFlashQuerySpillRatio:               vars.TiFlashQuerySpillRatio,
 		ResourceGroupName:                    sc.ResourceGroupName,
+		QoSGroupState:                        sc.GetOrInitQoSGroupState(),
 		ExecDetails:                          &sc.SyncExecDetails,
 	}
+	return dctx
 }
 
 // GetRangerCtx returns the context used in `ranger` related functions

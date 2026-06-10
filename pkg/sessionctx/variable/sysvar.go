@@ -3113,6 +3113,18 @@ var defaultSysVars = []*SysVar{
 	}, GetGlobal: func(ctx context.Context, vars *SessionVars) (string, error) {
 		return BoolToOnOff(EnableResourceControlStrictMode.Load()), nil
 	}},
+	{Scope: ScopeGlobal, Name: TiDBQoSGroupScanKeysBase, Value: strconv.FormatUint(DefTiDBQoSGroupScanKeysBase, 10), Type: TypeUnsigned, MinValue: int64(MinTiDBQoSGroupScanKeysBase), MaxValue: MaxTiDBQoSGroupScanKeysBase, SetGlobal: func(ctx context.Context, vars *SessionVars, val string) error {
+		QoSGroupScanKeysBase.Store(TidbOptUint64(val, DefTiDBQoSGroupScanKeysBase))
+		return nil
+	}, GetGlobal: func(ctx context.Context, vars *SessionVars) (string, error) {
+		return strconv.FormatUint(QoSGroupScanKeysBase.Load(), 10), nil
+	}},
+	{Scope: ScopeGlobal, Name: TiDBQoSGroupScanKeysGrowFactor, Value: strconv.FormatUint(DefTiDBQoSGroupScanKeysGrowFactor, 10), Type: TypeUnsigned, MinValue: int64(MinTiDBQoSGroupScanKeysGrowFactor), MaxValue: MaxTiDBQoSGroupScanKeysGrowFactor, SetGlobal: func(ctx context.Context, vars *SessionVars, val string) error {
+		QoSGroupScanKeysGrowFactor.Store(TidbOptUint64(val, DefTiDBQoSGroupScanKeysGrowFactor))
+		return nil
+	}, GetGlobal: func(ctx context.Context, vars *SessionVars) (string, error) {
+		return strconv.FormatUint(QoSGroupScanKeysGrowFactor.Load(), 10), nil
+	}},
 	{Scope: ScopeGlobal | ScopeSession, Name: TiDBPessimisticTransactionFairLocking, Value: BoolToOnOff(DefTiDBPessimisticTransactionFairLocking), Type: TypeBool, SetSession: func(s *SessionVars, val string) error {
 		s.PessimisticTransactionFairLocking = TiDBOptOn(val)
 		return nil

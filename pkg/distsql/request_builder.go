@@ -185,6 +185,7 @@ func (builder *RequestBuilder) SetPartitionsAndHandles(handles []kv.Handle) *Req
 }
 
 const estimatedRegionRowCount = 100000
+const defaultAnalyzeQoSGroup = 4
 
 // SetDAGRequest sets the request type to "ReqTypeDAG" and construct request data.
 func (builder *RequestBuilder) SetDAGRequest(dag *tipb.DAGRequest) *RequestBuilder {
@@ -238,6 +239,7 @@ func (builder *RequestBuilder) SetAnalyzeRequest(ana *tipb.AnalyzeReq, isoLevel 
 		builder.Request.NotFillCache = true
 		builder.Request.IsolationLevel = isoLevel
 		builder.Request.Priority = kv.PriorityLow
+		builder.Request.QoSGroupState = kv.NewFixedQoSGroupState(defaultAnalyzeQoSGroup)
 	}
 
 	return builder
@@ -369,6 +371,7 @@ func (builder *RequestBuilder) SetFromSessionVars(dctx *distsqlctx.DistSQLContex
 	builder.RequestSource.ExplicitRequestSourceType = dctx.ExplicitRequestSourceType
 	builder.StoreBatchSize = dctx.StoreBatchSize
 	builder.Request.ResourceGroupName = dctx.ResourceGroupName
+	builder.Request.QoSGroupState = dctx.QoSGroupState
 	builder.Request.StoreBusyThreshold = dctx.LoadBasedReplicaReadThreshold
 	builder.Request.RunawayChecker = dctx.RunawayChecker
 	builder.Request.TiKVClientReadTimeout = dctx.TiKVClientReadTimeout
@@ -419,6 +422,12 @@ func (builder *RequestBuilder) SetResourceGroupTagger(tagger *kv.ResourceGroupTa
 // SetResourceGroupName sets the request resource group name.
 func (builder *RequestBuilder) SetResourceGroupName(name string) *RequestBuilder {
 	builder.Request.ResourceGroupName = name
+	return builder
+}
+
+// SetQoSGroup sets the request QoS group.
+func (builder *RequestBuilder) SetQoSGroup(group uint32) *RequestBuilder {
+	builder.Request.QoSGroupState = kv.NewFixedQoSGroupState(group)
 	return builder
 }
 

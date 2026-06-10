@@ -2784,7 +2784,8 @@ func (s *session) GetDistSQLCtx() *distsqlctx.DistSQLContext {
 	sc := vars.StmtCtx
 
 	dctx := sc.GetOrInitDistSQLFromCache(func() *distsqlctx.DistSQLContext {
-		return &distsqlctx.DistSQLContext{
+		qosGroupState := sc.GetOrInitQoSGroupState()
+		dctx := &distsqlctx.DistSQLContext{
 			WarnHandler:     sc.WarnHandler,
 			InRestrictedSQL: sc.InRestrictedSQL,
 			Client:          s.GetClient(),
@@ -2825,6 +2826,7 @@ func (s *session) GetDistSQLCtx() *distsqlctx.DistSQLContext {
 			ExplicitRequestSourceType:     vars.ExplicitRequestSourceType,
 			StoreBatchSize:                vars.StoreBatchSize,
 			ResourceGroupName:             sc.ResourceGroupName,
+			QoSGroupState:                 qosGroupState,
 			LoadBasedReplicaReadThreshold: vars.LoadBasedReplicaReadThreshold,
 			RunawayChecker:                sc.RunawayChecker,
 			TiKVClientReadTimeout:         vars.GetTiKVClientReadTimeout(),
@@ -2835,6 +2837,7 @@ func (s *session) GetDistSQLCtx() *distsqlctx.DistSQLContext {
 
 			ExecDetails: &sc.SyncExecDetails,
 		}
+		return dctx
 	})
 
 	// Check if the runaway checker is updated. This is to avoid that evaluating a non-correlated subquery
@@ -2843,6 +2846,9 @@ func (s *session) GetDistSQLCtx() *distsqlctx.DistSQLContext {
 	// Ref: https://github.com/pingcap/tidb/issues/61899
 	if dctx.RunawayChecker != sc.RunawayChecker {
 		dctx.RunawayChecker = sc.RunawayChecker
+	}
+	if qosGroupState := sc.GetOrInitQoSGroupState(); dctx.QoSGroupState != qosGroupState {
+		dctx.QoSGroupState = qosGroupState
 	}
 
 	return dctx

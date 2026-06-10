@@ -1190,6 +1190,10 @@ const (
 	TiDBEnableHistoricalStatsForCapture = "tidb_enable_historical_stats_for_capture"
 	// TiDBEnableResourceControl indicates whether resource control feature is enabled
 	TiDBEnableResourceControl = "tidb_enable_resource_control"
+	// TiDBQoSGroupScanKeysBase is the first threshold for deriving QoS group from estimated scanned keys.
+	TiDBQoSGroupScanKeysBase = "tidb_qos_group_scan_keys_base"
+	// TiDBQoSGroupScanKeysGrowFactor controls the growth factor of QoS group scan-key thresholds.
+	TiDBQoSGroupScanKeysGrowFactor = "tidb_qos_group_scan_keys_grow_factor"
 	// TiDBResourceControlStrictMode indicates whether resource control strict mode is enabled.
 	// When strict mode is enabled, user need certain privilege to change session or statement resource group.
 	TiDBResourceControlStrictMode = "tidb_resource_control_strict_mode"
@@ -1632,6 +1636,12 @@ const (
 	DefTiDBTTLDeleteWorkerCount                       = 4
 	DefaultExchangeCompressionMode                    = kv.ExchangeCompressionModeUnspecified
 	DefTiDBEnableResourceControl                      = true
+	MinTiDBQoSGroupScanKeysBase                       = uint64(10)
+	MaxTiDBQoSGroupScanKeysBase                       = uint64(1000000000)
+	MinTiDBQoSGroupScanKeysGrowFactor                 = uint64(2)
+	MaxTiDBQoSGroupScanKeysGrowFactor                 = uint64(1000000)
+	DefTiDBQoSGroupScanKeysBase                       = uint64(1000)
+	DefTiDBQoSGroupScanKeysGrowFactor                 = uint64(10)
 	DefTiDBResourceControlStrictMode                  = true
 	DefTiDBPessimisticTransactionFairLocking          = false
 	DefTiDBEnablePlanCacheForParamLimit               = true
@@ -1805,6 +1815,8 @@ var (
 	// It will be initialized to the right value after the first call of `rebuildSysVarCache`
 	EnableResourceControl           = atomic.NewBool(false)
 	EnableResourceControlStrictMode = atomic.NewBool(true)
+	QoSGroupScanKeysBase            = atomic.NewUint64(DefTiDBQoSGroupScanKeysBase)
+	QoSGroupScanKeysGrowFactor      = atomic.NewUint64(DefTiDBQoSGroupScanKeysGrowFactor)
 	EnableCheckConstraint           = atomic.NewBool(DefTiDBEnableCheckConstraint)
 	SkipMissingPartitionStats       = atomic.NewBool(DefTiDBSkipMissingPartitionStats)
 	TiFlashEnablePipelineMode       = atomic.NewBool(DefTiDBEnableTiFlashPipelineMode)

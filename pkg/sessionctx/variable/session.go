@@ -1646,6 +1646,9 @@ type SessionVars struct {
 	// NOTE: please don't change it directly. Use `SetResourceGroupName`, because it'll need to inc/dec the metrics
 	ResourceGroupName string
 
+	// stmtQoSGroupStateOverride overrides the QoS group state for newly reset statements.
+	stmtQoSGroupStateOverride *kv.QoSGroupState
+
 	// PessimisticTransactionFairLocking controls whether fair locking for pessimistic transaction
 	// is enabled.
 	PessimisticTransactionFairLocking bool
@@ -3070,6 +3073,34 @@ func (s *SessionVars) SetResourceGroupName(groupName string) {
 		metrics.ConnGauge.WithLabelValues(groupName).Inc()
 	}
 	s.ResourceGroupName = groupName
+}
+
+// QoSGroupStateForNewStmt returns the QoS group state used by a reset statement context.
+func (s *SessionVars) QoSGroupStateForNewStmt() *kv.QoSGroupState {
+	if s.stmtQoSGroupStateOverride != nil {
+		return s.stmtQoSGroupStateOverride
+	}
+	return kv.NewDefaultQoSGroupState()
+}
+
+// EnterInternalStmtSharedQoSGroupState makes subsequent internal statements share the current QoS group state.
+func (s *SessionVars) EnterInternalStmtSharedQoSGroupState() func() {
+	oldState := s.stmtQoSGroupStateOverride
+	if s.stmtQoSGroupStateOverride == nil {
+		s.stmtQoSGroupStateOverride = s.StmtCtx.GetOrInitQoSGroupState()
+	}
+	return func() {
+		s.stmtQoSGroupStateOverride = oldState
+	}
+}
+
+// EnterInternalStmtFixedQoSGroupState makes subsequent internal statements use a fixed QoS group state.
+func (s *SessionVars) EnterInternalStmtFixedQoSGroupState(group uint32) func() {
+	oldState := s.stmtQoSGroupStateOverride
+	s.stmtQoSGroupStateOverride = kv.NewFixedQoSGroupState(group)
+	return func() {
+		s.stmtQoSGroupStateOverride = oldState
+	}
 }
 
 // TableDelta stands for the changed count for one table or partition.

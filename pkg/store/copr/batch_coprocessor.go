@@ -1476,6 +1476,7 @@ func (b *batchCopIterator) handleTaskOnce(ctx context.Context, bo *backoff.Backo
 		TaskId:         b.req.TaskID,
 		ResourceControlContext: &kvrpcpb.ResourceControlContext{
 			ResourceGroupName: rgName,
+			QosGroup:          qosGroupForResourceGroup(rgName, b.req.QoSGroupState),
 		},
 	})
 	if b.req.ResourceGroupTagger != nil {

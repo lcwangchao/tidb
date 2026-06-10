@@ -61,21 +61,23 @@ type DistSQLContext struct {
 	TiFlashMaxQueryMemoryPerNode         int64
 	TiFlashQuerySpillRatio               float64
 
-	DistSQLConcurrency            int
-	ReplicaReadType               kv.ReplicaReadType
-	WeakConsistency               bool
-	RCCheckTS                     bool
-	NotFillCache                  bool
-	TaskID                        uint64
-	Priority                      mysql.PriorityEnum
-	ResourceGroupTagger           *kv.ResourceGroupTagBuilder
-	EnablePaging                  bool
-	MinPagingSize                 int
-	MaxPagingSize                 int
-	RequestSourceType             string
-	ExplicitRequestSourceType     string
-	StoreBatchSize                int
-	ResourceGroupName             string
+	DistSQLConcurrency        int
+	ReplicaReadType           kv.ReplicaReadType
+	WeakConsistency           bool
+	RCCheckTS                 bool
+	NotFillCache              bool
+	TaskID                    uint64
+	Priority                  mysql.PriorityEnum
+	ResourceGroupTagger       *kv.ResourceGroupTagBuilder
+	EnablePaging              bool
+	MinPagingSize             int
+	MaxPagingSize             int
+	RequestSourceType         string
+	ExplicitRequestSourceType string
+	StoreBatchSize            int
+	ResourceGroupName         string
+	// QoSGroupState points to statement-scoped QoS group state and may be shared by internal statements.
+	QoSGroupState                 *kv.QoSGroupState
 	LoadBasedReplicaReadThreshold time.Duration
 	RunawayChecker                resourcegroup.RunawayChecker
 	TiKVClientReadTimeout         uint64

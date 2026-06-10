@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"math"
 	"slices"
 	"time"
 
@@ -60,6 +61,97 @@ var (
 	// TxnTotalSizeLimit is limit of the sum of all entry size.
 	TxnTotalSizeLimit = atomic.NewUint64(config.DefTxnTotalSizeLimit)
 )
+
+// QoSGroupState stores statement-scoped QoS group state shared by related requests.
+type QoSGroupState struct {
+	group             atomic.Uint32
+	estimatedScanKeys atomic.Uint64
+	fixedGroup        bool
+}
+
+// NewDefaultQoSGroupState creates a QoSGroupState whose group is derived from scan estimates.
+func NewDefaultQoSGroupState() *QoSGroupState {
+	return &QoSGroupState{}
+}
+
+// NewFixedQoSGroupState creates a QoSGroupState that is not changed by scan estimates.
+func NewFixedQoSGroupState(group uint32) *QoSGroupState {
+	state := &QoSGroupState{}
+	state.group.Store(group)
+	state.fixedGroup = true
+	return state
+}
+
+// LoadGroup returns the current QoS group.
+func (s *QoSGroupState) LoadGroup() uint32 {
+	if s == nil {
+		return 0
+	}
+	return s.group.Load()
+}
+
+const maxAutoQoSGroup = 5
+
+// AddEstimatedScanKeysAndUpdateGroup adds estimated scan keys, raises the QoS group, and returns the final group.
+func (s *QoSGroupState) AddEstimatedScanKeysAndUpdateGroup(scanKeys, base, growFactor uint64) uint32 {
+	if s == nil {
+		return 0
+	}
+	if s.fixedGroup {
+		return s.LoadGroup()
+	}
+	totalScanKeys := s.addEstimatedScanKeys(scanKeys)
+	return s.UpdateGroup(qosGroupFromScannedKeys(totalScanKeys, base, growFactor))
+}
+
+// UpdateGroup raises the current QoS group and returns the final value.
+func (s *QoSGroupState) UpdateGroup(group uint32) uint32 {
+	if s == nil {
+		return 0
+	}
+	if s.fixedGroup {
+		return s.LoadGroup()
+	}
+	for {
+		oldGroup := s.group.Load()
+		if group <= oldGroup {
+			return oldGroup
+		}
+		if s.group.CompareAndSwap(oldGroup, group) {
+			return group
+		}
+	}
+}
+
+func (s *QoSGroupState) addEstimatedScanKeys(scanKeys uint64) uint64 {
+	for {
+		oldScanKeys := s.estimatedScanKeys.Load()
+		newScanKeys := oldScanKeys + scanKeys
+		if newScanKeys < oldScanKeys {
+			newScanKeys = math.MaxUint64
+		}
+		if s.estimatedScanKeys.CompareAndSwap(oldScanKeys, newScanKeys) {
+			return newScanKeys
+		}
+	}
+}
+
+func qosGroupFromScannedKeys(scanKeys, base, growFactor uint64) uint32 {
+	if scanKeys == 0 || base == 0 || scanKeys < base {
+		return 0
+	}
+	if growFactor <= 1 {
+		growFactor = 2
+	}
+
+	group := uint32(1)
+	threshold := float64(base) * float64(growFactor)
+	for group < maxAutoQoSGroup && float64(scanKeys) >= threshold {
+		group++
+		threshold *= float64(growFactor)
+	}
+	return group
+}
 
 // ValueEntry represents the value entry stored in kv store.
 type ValueEntry = tikvstore.ValueEntry
@@ -645,6 +737,8 @@ type Request struct {
 	StoreBatchSize int
 	// ResourceGroupName is the name of the bind resource group.
 	ResourceGroupName string
+	// QoSGroupState is only effective for requests in the default resource group.
+	QoSGroupState *QoSGroupState
 	// LimitSize indicates whether the request is scan and limit
 	LimitSize uint64
 	// StoreBusyThreshold is the threshold for the store to return ServerIsBusy
