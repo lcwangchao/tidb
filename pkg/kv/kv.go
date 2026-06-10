@@ -66,6 +66,7 @@ var (
 type QoSGroupState struct {
 	group             atomic.Uint32
 	estimatedScanKeys atomic.Uint64
+	runtimeScanKeys   atomic.Uint64
 	fixedGroup        bool
 }
 
@@ -100,7 +101,19 @@ func (s *QoSGroupState) AddEstimatedScanKeysAndUpdateGroup(scanKeys, base, growF
 	if s.fixedGroup {
 		return s.LoadGroup()
 	}
-	totalScanKeys := s.addEstimatedScanKeys(scanKeys)
+	totalScanKeys := addScanKeys(&s.estimatedScanKeys, scanKeys)
+	return s.UpdateGroup(qosGroupFromScannedKeys(totalScanKeys, base, growFactor))
+}
+
+// AddRuntimeScanKeysAndUpdateGroup adds actual scan keys, raises the QoS group, and returns the final group.
+func (s *QoSGroupState) AddRuntimeScanKeysAndUpdateGroup(scanKeys, base, growFactor uint64) uint32 {
+	if s == nil {
+		return 0
+	}
+	if s.fixedGroup {
+		return s.LoadGroup()
+	}
+	totalScanKeys := addScanKeys(&s.runtimeScanKeys, scanKeys)
 	return s.UpdateGroup(qosGroupFromScannedKeys(totalScanKeys, base, growFactor))
 }
 
@@ -123,14 +136,14 @@ func (s *QoSGroupState) UpdateGroup(group uint32) uint32 {
 	}
 }
 
-func (s *QoSGroupState) addEstimatedScanKeys(scanKeys uint64) uint64 {
+func addScanKeys(counter *atomic.Uint64, scanKeys uint64) uint64 {
 	for {
-		oldScanKeys := s.estimatedScanKeys.Load()
+		oldScanKeys := counter.Load()
 		newScanKeys := oldScanKeys + scanKeys
 		if newScanKeys < oldScanKeys {
 			newScanKeys = math.MaxUint64
 		}
-		if s.estimatedScanKeys.CompareAndSwap(oldScanKeys, newScanKeys) {
+		if counter.CompareAndSwap(oldScanKeys, newScanKeys) {
 			return newScanKeys
 		}
 	}

@@ -1939,6 +1939,7 @@ func (worker *copIteratorWorker) getLockResolverDetails() *util.ResolveLockDetai
 }
 
 func (worker *copIteratorWorker) handleCollectExecutionInfo(bo *Backoffer, rpcCtx *tikv.RPCContext, resp *copResponse) error {
+	worker.updateQoSGroupByRuntimeScanKeys(resp)
 	if worker.stats == nil {
 		return nil
 	}
@@ -1951,6 +1952,42 @@ func (worker *copIteratorWorker) handleCollectExecutionInfo(bo *Backoffer, rpcCt
 		resp.detail = new(CopRuntimeStats)
 	}
 	return worker.collectCopRuntimeStats(resp.detail, bo, rpcCtx, resp)
+}
+
+func (worker *copIteratorWorker) updateQoSGroupByRuntimeScanKeys(resp *copResponse) {
+	if worker.req.QoSGroupState == nil || resp == nil || resp.pbResp == nil || resp.pbResp.IsCacheHit {
+		return
+	}
+	scanKeys := processedKeysFromCopResponse(resp.pbResp)
+	if scanKeys == 0 {
+		return
+	}
+	worker.req.QoSGroupState.AddRuntimeScanKeysAndUpdateGroup(
+		scanKeys,
+		variable.QoSGroupScanKeysBase.Load(),
+		variable.QoSGroupScanKeysGrowFactor.Load(),
+	)
+}
+
+func processedKeysFromCopResponse(resp *coprocessor.Response) uint64 {
+	if resp == nil {
+		return 0
+	}
+	if pbDetails := resp.ExecDetailsV2; pbDetails != nil {
+		if scanDetailV2 := pbDetails.ScanDetailV2; scanDetailV2 != nil {
+			return scanDetailV2.GetProcessedVersions()
+		}
+		return 0
+	}
+	if pbDetails := resp.ExecDetails; pbDetails != nil {
+		if scanDetail := pbDetails.ScanDetail; scanDetail != nil && scanDetail.Write != nil {
+			processed := scanDetail.Write.GetProcessed()
+			if processed > 0 {
+				return uint64(processed)
+			}
+		}
+	}
+	return 0
 }
 
 func (worker *copIteratorWorker) collectCopRuntimeStats(copStats *CopRuntimeStats, bo *Backoffer, rpcCtx *tikv.RPCContext, resp *copResponse) error {
